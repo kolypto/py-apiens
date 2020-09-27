@@ -1,4 +1,5 @@
 """ Test dependency injection """
+import functools
 from contextlib import contextmanager
 from copy import copy
 from dataclasses import dataclass
@@ -152,6 +153,37 @@ def test_di_overrides():
 
         # And it's immediately lost when the `anonymized` context quits
         assert request.get('email') == 'kolypto@gmail.com'
+
+
+def test_di_cleanup_when_everything_fails():
+    """ Test how cleanup behaves when there are multiple failures """
+
+    cleaned_up = []
+
+    root = di.Injector()
+
+    # Init 5 providers
+    # Get 5 instances
+    for n in range(5):
+        @di.depends()
+        @contextmanager
+        def failing_provider(n=n):
+            try:
+                yield n
+            finally:
+                cleaned_up.append(n)
+                raise AssertionError
+
+        root.provide(n, failing_provider)
+        assert root.get(n) == n
+
+    # Now we have 5 clean-ups waiting to be executed
+    # Quit. They will all fail, but report their numbers into `cleaned_up`
+    with pytest.raises(AssertionError):
+        root.close()
+
+    # See that all 5 clean-ups have had a chance to run.
+    assert cleaned_up == [4, 3, 2, 1, 0]
 
 
 def test_injector_low_level_api():
