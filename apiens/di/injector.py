@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import warnings
 from contextlib import ExitStack
+from threading import RLock
 from typing import Optional, Dict, Any, ContextManager, Union, Callable, Iterable, Set
 
 from .const import InjectFlags, MISSING
@@ -43,8 +44,6 @@ class Injector:
 
         request.invoke(save_user, user)
     """
-
-    # TODO: RLock? asyncio lock?
     # TODO: asyncio
     # TODO: with asyncio, implement parallel dependency provision using layered tree traversal
     # TODO: with asyncio, don't use RLock() for the whole process of dependency creation.
@@ -65,13 +64,17 @@ class Injector:
         # Already created instances
         self._instances: Dict[InjectionToken, Any] = {}
 
+        # Locking mechanism to prevent multiple threads from accidentally creating multiple instances
+        # It is acquired while a provider is creating an instance.
+        self._instance_create_lock = RLock()
+
         # The stack of entered contexts
         self._entered = ExitStack()
 
         # Whether the injector is done working and will not want to restart
         self._closed: bool = False
 
-    __slots__ = '_providers', '_instances', '_parent', '_entered', '_closed'
+    __slots__ = '_providers', '_instances', '_instance_create_lock', '_parent', '_entered', '_closed'
 
     def provide(self, token: InjectionToken, provider: Union[ProviderFunction, ProviderContextManager, Resolvable]):
         """ Register a provider function for some dependency identified by `token`
@@ -203,19 +206,20 @@ class Injector:
             return self._parent.get(token, flags ^ InjectFlags.SKIP_SELF, default=default)
 
         # Get from self
-        if token in self._instances:
-            return self._instances[token]
+        with self._instance_create_lock:
+            if token in self._instances:
+                return self._instances[token]
 
-        # If we have a provider, use it
-        if token in self._providers:
-            return self._create_instance(self._providers[token])
+            # If we have a provider, use it
+            if token in self._providers:
+                return self._create_instance(self._providers[token])
 
-        # If `SELF` prevents us from going upwards, fail immediately
-        if flags & InjectFlags.SELF:
-            return _none_injector.get(token, flags ^ InjectFlags.SELF, default=default)
-        # Otherwise, go upwards
-        else:
-            return self._parent.get(token, flags, default=default)
+            # If `SELF` prevents us from going upwards, fail immediately
+            if flags & InjectFlags.SELF:
+                return _none_injector.get(token, flags ^ InjectFlags.SELF, default=default)
+            # Otherwise, go upwards
+            else:
+                return self._parent.get(token, flags, default=default)
 
     def has(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT) -> bool:
         """ Check if `token` can be provided by this injector or its parents. Respects `flags`
