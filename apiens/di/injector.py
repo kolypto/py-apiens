@@ -46,6 +46,14 @@ class Injector:
 
     # TODO: RLock? asyncio lock?
     # TODO: asyncio
+    # TODO: with asyncio, implement parallel dependency provision using layered tree traversal
+    # TODO: with asyncio, don't use RLock() for the whole process of dependency creation.
+    #   Instead, create some sort of promise and quickly release the lock.
+
+    # TODO: perhaps, implement dependency tracking so that you actually can override values from lower levels?
+    #   E.g. temporarily switch to another user account.
+    #   Can be done this way: when a new provider is registered, and its name overrides something, call provider reset
+    #   for the token it provides. This shall go through all the registered instances and invalidate those that depended on it.
 
     def __init__(self, *, parent: Injector = None):
         # Parent injector

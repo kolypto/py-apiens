@@ -119,6 +119,40 @@ def test_di_cleanup():
     assert len(connection_pool) == 1
 
 
+def test_di_overrides():
+    """ Test how overrides work with DI """
+
+    # NOTE: it does not!
+
+    @di.kwargs(user='authenticated_user')
+    def authenticated_user_email(user: Optional[User]):
+        if user is None:
+            return None
+        else:
+            return user.email
+
+    with di.Injector() as request:
+        request.provide_value('authenticated_user', User(email='kolypto@gmail.com'))
+        request.provide('email', authenticated_user_email)
+
+        # User authenticated ok
+        assert request.get('email') == 'kolypto@gmail.com'
+
+        # Now relogin as another user
+        with di.Injector(parent=request) as anonymized:
+            anonymized.provide_value('authenticated_user', User(email='anonymous@localhost'))
+
+            # The higher-level injector still sees the old value
+            assert request.get('email') == 'kolypto@gmail.com'
+
+            # NOTE: at this level, we don't see any changes.
+            # Currently, this is the expected behavior: you can't override higher-level things from down below.
+            # assert anonymized.get('email') == 'anonymous@localhost'  # not implemented
+            assert anonymized.get('email') == 'kolypto@gmail.com'  # ❗ not overridden!
+
+        # And it's immediately lost when the `anonymized` context quits
+        assert request.get('email') == 'kolypto@gmail.com'
+
 
 def test_injector_low_level_api():
     """ Test low level: Injector.add_provider() """
