@@ -119,7 +119,8 @@ class Injector:
             token: The token that identifies what is provided by this value. Normally a class name.
             value: The value to provide when `token` is requested
         """
-        self._instances[token] = value
+        self.register_provider(Provider(token, lambda: value))
+        self._register_instance(token, value)
         return self
 
     def invoke(self, func: Callable, *args, **kwargs) -> Any:

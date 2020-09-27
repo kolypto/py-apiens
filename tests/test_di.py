@@ -49,33 +49,37 @@ def test_di_functions():
     # Prepare an injector
     with di.Injector() as root:
         root.provide(Application, init_application)
-        root.provide(User, authenticate_user)
         root.provide(Connection, db_connect)
         root.provide(DatabaseSession, db_session)
-        root.provide('authenticated', authenticated)
 
-        # Run a function
-        @di.kwargs(app=Application, ssn=DatabaseSession)  # explicit kwargs
-        @di.depends('authenticated')  # double-depends
-        def hello_app(greeting: str, app, ssn):  # `greeting` is not provided; it's a required argument
-            """ The function to invoke """
-            if not ssn.closed:
-                return f'{greeting} {app.title}'
+        # Authenticate
+        with di.Injector(parent=root) as client:
+            client.provide(User, authenticate_user)
+            client.provide('authenticated', authenticated)
 
-        ret = root.invoke(hello_app, greeting='hello')
-        assert ret == 'hello App'
+            # Run a function
+            @di.kwargs(app=Application, ssn=DatabaseSession)  # explicit kwargs
+            @di.depends('authenticated')  # double-depends
+            def hello_app(greeting: str, app, ssn):  # `greeting` is not provided; it's a required argument
+                """ The function to invoke """
+                if not ssn.closed:
+                    return f'{greeting} {app.title}'
 
-    # Authenticate as another user
-    with copy(root) as root:
-        root.provide_value(User, User(email='anonymous'))
+            ret = client.invoke(hello_app, greeting='hello')
+            assert ret == 'hello App'
 
-        # See that authenticated() reports an error
-        with pytest.raises(Unauthenticated):
-            root.invoke(authenticated)
+        # Authenticate as another user
+        with di.Injector(parent=root) as client:
+            root.provide_value(User, User(email='anonymous'))
+            client.provide('authenticated', authenticated)
 
-        # See that user_func() fails with it
-        with pytest.raises(Unauthenticated):
-            root.invoke(hello_app, greeting='hello')
+            # See that authenticated() reports an error
+            with pytest.raises(Unauthenticated):
+                client.invoke(authenticated)
+
+            # See that user_func() fails with it
+            with pytest.raises(Unauthenticated):
+                client.invoke(hello_app, greeting='hello')
 
 
 def test_di_cleanup():
