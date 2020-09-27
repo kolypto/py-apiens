@@ -12,7 +12,15 @@ from .const import InjectionToken, InjectFlags, MISSING
 class Resolvable:
     """ A function with dependency information
 
-    The idea is simple: once dependencies are resolved, call `func()` and give it dependencies as `**kwargs`
+    The idea is simple: once dependencies are resolved, call `func()` and give it dependencies as `**kwargs`.
+
+    Example:
+        Resolvable(
+            func=get_user,
+            deps_kw={
+                'db_connection': Dependency(...),
+            }
+        )
     """
     __slots__ = 'func', 'deps_kw', 'deps_nopass'
 
@@ -50,10 +58,10 @@ class Provider(Resolvable):
 
     Example:
         Provider(
-            token=Session,
+            token=DbSession,
             provider=get_session,
             deps_kw={
-                'db_connection': Provider(...)
+                'db_connection': Dependency(...)
             }
         )
     """
@@ -88,6 +96,15 @@ class Provider(Resolvable):
 
 @dataclass
 class Dependency:
+    """ A declaration of depdendency on some value, identified by `token`.
+
+    In order to resolve this dependency, a provider has to be found that provides `token`.
+
+    Example:
+        Dependency(
+            token=DbSession
+        )
+    """
     __slots__ = 'token', 'flags', 'default'
 
     def __init__(self,

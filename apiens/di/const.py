@@ -9,13 +9,14 @@ InjectionToken = NewType('InjectionToken', Hashable)
 
 
 class InjectFlags(Flag):
-    # Search for a provider upwards, towards the root injector
+    """ Dependency resolution flags """
+    # Search for a provider starting from this one, and upwards, towards the root injector
     DEFAULT = auto()
 
-    # Only check the current injector for providers
+    # Only check the current injector for providers. Fail if not found.
     SELF = auto()
 
-    # Do not check the current injector and start one level higher
+    # Do not check the current injector; start one level higher
     SKIP_SELF = auto()
 
     # Do not raise errors if no provider is found; return `None`

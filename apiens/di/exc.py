@@ -8,7 +8,11 @@ class BaseInjectorError(Exception):
 
 
 class NoProviderError(BaseInjectorError):
-    """ No provider has been found for an injection token """
+    """ No provider has been found for an injection token
+
+    This error is raised when a dependency is required, but no provider has been found.
+    Make sure you've used the correct `token`, and defined a provider for it.
+    """
 
     def __init__(self, message: str, token: InjectionToken):
         super().__init__(message)

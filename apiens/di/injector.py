@@ -16,7 +16,31 @@ from .markers import resolvable_marker
 class Injector:
     """ An injector is a provider for your code's dependencies.
 
-    Modelled after Angular.
+    Modelled after Angular, this Injector keeps track of what your code might need, and initializes it on demand:
+
+        root = di.Injector()
+        root.provide(Application, get_application)
+        root.provide(DbConnection, get_database_connection)
+
+    It is hierarchical: you may define values on a per-request basis:
+
+        with di.Injector(parent=root) as request:
+            request.provide(DbSession, get_database_session)
+            request.provide(AuthenticatedUser, get_authenticated_user)
+
+    Then, in your code, you can fetch those values as needed:
+
+        request.get(AuthenticatedUser, default=None)
+
+    Of course, you don't have to be so low-level. Declare your dependencies for a function in advance:
+
+        @di.kwargs(ssn=DbSession)
+        def save_user(user, ssn: DbSession):
+            ssn.save(user)
+
+    And your `DbSession` will be provided automatically when you use the injector to call it:
+
+        request.invoke(save_user, user)
     """
 
     # TODO: RLock? asyncio lock?
@@ -41,7 +65,32 @@ class Injector:
     __slots__ = '_providers', '_instances', '_parent', '_entered', '_closed'
 
     def provide(self, token: InjectionToken, provider: Union[ProviderFunction, ProviderContextManager, Resolvable]):
-        """ Register a provider function for some dependency identified by `token` """
+        """ Register a provider function for some dependency identified by `token`
+
+        Example:
+
+            @di.signature()
+            @contextmanager
+            def db_session(connection: DbConnection) -> DbSession:
+                session = ...
+
+                try:
+                    yield session
+                finally:
+                    session.close()
+
+            ...
+
+            with di.Injector() as root:
+                root.provide(DbSession, db_session)
+
+        Args:
+            token: The token that identifies what this provider can provide.
+                Usually, it's the class name, and the `provider` is the constructor.
+                But it can be anything.
+            provider: A callable function that returns some value to be used when `token` is requested.
+                Also, it can be a ContextManager which does some clean-up upon exit.
+        """
         if isinstance(provider, Resolvable):
             resolvable = provider
         else:
@@ -55,12 +104,46 @@ class Injector:
         return self
 
     def provide_value(self, token: InjectionToken, value: Any):
-        """ Register a constant value to be returned for everyone requesting `token` """
+        """ Register a constant value to be returned for everyone requesting `token`
+
+        Example:
+            with di.Injector() as root:
+                root.provide_value(AuthenticatedUser, User(email=...))
+
+                ...
+
+                root.get(AuthenticatedUser)  #-> User(email=...)
+
+        Args:
+            token: The token that identifies what is provided by this value. Normally a class name.
+            value: The value to provide when `token` is requested
+        """
         self._instances[token] = value
         return self
 
     def invoke(self, func: Callable, *args, **kwargs) -> Any:
-        """ Invoke a function, provide it with dependencies """
+        """ Invoke a function, provide it with dependencies
+
+        Example:
+
+            @di.signature()
+            def send_email_to_current_user(current_user: AuthenticatedUser):
+                ...
+
+            with di.Injector() as root:
+                root.provide_value(AuthenticatedUser, User(email=...))
+
+                root.invoke(send_email_to_current_user)
+
+        Args:
+            func: The function to call
+            *args: Additional arguments to provide
+            **kwargs: Additional keyword arguments to provide
+                Note that you can override a dependency here, if it has the same name.
+
+        Raises:
+            NoProviderError: no provider found for a dependency
+        """
         marker = resolvable_marker.get_from(func)
         if marker is None:
             raise ValueError('A function must be decorated with a @di.signature(), @di.kwargs(), or others')
@@ -70,11 +153,36 @@ class Injector:
         return self.resolve_and_invoke(resolvable, *args, **kwargs)
 
     def partial(self, func: Callable, *args, **kwargs):
-        """ Get a partial for `func` with all dependencies provided by this Injector. Useful for passing callbacks. """
+        """ Get a partial for `func` with all dependencies provided by this Injector. Useful for passing callbacks.
+
+        Args:
+            func: The function to make a partial() of
+            *args: Additional arguments to provide
+            **kwargs: Additional keyword arguments to provide
+        """
         return functools.partial(self.invoke, func, *args, **kwargs)
 
     def get(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT, *, default: Any = MISSING) -> Any:
-        """ Obtain an instance from this injector. Keep looking at the parent injector. """
+        """ Obtain an instance from this injector. Keep looking at the parent injector.
+
+        Example:
+            with di.Injector() as root:
+                root.provide(DbSession, get_database_session)
+
+                ...
+
+                session = root.get(DbSession)
+
+        Args:
+            token: The token to find the provider for. Normally a class name.
+            flags: How to look the value up.
+                For instance, you can limit the search only to this injector (`SELF`), or go directly to the parent.
+            default: The default value to provide if no provider is found.
+                The default behavior is to fail with `NoProviderError`.
+
+        Raises:
+            NoProviderError: no provider found for a dependency
+        """
         # If a default is given, become optional.
         # That's a shortcut.
         if default is not MISSING:
@@ -100,7 +208,12 @@ class Injector:
             return self._parent.get(token, flags, default=default)
 
     def has(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT) -> bool:
-        """ Check if `token` can be provided by this injector or its parents. Respects `flags` """
+        """ Check if `token` can be provided by this injector or its parents. Respects `flags`
+
+        Args:
+            token: The token to find the provider for. Normally a class name.
+            flags: How to look the value up.
+        """
         # Skip this injector? Go to parent, but remove the `SKIP_SELF` flag
         if flags & InjectFlags.SKIP_SELF:
             return self._parent.has(token, flags ^ InjectFlags.SKIP_SELF)
@@ -114,7 +227,11 @@ class Injector:
     # region Low-level interface
 
     def register_provider(self, provider: Provider):
-        """ A low-level method to register a provider """
+        """ A low-level method to register a provider
+
+        The provider is represented by an instance of `Provider()` that contains the token,
+        the function, and its dependency information.
+        """
         # Token already used
         assert provider.token not in self._providers, (
             'Provider overrides are not allowed. '
@@ -126,7 +243,11 @@ class Injector:
         return self
 
     def resolve_and_invoke(self, resolvable: Resolvable, *args, **kwargs) -> Any:
-        """ A low-level method to invoke a function after resolving its dependencies """
+        """ A low-level method to invoke a function after resolving its dependencies
+
+        The function is represented by an instance of `Resolvable()` that contains the function
+        and its dependency information.
+        """
         # Create quiet dependencies
         for dependency in resolvable.deps_nopass:
             self.get(dependency.token, dependency.flags, default=dependency.default)
@@ -143,7 +264,12 @@ class Injector:
         return resolvable.func(*args, **kwargs, **kwargs_dependencies)
 
     def _create_instance(self, provider: Provider, *args, **kwargs):
-        """ Create an instance at this injector """
+        """ Create an instance and remember it at this injector """
+        if self._closed:
+            raise ClosedInjectorError('Cannot fetch objects from a closed injector because clean-up procedures have already taken place. '
+                                      'Create a new injector, or copy() it to create an identical one.')
+
+        # Get a value from the provider
         return_value = self.resolve_and_invoke(provider, *args, **kwargs)
 
         # If a context manager, use it to get the value
@@ -157,11 +283,7 @@ class Injector:
         return instance
 
     def _register_instance(self, token: InjectionToken, instance: Any) -> Any:
-        """ Register a provided instance """
-        if self._closed:
-            raise ClosedInjectorError('Cannot fetch objects from a closed injector because clean-up procedures have already taken place. '
-                                      'Create a new injector, or copy() it to create an identical one.')
-
+        """ Register a provided instance at this injector """
         # Store the instance by token
         self._instances[token] = instance
 
@@ -169,7 +291,10 @@ class Injector:
         return instance
 
     def _register_context_manager(self, token: InjectionToken, instance_context_manager: ContextManager[Any]) -> Any:
-        """ Register a created instance context manager, get the instance, return """
+        """ Register a created instance context manager, get the instance, return
+
+        This context manager will do the clean-up when the injector is closed.
+        """
         # Get the instance by entering the context manager.
         # Add the entered context manager into the `_entered` ExitStack to make sure __exit__() will be called.
         # This will call all the proper clean-up
@@ -184,21 +309,22 @@ class Injector:
     # endregion
 
     def __enter__(self):
+        """ Enter the injector """
         if self._closed:
             raise ClosedInjectorError("Cannot restart an Injector that's already done working.")
-        self._entered.__enter__()
         return self
 
     def close(self):
-        self.__exit__()
-
-    def __exit__(self, *exc):
+        """ Close the injector and let every provider do the clean-up """
         # Invoke all clean-ups
         self._entered.close()
         # Forget instances
         self._instances.clear()
         # Done
         self._closed = True
+
+    def __exit__(self, *exc):
+        self.close()
 
     def __copy__(self):
         """ Reuse by making an injector with identical providers. Instances are not copied! """
