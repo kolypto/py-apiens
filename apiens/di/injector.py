@@ -43,6 +43,21 @@ class Injector:
     And your `DbSession` will be provided automatically when you use the injector to call it:
 
         request.invoke(save_user, user)
+
+    Or, to use FastAPI-style dependencies where functions act as injection tokens, do just that:
+
+        @di.kwargs()
+        def get_db_session():
+            return ...
+
+        @di.kwargs(ssn=get_db_session)
+        def save_user(user, ssn: DbSession):
+            ssn.save(user)
+
+        ...
+
+        with di.Injector() as root:
+            root.provide(get_db_session, get_db_session)
     """
     # TODO: asyncio
     # TODO: with asyncio, implement parallel dependency provision using layered tree traversal
@@ -99,7 +114,9 @@ class Injector:
         Args:
             token: The token that identifies what this provider can provide.
                 Usually, it's the class name, and the `provider` is the constructor.
-                But it can be anything.
+                But it can be anything. For instance, a static string, like 'current_user'.
+                Or to have FastAPI-style dependencies, use `provide(authenticated, authenticated)`
+                to have a function itself work as a dependency.
             provider: A callable function that returns some value to be used when `token` is requested.
                 Also, it can be a ContextManager which does some clean-up upon exit.
         """

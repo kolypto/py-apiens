@@ -1,5 +1,4 @@
 """ Test dependency injection """
-import functools
 from contextlib import contextmanager
 from copy import copy
 from dataclasses import dataclass
@@ -56,11 +55,11 @@ def test_di_functions():
         # Authenticate
         with di.Injector(parent=root) as client:
             client.provide(User, authenticate_user)
-            client.provide('authenticated', authenticated)
+            client.provide(authenticated, authenticated)
 
             # Run a function
             @di.kwargs(app=Application, ssn=DatabaseSession)  # explicit kwargs
-            @di.depends('authenticated')  # double-depends
+            @di.depends(authenticated)  # double-depends
             def hello_app(greeting: str, app, ssn):  # `greeting` is not provided; it's a required argument
                 """ The function to invoke """
                 if not ssn.closed:
@@ -72,7 +71,7 @@ def test_di_functions():
         # Authenticate as another user
         with di.Injector(parent=root) as client:
             root.provide_value(User, User(email='anonymous'))
-            client.provide('authenticated', authenticated)
+            client.provide(authenticated, authenticated)
 
             # See that authenticated() reports an error
             with pytest.raises(Unauthenticated):
