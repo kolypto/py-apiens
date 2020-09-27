@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import functools
 import warnings
 from contextlib import ExitStack
-from typing import Optional, Dict, Any, ContextManager
+from typing import Optional, Dict, Any, ContextManager, Union, Callable
 
 from .const import InjectFlags, MISSING
-from .defs import Provider, InjectionToken, Resolvable
+from .defs import Provider, InjectionToken, Resolvable, ProviderFunction, ProviderContextManager
 from .exc import NoProviderError, ClosedInjectorError
+from .markers import resolvable_marker
 
 
 class Injector:
@@ -38,7 +40,40 @@ class Injector:
 
     __slots__ = '_providers', '_instances', '_parent', '_entered', '_closed'
 
-    def get(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT, *, default = MISSING) -> Any:
+    def provide(self, token: InjectionToken, provider: Union[ProviderFunction, ProviderContextManager, Resolvable]):
+        """ Register a provider function for some dependency identified by `token` """
+        if isinstance(provider, Resolvable):
+            resolvable = provider
+        else:
+            marker = resolvable_marker.get_from(provider)
+            if marker is None:
+                raise ValueError('Providers must be decorated with a @di.signature(), @di.kwargs(), or others')
+            else:
+                resolvable = marker.resolvable
+
+        self.register_provider(Provider.from_resolvable(token, resolvable))
+        return self
+
+    def provide_value(self, token: InjectionToken, value: Any):
+        """ Register a constant value to be returned for everyone requesting `token` """
+        self._instances[token] = value
+        return self
+
+    def invoke(self, func: Callable, *args, **kwargs) -> Any:
+        """ Invoke a function, provide it with dependencies """
+        marker = resolvable_marker.get_from(func)
+        if marker is None:
+            raise ValueError('A function must be decorated with a @di.signature(), @di.kwargs(), or others')
+        else:
+            resolvable = marker.resolvable
+
+        return self.resolve_and_invoke(resolvable, *args, **kwargs)
+
+    def partial(self, func: Callable, *args, **kwargs):
+        """ Get a partial for `func` with all dependencies provided by this Injector. Useful for passing callbacks. """
+        return functools.partial(self.invoke, func, *args, **kwargs)
+
+    def get(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT, *, default: Any = MISSING) -> Any:
         """ Obtain an instance from this injector. Keep looking at the parent injector. """
         # If a default is given, become optional.
         # That's a shortcut.

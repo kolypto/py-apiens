@@ -9,7 +9,114 @@ import pytest
 from apiens import di
 
 
-def test_add_provider():
+def test_di_functions():
+    """ Test DI with functions: automatic dependency reading from a function's signature """
+    # Prepare some resolvables
+
+    @di.signature(exclude=['debug'])  # exclude an argument from DI consideration
+    def init_application(debug: bool = False) -> Application:
+        """ Provider: Application """
+        return Application(title='App')
+
+    @di.signature()
+    def authenticate_user(app: Application) -> User:
+        """ Provider: User """
+        assert app.title == 'App'
+        return User(email='kolypto@gmail.com')
+
+    @di.signature()
+    def db_connect(app: Application) -> Connection:
+        """ Provider: DB connection """
+        assert app.title == 'App'
+        return Connection(url='localhost')
+
+    @di.signature('connection')  # pick one argument
+    @contextmanager
+    def db_session(connection: Connection, connect: bool = True) -> DatabaseSession:
+        """ Provider: DB session """
+        connection = DatabaseSession(connection=connection, closed=False)
+        try:
+            yield connection
+        finally:
+            connection.closed = True
+
+    @di.signature()
+    def authenticated(user: User):
+        """ Provider: anonymous requirement to be signed in (guard) """
+        if user.email != 'kolypto@gmail.com':
+            raise Unauthenticated('Unauthenticated')
+
+    # Prepare an injector
+    with di.Injector() as root:
+        root.provide(Application, init_application)
+        root.provide(User, authenticate_user)
+        root.provide(Connection, db_connect)
+        root.provide(DatabaseSession, db_session)
+        root.provide('authenticated', authenticated)
+
+        # Run a function
+        @di.kwargs(app=Application, ssn=DatabaseSession)  # explicit kwargs
+        @di.depends('authenticated')  # double-depends
+        def hello_app(greeting: str, app, ssn):  # `greeting` is not provided; it's a required argument
+            """ The function to invoke """
+            if not ssn.closed:
+                return f'{greeting} {app.title}'
+
+        ret = root.invoke(hello_app, greeting='hello')
+        assert ret == 'hello App'
+
+    # Authenticate as another user
+    with copy(root) as root:
+        root.provide_value(User, User(email='anonymous'))
+
+        # See that authenticated() reports an error
+        with pytest.raises(Unauthenticated):
+            root.invoke(authenticated)
+
+        # See that user_func() fails with it
+        with pytest.raises(Unauthenticated):
+            root.invoke(hello_app, greeting='hello')
+
+
+def test_di_cleanup():
+    """ Test how cleanup works """
+
+    # Only one connection is available. The Injector should be able to reuse it
+    connection_pool = ['connection-1']
+
+    @di.signature()
+    @contextmanager
+    def get_connection():
+        try:
+            # Get a connection
+            connection = connection_pool.pop()
+            yield connection
+        finally:
+            # Clean-up
+            connection_pool.append(connection)
+
+    @di.kwargs(ssn='connection')
+    def save_to_db(ssn):
+        pass
+
+    with di.Injector() as root:
+        # I'm lazy. Let's use a custom token
+        root.provide('connection', get_connection)
+
+        root.get('connection')
+        root.get('connection')
+        root.get('connection')
+        root.get('connection')
+
+        # The only connection is in use
+        assert len(connection_pool) == 0
+
+    # Clean-up returned it to the pool
+    assert len(connection_pool) == 1
+
+
+
+def test_injector_low_level_api():
     """ Test low level: Injector.add_provider() """
     # Use the following scenario:
     # "root" will be an application-wide injector with global stuff.
@@ -170,3 +277,6 @@ def session_maker(connection: Connection) -> DatabaseSession:
 
     ... # clean-up
     session.closed = True
+
+class Unauthenticated(RuntimeError):
+    pass

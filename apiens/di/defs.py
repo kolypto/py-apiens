@@ -33,6 +33,12 @@ class Resolvable:
     # Dependencies to be used without passing as arguments
     deps_nopass: Collection[Dependency]
 
+    def merge(self, another: Resolvable):
+        """ Merge another resolvable into this one. This function helps when a function is decorated multiple times. """
+        self.deps_kw.update(another.deps_kw)
+        self.deps_nopass.extend(another.deps_nopass)
+        return self
+
 
 ProviderFunction = Callable[..., Any]
 ProviderContextManager = Callable[..., ContextManager[Any]]
