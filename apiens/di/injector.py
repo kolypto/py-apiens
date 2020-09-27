@@ -180,7 +180,7 @@ class Injector:
         else:
             resolvable = marker.resolvable
 
-        return self.resolve_and_invoke(resolvable, *args, **kwargs)
+        return self.resolve_and_invoke(func, resolvable, *args, **kwargs)
 
     def partial(self, func: Callable, *args, **kwargs):
         """ Get a partial for `func` with all dependencies provided by this Injector. Useful for passing callbacks.
@@ -265,11 +265,15 @@ class Injector:
         self._providers[provider.token] = provider
         return self
 
-    def resolve_and_invoke(self, resolvable: Resolvable, *args, **kwargs) -> Any:
+    def resolve_and_invoke(self, func: Callable, resolvable: Resolvable, *args, **kwargs) -> Any:
         """ A low-level method to invoke a function after resolving its dependencies
 
         The function is represented by an instance of `Resolvable()` that contains the function
         and its dependency information.
+
+        Args:
+            func: The actual function to call
+            resolvable: The resolvable with dependencies information
         """
         # Create quiet dependencies
         for dependency in resolvable.deps_nopass:
@@ -284,7 +288,7 @@ class Injector:
         }
 
         # Invoke the function
-        return resolvable.func(*args, **kwargs, **kwargs_dependencies)
+        return func(*args, **kwargs, **kwargs_dependencies)
 
     def _create_instance(self, provider: Provider, *args, **kwargs):
         """ Create an instance and remember it at this injector """
@@ -293,7 +297,7 @@ class Injector:
                                       'Create a new injector, or copy() it to create an identical one.')
 
         # Get a value from the provider
-        return_value = self.resolve_and_invoke(provider, *args, **kwargs)
+        return_value = self.resolve_and_invoke(provider.func, provider, *args, **kwargs)
 
         # If a context manager, use it to get the value
         if isinstance(return_value, ContextManager):

@@ -1,6 +1,7 @@
 """ Create dependencies from existing code """
 from __future__ import annotations
 
+from inspect import isclass
 from typing import Union, Callable, Container, Optional
 from typing import get_type_hints
 
@@ -141,6 +142,11 @@ def resolvable_from_function_signature(func: Callable,
                                        exclude_names: Optional[Container[str]],
                                        ) -> Resolvable:
     """ Read keyword dependencies from the function's signature and generate a Resolvable() """
+    # If a class is given, use its constructor
+    if isclass(func):
+        func = func.__init__
+
+    # Create a resolvable
     return Resolvable(
         func=MISSING,
         deps_kw={

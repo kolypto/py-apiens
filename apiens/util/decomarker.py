@@ -1,8 +1,8 @@
-from inspect import unwrap, isfunction
+from inspect import unwrap, isfunction, isclass
 
 from functools import lru_cache
 
-from typing import ClassVar, Callable, TypeVar, Optional, Sequence, Any, Type
+from typing import ClassVar, Callable, TypeVar, Optional, Sequence, Any, Type, Union
 
 Cls_T = TypeVar('Cls_T')
 
@@ -11,7 +11,7 @@ class decomarker_meta(type):
     """ Metaclass that supports simple isinstance() checks for func decorators """
 
     def __instancecheck__(self: 'decomarker', instance: Any):
-        return isfunction(instance) and self._has_marker(unwrap(instance))
+        return isfunction(instance) and self._has_marker(instance)
 
 
 class decomarker(metaclass=decomarker_meta):
@@ -64,16 +64,19 @@ class decomarker(metaclass=decomarker_meta):
     def __call__(self, func):
         return self.decorator(func)
 
-    def decorator(self, func: Callable):
+    def decorator(self, func: Union[Callable, type]):
         # Make sure this decorator is callable only once
         assert self.func is None
 
+        # Use class.__init__ if a class is given
+        f = func_or_class(func)
+
         # Mark the func. Use unwrap() to make sure we get to the meat.
-        setattr(unwrap(func), self.MARKER_ATTR, self)
+        setattr(unwrap(f), self.MARKER_ATTR, self)
 
         # Remember & Return
-        self.func = func
-        self.func_name = func.__name__
+        self.func = f
+        self.func_name = f.__name__
         return func
 
     def __repr__(self):
@@ -82,7 +85,7 @@ class decomarker(metaclass=decomarker_meta):
     @classmethod
     def _has_marker(cls, func: Callable) -> bool:
         """ Is the given function decorated with this decorator """
-        return hasattr(func, cls.MARKER_ATTR)
+        return hasattr(unwrap(func_or_class(func)), cls.MARKER_ATTR)
 
     # region Public API
 
@@ -97,7 +100,7 @@ class decomarker(metaclass=decomarker_meta):
     @classmethod
     def get_from(cls: Type[Cls_T], func: Callable) -> Optional[Cls_T]:
         """ Get the @cls decorator object of the wrapped func """
-        return getattr(unwrap(func), cls.MARKER_ATTR, None)
+        return getattr(unwrap(func_or_class(func)), cls.MARKER_ATTR, None)
 
     @classmethod
     @lru_cache()
@@ -117,6 +120,18 @@ class decomarker(metaclass=decomarker_meta):
         else:
             members = class_.__dict__.values()
 
-        return tuple(cls.get_from(member) for member in members if isinstance(member, cls))
+        return tuple(cls.get_from(member)
+                     for member in members
+                     if isinstance(member, cls))
 
     # endregion
+
+
+def func_or_class(func: Union[Callable, type]) -> Callable:
+    """ Use class' __init__() if the whole class is given """
+    # If we're given a class, take its __init__() instead
+    if isclass(func):
+        return func.__init__
+    # Otherwise, use as is
+    else:
+        return func
