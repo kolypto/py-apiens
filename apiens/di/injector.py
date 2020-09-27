@@ -5,10 +5,11 @@ from __future__ import annotations
 import functools
 import warnings
 from contextlib import ExitStack
-from typing import Optional, Dict, Any, ContextManager, Union, Callable
+from typing import Optional, Dict, Any, ContextManager, Union, Callable, Iterable, Set
 
 from .const import InjectFlags, MISSING
-from .defs import Provider, InjectionToken, Resolvable, ProviderFunction, ProviderContextManager
+from .defs import InjectionToken, ProviderFunction, ProviderContextManager
+from .defs import Provider, Dependency, Resolvable
 from .exc import NoProviderError, ClosedInjectorError
 from .markers import resolvable_marker
 
@@ -214,15 +215,7 @@ class Injector:
             token: The token to find the provider for. Normally a class name.
             flags: How to look the value up.
         """
-        # Skip this injector? Go to parent, but remove the `SKIP_SELF` flag
-        if flags & InjectFlags.SKIP_SELF:
-            return self._parent.has(token, flags ^ InjectFlags.SKIP_SELF)
-        # Self only?
-        elif flags & InjectFlags.SELF:
-            return token in self._providers
-        # No skipping -- check self, or go upwards (unless SELF)
-        else:
-            return token in self._providers or self._parent.has(token, flags)
+        return self.get_provider_for(token, flags | InjectFlags.OPTIONAL) is not None
 
     # region Low-level interface
 
@@ -306,6 +299,50 @@ class Injector:
         # Done
         return instance
 
+    def get_provider_for(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT) -> Optional[Provider]:
+        """ Find a provider for the `token`
+
+        Args:
+            token: The injection token to find a provider for
+            flags: Lookup flags
+        """
+        # Skip this injector? Go to parent, but remove the `SKIP_SELF` flag
+        if flags & InjectFlags.SKIP_SELF:
+            return self._parent.get_provider_for(token, flags ^ InjectFlags.SKIP_SELF)
+        # Do we have a provider for it?
+        elif token in self._providers:
+            return self._providers[token]
+        # If `SELF` prevents us from going upwards, fail immediately
+        elif flags & InjectFlags.SELF:
+            return _none_injector.get_provider_for(token, flags ^ InjectFlags.SELF)
+        # Otherwise, go up the injector tree and try there
+        else:
+            return self._parent.get_provider_for(token, flags)
+
+    def get_recursive_providers_for(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT, _map: dict = None) -> Dict[InjectionToken, Provider]:
+        """ Resolve dependencies for `token` recursively and get a map of { token => Provider } for every dependency
+
+        Args:
+            token: The initial injection token to find the providers for.
+            flags: Lookup flags
+        """
+        # Prepare the dict for recursion
+        if _map is None:
+            _map = {}
+
+        # Find the provider and remember it
+        provider = self.get_provider_for(token, flags)
+        _map[token] = provider
+
+        # Now get providers for every dependency
+        all_dependencies: Iterable[Dependency] = [] + list(provider.deps_nopass) + list(provider.deps_kw.values())
+        for dependency in all_dependencies:
+            # Recurse. Use the same memo `_map` to collect values
+            self.get_recursive_providers_for(dependency.token, dependency.flags, _map)
+
+        # Done
+        return _map
+
     # endregion
 
     def __enter__(self):
@@ -360,10 +397,16 @@ class NoneInjector(Injector):
             return default
         # If not optional, raise an error
         else:
-            raise NoProviderError(f'Could not find any provider for {token}', token=token)
+            self._provider_not_found(token)
 
-    def has(self, *args, **kwargs) -> bool:
-        return False
+    def get_provider_for(self, token: InjectionToken, flags: InjectFlags) -> Optional[Provider]:
+        if flags & InjectFlags.OPTIONAL:
+            return None
+        else:
+            self._provider_not_found(token)
+
+    def _provider_not_found(self, token: InjectionToken):
+        raise NoProviderError(f'Could not find any provider for {token}', token=token)
 
 
 _none_injector = NoneInjector()
