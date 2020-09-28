@@ -6,7 +6,7 @@ import functools
 import warnings
 from contextlib import ExitStack
 from threading import RLock
-from typing import Optional, Dict, Any, ContextManager, Union, Callable, Iterable, Set
+from typing import Optional, Dict, Any, ContextManager, Union, Callable, Iterable, Set, Mapping
 
 from .const import InjectFlags, MISSING
 from .defs import InjectionToken, ProviderFunction, ProviderContextManager
@@ -131,6 +131,11 @@ class Injector:
 
         self.register_provider(Provider.from_resolvable(token, resolvable))
         return self
+
+    def providers(self, providers: Mapping[InjectionToken, Union[ProviderFunction, ProviderContextManager, Resolvable]]):
+        """ Like provide(), but lets you define many provides at once """
+        for token, provider in providers.items():
+            self.provide(token, provider)
 
     def provide_value(self, token: InjectionToken, value: Any):
         """ Register a constant value to be returned for everyone requesting `token`
