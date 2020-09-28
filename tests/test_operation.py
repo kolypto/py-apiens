@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 
 from apiens import di, operation
 
@@ -153,6 +153,36 @@ def test_class_based_operation():
 
     # Test
     main()
+
+
+def test_operation_signature():
+    """ Test how signature reading works """
+
+    # An operation with pure arguments, no DI involved
+
+    @operation()
+    def f(a, b: int, c=1, d: int = 2) -> str:
+        pass
+
+    s = operation.get_from(f).signature
+    assert s.provided_arguments == {}
+    assert s.arguments == {'a': Any, 'b': int, 'c': Any, 'd': int}
+    assert s.argument_defaults == {'c': 1, 'd': 2}
+    assert s.return_type == str
+
+    # An operation with DI.
+    # Argument 'c' goes into the "provided" list and leaves all other lists.
+
+    @operation()
+    @di.kwargs(c='something')
+    def f(a, b: int, c=1, d: int = 2) -> str:
+        pass
+
+    s = operation.get_from(f).signature
+    assert s.provided_arguments == {'c': Any}  # provided. 'c' is removed from all other lists
+    assert s.arguments == {'a': Any, 'b': int, 'd': int}
+    assert s.argument_defaults == {'d': 2}
+    assert s.return_type == str
 
 
 @dataclass

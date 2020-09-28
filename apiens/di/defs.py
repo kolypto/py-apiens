@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Mapping, Collection, ContextManager, Any, Union
+from typing import Callable, Mapping, Collection, ContextManager, Any, Union, Set, FrozenSet
 
 from .const import InjectionToken, InjectFlags, MISSING
 
@@ -46,6 +46,10 @@ class Resolvable:
         self.deps_kw.update(another.deps_kw)
         self.deps_nopass.extend(another.deps_nopass)
         return self
+
+    def provided_names(self) -> FrozenSet[str]:
+        """ Get the names of arguments that will be provided to the function """
+        return frozenset(self.deps_kw)
 
 
 ProviderFunction = Callable[..., Any]

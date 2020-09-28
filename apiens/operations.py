@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Hashable, Callable, Union
 
 from apiens.util import decomarker
+from .inspect import Signature
 
 
 class operation(decomarker):
@@ -44,6 +45,9 @@ class operation(decomarker):
     # It will be used to call it as a function
     operation_id: Union[str, Hashable]
 
+    # Operation function's signature: argument types, defaults, etc
+    signature: Signature
+
     # Extra, custom, information about the operation
     info: dict
 
@@ -65,6 +69,9 @@ class operation(decomarker):
         # `id` defaults to function name
         if self.operation_id is None:
             self.operation_id = func.__name__
+
+        # Read function signature into information
+        self.signature = Signature(func)
 
         # Done
         return super().decorator(func)
