@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Hashable, Callable, Union
+from typing import Hashable, Callable, Union, ClassVar
 
 from apiens.util import decomarker
-from .inspect import Signature
+from .signature import Signature
 
 
 class operation(decomarker):
@@ -41,12 +41,15 @@ class operation(decomarker):
             def delete(self, id: int):
                 ...
     """
+    # The signature class to use
+    SIGNATURE_CLS: ClassVar[type] = Signature
+
     # A unique name of this operation.
     # It will be used to call it as a function
     operation_id: Union[str, Hashable]
 
     # Operation function's signature: argument types, defaults, etc
-    signature: Signature
+    signature: SIGNATURE_CLS
 
     # Extra, custom, information about the operation
     info: dict
@@ -71,7 +74,7 @@ class operation(decomarker):
             self.operation_id = func.__name__
 
         # Read function signature into information
-        self.signature = Signature(func)
+        self.signature = self.SIGNATURE_CLS(func)
 
         # Done
         return super().decorator(func)
