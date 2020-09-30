@@ -6,7 +6,10 @@ from typing import Iterable, List, Union
 # Init translations
 # TODO: will this work with lazy translations?
 import gettext
-translation = gettext.translation('apiens')
+try:
+    translation = gettext.translation('apiens')
+except FileNotFoundError:
+    translation = gettext.NullTranslations()
 _ = translation.gettext
 
 

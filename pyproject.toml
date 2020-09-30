@@ -9,6 +9,7 @@ repository = 'https://github.com/kolypto/py-apiens'
 python = "^3.8"
 pydantic = {version = "^1.6.1", optional = true}
 fastapi = {version = "^0.61.1", optional = true}
+docstring-parser = {version = "^0.7.3", optional = true}
 
 [tool.poetry.dev-dependencies]
 nox = "^2020.8.22"
