@@ -392,12 +392,15 @@ class Injector:
 
     def close(self):
         """ Close the injector and let every provider do the clean-up """
-        # Invoke all clean-ups
-        self._entered.close()
+        # Closed.
+        # Do this early, because context managers may raise errors
+        self._closed = True
+
         # Forget instances
         self._instances.clear()
-        # Done
-        self._closed = True
+
+        # Invoke all clean-ups
+        self._entered.close()
 
     def __exit__(self, *exc):
         self.close()
