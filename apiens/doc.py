@@ -48,7 +48,7 @@ class doc(decomarker):
     def string(cls):
         """ Use @doc.string() to extract the function's documentation from its docstring
 
-        It supports docstrings in the Google format: https://google.github.io/styleguide/pyguide.html#383-functions-and-methods
+        It parses docstrings in the Google format: https://google.github.io/styleguide/pyguide.html#383-functions-and-methods
         The following sections are parsed:
 
         * [docstring body]
@@ -152,26 +152,28 @@ class doc(decomarker):
 
         # Check that the function itself is documented
         if not self.function_doc:
-            errors.append(f"Please use @doc.string() and a docstring. The function is not documented.")
+            errors.append(f"The function is not documented. Please add a docstring, or use `@doc.function()`.")
 
         # Check that its return value is documented
         if not self.result_doc:
-            errors.append(f"Please use @doc.string() and a docstring with the 'Returns' section. The return value is not documented.")
+            errors.append(f"The return value is not documented. Please add the 'Returns' section, or use `@doc.result()`. ")
 
         # Get its signature
         signature = operation.get_from(self.func).signature
 
         # Check that its return value is typed
         if signature.return_type is Any:
-            errors.append(f"Please provide a return type annotation. The type is currently unknown.")
+            errors.append(f"The return type is unknown. Please provide a return type annotation.")
 
         # Check every parameter's type and documentation
         for name, type_ in signature.arguments.items():
             if type_ is Any:
-                errors.append(f"Please use @doc.string() and a docstring with the 'Args' section and an entry for parameter {name!r}. "
-                              f"The parameter is not documented.")
+                errors.append(f"Parameter {name!r} is not documented. "
+                              f"Please add an 'Args' section for it, or use `@doc.parameter()`"
+                              f"")
             if name not in self.parameters_doc:
-                errors.append(f"Please put type annotation on parameter `{name}`. Its type is unknown.")
+                errors.append(f"Parameter {name!r} type is unknown. "
+                              f"Please put a type annotation on it.")
 
         # We can't validate errors.
         # But error_validator_decorator() can make a wrapper that will validate them at runtime :)

@@ -136,6 +136,7 @@ class Injector:
         """ Like provide(), but lets you define many provides at once """
         for token, provider in providers.items():
             self.provide(token, provider)
+        return self
 
     def provide_value(self, token: InjectionToken, value: Any):
         """ Register a constant value to be returned for everyone requesting `token`

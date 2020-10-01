@@ -1,5 +1,5 @@
 """ Bindings to the FastAPI framework """
-
+import inspect
 from contextlib import ExitStack
 from copy import copy
 from typing import List, Callable, ContextManager
@@ -27,7 +27,7 @@ class OperationalApiRouter(fastapi.APIRouter):
         super().__init__(**kwargs)
 
         # Request injector template
-        self.request_injector_tempalate = injector
+        self.request_injector_template = injector
 
         # Debug mode
         self.debug = debug
@@ -91,9 +91,16 @@ class OperationalApiRouter(fastapi.APIRouter):
         if context_managers:
             operation_context_managers.append(context_managers)
 
+        # Get the function's doc
+        func_doc = doc.get_from(func)
+
         # The `fully_documented` mode
         if self.fully_documented and self.debug:
-            func_doc = doc.get_from(func)
+            # Is documented?
+            assert func_doc is not None, (
+                f"Function {func} has no documentation associated with it. "
+                f"Please use @doc.string(), or other @doc functions to document it."
+            )
 
             # Validate documentation
             func_doc.assert_is_fully_documented()
@@ -101,27 +108,11 @@ class OperationalApiRouter(fastapi.APIRouter):
             # Validate runtime errors
             operation_context_managers.append(func_doc.error_validation_context_initializer)
 
-        # Register the route
-        @self.api_route(
-            # Path: the operation id itself
-            func_op.operation_id,
-            # Use the same operation id: openapi-generator will find a good use to it
-            operation_id=func_op.operation_id,
-            name=func_op.operation_id,
-            # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
-            methods=['POST'],
-            # Its return type: exactly what the function returns.
-            # With some pydantic tuning.
-            response_model=func_op.signature.return_type,
-            response_model_exclude_unset=True,
-            response_model_exclude_defaults=True,
-            # Documentation.
-            **self._route_documentation_kwargs(func)
-        )
-        def endpoint():
+        # Prepare the actual operation function
+        def operation_caller_function(**kwargs):
             with ExitStack() as context_stack:
                 # Init the request Injector by copy()ing the template injector that already has providers set up
-                request_injector: di.Injector = context_stack.enter_context(copy(self.request_injector_tempalate))
+                request_injector: di.Injector = context_stack.enter_context(copy(self.request_injector_template))
 
                 # Provide a few contextual things:
                 # * `operation`: the operation that is being run
@@ -136,7 +127,52 @@ class OperationalApiRouter(fastapi.APIRouter):
                     context_stack.enter_context(cm_instance)
 
                 # Finally, execute the function
-                return request_injector.invoke(func)
+                return {
+                    'ret': request_injector.invoke(func, kwargs),
+                }
+
+        # Prepare the endpoint function
+        def endpoint(**input_parameters):
+            return operation_caller_function(**input_parameters)
+
+        endpoint.__name__ = func_op.operation_id
+        endpoint.__signature__ = inspect.Signature(
+            parameters=[
+                inspect.Parameter(
+                    name=argument_name,
+                    kind=inspect.Parameter.KEYWORD_ONLY,
+                    default=fastapi.Body(
+                        func_op.signature.argument_defaults.get(argument_name, ...),
+                        embed=True,
+                        title=func_doc.parameters_doc[argument_name].summary,
+                        description=func_doc.parameters_doc[argument_name].description,
+                    ),
+                    annotation=argument_type,
+                )
+                for argument_name, argument_type in func_op.signature.arguments.items()
+            ],
+            return_annotation=func_op.signature.return_type,
+        )
+
+        # Register the route
+        self.add_api_route(
+            # Path: the operation id itself
+            '/' + func_op.operation_id,
+            # Func: the function to all
+            endpoint,
+            # Use the same operation id: openapi-generator will find a good use to it
+            operation_id=func_op.operation_id,
+            name=func_op.operation_id,
+            # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
+            methods=['POST'],
+            # Its return type: exactly what the function returns.
+            # With some pydantic tuning.
+            response_model=func_op.signature.return_type,
+            response_model_exclude_unset=True,
+            response_model_exclude_defaults=True,
+            # Documentation.
+            **self._route_documentation_kwargs(func)
+        )
 
         # Done
         return func
@@ -159,8 +195,8 @@ class OperationalApiRouter(fastapi.APIRouter):
         if func_doc.result_doc:
             route_kw['response_description'] = (
                 # Got to put them together because we have 2 fields, but FastAPI has only one
-                func_doc.result_doc.summary +
-                func_doc.result_doc.description
+                (func_doc.result_doc.summary or '') +
+                (func_doc.result_doc.description or '')
             )
 
         # Errors documentation.
