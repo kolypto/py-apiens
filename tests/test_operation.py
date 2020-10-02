@@ -132,7 +132,7 @@ def test_class_based_operation():
 
     class_based_operations_map = {
         # Class-based operations are not
-        operation.get_from(UserCrud).operation_id + '/' + op.operation_id: (cls, op.func_name)
+        operation.get_from(cls).operation_id + '/' + op.operation_id: (cls, op.func_name)
         for cls in class_based_operations
         for op in operation.all_decorated_from(cls)
     }

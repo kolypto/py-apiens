@@ -41,6 +41,14 @@ class decomarker(metaclass=decomarker_meta):
             raise Exception('Oops')
 
         func_errors = known_errors.get_from(func)
+
+    You can even decorate classes:
+
+        @known_errors({ ... })
+        class UserVew:
+            ...
+
+    But in this case, you have to consistently decide whether you decorate the class itself, or its constructor.
     """
 
     # Name of the custom attribute installed on decorated methods.
@@ -59,7 +67,7 @@ class decomarker(metaclass=decomarker_meta):
         super().__init_subclass__()
 
         # Initialize the marker
-        cls.MARKER_ATTR = cls.__name__
+        cls.MARKER_ATTR = '::' + cls.__name__
 
     def __call__(self, func):
         return self.decorator(func)
@@ -68,15 +76,12 @@ class decomarker(metaclass=decomarker_meta):
         # Make sure this decorator is callable only once
         assert self.func is None
 
-        # Use class.__init__ if a class is given
-        f = func_or_class(func)
-
         # Mark the func. Use unwrap() to make sure we get to the meat.
-        setattr(unwrap(f), self.MARKER_ATTR, self)
+        setattr(unwrap(func), self.MARKER_ATTR, self)
 
         # Remember & Return
-        self.func = f
-        self.func_name = f.__name__
+        self.func = func
+        self.func_name = func.__name__
         return func
 
     def __repr__(self):
@@ -85,7 +90,7 @@ class decomarker(metaclass=decomarker_meta):
     @classmethod
     def _has_marker(cls, func: Callable) -> bool:
         """ Is the given function decorated with this decorator """
-        return hasattr(unwrap(func_or_class(func)), cls.MARKER_ATTR)
+        return hasattr(unwrap(func), cls.MARKER_ATTR)
 
     # region Public API
 
@@ -100,7 +105,7 @@ class decomarker(metaclass=decomarker_meta):
     @classmethod
     def get_from(cls: Type[Cls_T], func: Callable) -> Optional[Cls_T]:
         """ Get the @cls decorator object of the wrapped func """
-        return getattr(unwrap(func_or_class(func)), cls.MARKER_ATTR, None)
+        return getattr(unwrap(func), cls.MARKER_ATTR, None)
 
     @classmethod
     @lru_cache()
@@ -122,16 +127,6 @@ class decomarker(metaclass=decomarker_meta):
 
         return tuple(cls.get_from(member)
                      for member in members
-                     if isinstance(member, cls))
+                     if isinstance(member, cls) and type(member) != cls)
 
     # endregion
-
-
-def func_or_class(func: Union[Callable, type]) -> Callable:
-    """ Use class' __init__() if the whole class is given """
-    # If we're given a class, take its __init__() instead
-    if isclass(func):
-        return func.__init__
-    # Otherwise, use as is
-    else:
-        return func

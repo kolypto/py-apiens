@@ -90,25 +90,6 @@ def test_di_methods():
         return User(email='kolypto@gmail.com')
 
     # A class that uses it
-    class Actions:
-        @di.kwargs(current_user=current_user)
-        def __init__(self, current_user: User):
-            self.user = current_user
-
-        @di.kwargs()
-        def method(self):
-            return self.user.email
-
-    # Test
-    with di.Injector() as root:
-        root.provide(current_user, current_user)
-
-        # Try to use a class
-        actions = root.invoke(Actions)
-        ret = root.invoke(actions.method)
-        assert ret == 'kolypto@gmail.com'
-
-    #Now try to decorate the class itself
     @di.kwargs(current_user=current_user)
     class Actions:
         def __init__(self, current_user: User):
@@ -126,7 +107,6 @@ def test_di_methods():
         actions = root.invoke(Actions)
         ret = root.invoke(actions.method)
         assert ret == 'kolypto@gmail.com'
-
 
 
 def test_di_cleanup():
