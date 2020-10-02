@@ -2,7 +2,7 @@
 import inspect
 from contextlib import ExitStack
 from copy import copy
-from typing import List, Callable, ContextManager
+from typing import List, Callable, ContextManager, Optional
 
 import fastapi
 
@@ -41,20 +41,6 @@ class OperationalApiRouter(fastapi.APIRouter):
         # Class-based operations: classes
         self.class_operations: List[type] = []
 
-        # Context managers
-        self._context_managers: List[Callable[[di.Injector], ContextManager]] = []
-
-    def add_context_manager(self, cm: Callable[..., ContextManager]):
-        """ Add a context manager to initialize and wrap every request.
-
-        You can use it to provide some custom error handling, etc.
-
-        Args:
-            cm: A context manager callable, possibly a class. Should be decorated by @di for dependency handling.
-        """
-        self._context_managers.append(cm)
-        return self
-
     def add_flat_operations(self, *operations: Callable):
         """ Add flat operations: plain, @operation-decorated, functions.
 
@@ -73,60 +59,22 @@ class OperationalApiRouter(fastapi.APIRouter):
         self.class_operations.extend(operations)
         return self
 
-    def register_flat_operation(self,
-                                func: Callable,
-                                context_managers: List[Callable[[di.Injector], ContextManager]] = None) -> Callable:
+    def register_flat_operation(self, func: Callable) -> Callable:
         """ Register a single flat operation
 
         Args:
             func: The function to register as an operation
-            context_managers: Extra context managers for this particular operation.
         """
         # Get the operation
         func_op = operation.get_from(func)
         assert func_op is not None, f'Function {func} must be decorated with @operation'
 
-        # Prepare the list of context managers to enter
-        operation_context_managers = self._context_managers.copy()
-        if context_managers:
-            operation_context_managers.append(context_managers)
-
-        # Get the function's doc
-        func_doc = doc.get_from(func)
-
-        # The `fully_documented` mode
-        if self.fully_documented and self.debug:
-            # Is documented?
-            assert func_doc is not None, (
-                f"Function {func} has no documentation associated with it. "
-                f"Please use @doc.string(), or other @doc functions to document it."
-            )
-
-            # Validate documentation
-            func_doc.assert_is_fully_documented()
-
-            # Validate runtime errors
-            operation_context_managers.append(func_doc.error_validation_context_initializer)
+        # Get the documentation
+        func, func_doc = self._get_func_documentation(func)
 
         # Prepare the actual operation function
         def operation_caller_function(**kwargs):
-            with ExitStack() as context_stack:
-                # Init the request Injector by copy()ing the template injector that already has providers set up
-                request_injector: di.Injector = context_stack.enter_context(copy(self.request_injector_template))
-
-                # Provide a few contextual things:
-                # * `operation`: the operation that is being run
-                # * `di.Injector`: the injector itself, for low-level access
-                request_injector.provide_value(operation, func_op)
-                request_injector.provide_value(di.Injector, request_injector)
-
-                # Enter context managers of the router
-                for context_manager in operation_context_managers:
-                    # Every context manager is initialized with the Injector.invoke()
-                    cm_instance = request_injector.invoke(context_manager)
-                    context_stack.enter_context(cm_instance)
-
-                # Finally, execute the function
+            with self._request_injector(func_op) as request_injector:
                 return {
                     'ret': request_injector.invoke(func, kwargs),
                 }
@@ -177,8 +125,46 @@ class OperationalApiRouter(fastapi.APIRouter):
         # Done
         return func
 
+    def _request_injector(self, func_op: operation) -> di.Injector:
+        """ Create a di.Injector() for this request """
+        # Init the request Injector by copy()ing the template injector that already has providers set up
+        request_injector: di.Injector = copy(self.request_injector_template)
+
+        # Provide a few contextual things:
+        # * `operation`: the operation that is being run
+        # * `di.Injector`: the injector itself, for low-level access
+        request_injector.provide_value(operation, func_op)
+        request_injector.provide_value(di.Injector, request_injector)
+
+        return request_injector
+
+    def _get_func_documentation(self, func: Callable) -> (Callable, Optional[doc]):
+        """ Check that the operation function is fully documented """
+        # Get the function's doc
+        func_doc = doc.get_from(func)
+
+        # The `fully_documented` mode
+        if self.fully_documented and self.debug:
+            # Is documented?
+            assert func_doc is not None, (
+                f"Function {func} has no documentation associated with it. "
+                f"Please use @doc.string(), or other @doc functions to document it."
+            )
+
+            # Validate documentation
+            func_doc.assert_is_fully_documented()
+
+            # Wrap the `func` for error validation
+            func = func_doc.wrap_func_check_thrown_errors_are_documented(func)
+
+        # Done. Return the same function unwrapped
+        return func, func_doc
+
     def _route_documentation_kwargs(self, func: Callable) -> dict:
-        """ Get documentation kwargs for the route """
+        """ Get documentation kwargs for the route
+
+        This function reads the @doc documentation from `func` and returns kwargs for `add_api_route()`
+        """
         route_kw = {}
 
         # Get the function's documentation
