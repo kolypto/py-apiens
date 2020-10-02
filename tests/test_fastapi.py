@@ -1,3 +1,4 @@
+import fastapi
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
@@ -15,7 +16,7 @@ def test_flat_operation():
 
     # Operations
 
-    @operation('index')
+    @operation()
     @doc.string()
     @di.signature('auth')
     def index(a: int, auth: AuthenticationService, b: str = '1') -> dict:
@@ -37,14 +38,13 @@ def test_flat_operation():
         return {'hello': 'moto', 'current_user': auth.current_user()}
 
     # Router
-
     from apiens.via.fastapi import OperationalApiRouter
 
     router = OperationalApiRouter(debug=True, fully_documented=True)
     router.injector.providers({
         AuthenticationService: AuthenticationService,
     })
-    router.register_flat_operation(index)
+    router.add_flat_operations(index)
 
     # Application
     app = FastAPI(debug=True)
@@ -54,10 +54,8 @@ def test_flat_operation():
     with TestClient(app) as c:
         res = c.post('/index', json={'a': 1, 'b': '2'})
         assert res.json() == {
-            'ret': {
-                'hello': 'moto',
-                'current_user': {'user': {'email': 'kolypto@gmail.com'}},
-            }
+            'hello': 'moto',
+            'current_user': {'user': {'email': 'kolypto@gmail.com'}},
         }
 
     # Test the OpenAPI
@@ -98,3 +96,77 @@ def test_flat_operation():
         '`E_AUTH_REQUIRED`. Authentication failed\n\n'
     )
     assert index['responses']['401']['content']['application/json']['schema']['$ref'] == '#/components/schemas/ErrorResponse'
+
+
+def test_class_endpoint():
+    # Operations
+
+    @operation('user')
+    @di.signature()
+    class UserOperations:
+        @operation()
+        def list(self):
+            return {'users': []}
+
+        @operation()
+        def create(self, user: dict):
+            return {'user': user}
+
+        @operation()
+        def get(self, id: int):
+            return {'user': {'id': id}}
+
+        @operation()
+        def update(self, id: int, user: dict):
+            return {'user': {'id': id, **user}}
+
+        @operation()
+        def delete(self, id: int):
+            return {'user': {'id': id}}
+
+
+    # Router
+    from apiens.via.fastapi import OperationalApiRouter
+
+    router = OperationalApiRouter(debug=True, fully_documented=True)
+    router.add_class_operations(UserOperations)
+
+    # Application
+    app = FastAPI(debug=True, redoc_url=None, docs_url=None, openapi_url=None)
+    app.include_router(router)
+
+    # Test the routes
+    assert {
+        (route.path, tuple(sorted(route.methods)))
+        for route in app.routes
+    } == {
+        ('/user/list', 'POST'),
+        ('/user/create', 'POST'),
+        ('/user/get', 'POST'),
+        ('/user/update', 'POST'),
+        ('/user/delete', 'POST'),
+    }
+
+    # Test the API
+    with TestClient(app) as c:
+        # list()
+        res = c.post('/user/list')
+        assert res.json() == {'users': []}
+
+        # create()
+        res = c.post('/user/create', json={'user': {'name': 'K'}})
+        assert res.json() == {'user': {'name': 'K'}}
+
+        # get()
+        res = c.post('/user/get', json={'id': 1})
+        assert res.json() == {'user': {'id': 1}}
+
+        # update()
+        res = c.post('/user/update', json={'id': 1, 'user': {'name': 'K'}})
+        assert res.json() == {'user': {'id': 1, 'name': 'K'}}
+
+        # delete()
+        res = c.post('/user/delete', json={'id': 1})
+        assert res.json() == {'user': {'id': 1}}
+
+    # Test the OpenAPI

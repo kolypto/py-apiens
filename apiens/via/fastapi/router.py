@@ -61,7 +61,10 @@ class OperationalApiRouter(fastapi.APIRouter):
         return self
 
     def add_class_operations(self, *operations: type):
-        self.class_operations.extend(operations)
+        for operation in operations:
+            self.class_operations.append(
+                self.register_class_operations(operation)
+            )
         return self
 
     def register_flat_operation(self, func: Callable) -> Callable:
@@ -78,12 +81,7 @@ class OperationalApiRouter(fastapi.APIRouter):
         func, func_doc = self._get_func_documentation(func)
 
         # Prepare the actual operation endpoint
-        @functools.partial(self._prepare_operation_endpoint, op=func_op, func_doc=func_doc)
-        def operation_endpoint(**kwargs):
-            with self._request_injector(func_op) as request_injector:
-                return {
-                    'ret': request_injector.invoke(func, kwargs),
-                }
+        operation_endpoint = self._prepare_operation_endpoint_function(func, func_op, func_doc)
 
         # Register the route
         self.add_api_route(
@@ -91,11 +89,11 @@ class OperationalApiRouter(fastapi.APIRouter):
             '/' + func_op.operation_id,
             # Func: the function to all
             operation_endpoint,
+            # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
+            methods=['POST'],
             # Use the same operation id: openapi-generator will find a good use to it
             operation_id=func_op.operation_id,
             name=func_op.operation_id,
-            # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
-            methods=['POST'],
             # Its return type: exactly what the function returns.
             # With some pydantic tuning.
             response_model=func_op.signature.return_type,
@@ -107,6 +105,19 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         # Done
         return func
+
+    def register_class_operations(self, class_: type) -> type:
+        """ Register a single class-based operation with all of its sub-operations """
+        # Get the class operation itself
+        class_op = operation.get_from(class_)
+        assert class_ is not None, f'Class {class_} must be decorated with @operation'
+
+        # List its sub-operations
+        for op in operation.all_decorated_from(class_, inherited=True):
+            pass
+
+        # Done
+        return class_
 
     def _request_injector(self, func_op: operation) -> di.Injector:
         """ Create a di.Injector() for this request """
@@ -121,7 +132,27 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         return request_injector
 
-    def _prepare_operation_endpoint(self, endpoint: Callable, op: operation, func_doc: Optional[doc]) -> Callable:
+    def _prepare_operation_endpoint_function(self, func: Callable, func_op: operation, func_doc: Optional[doc]) -> Callable:
+        """ Prepare a function that will be used to call the operation """
+        # Prepare the actual endpoint function
+        def operation_endpoint(**kwargs):
+            # Execute the function
+            with self._request_injector(func_op) as request_injector:
+                ret = request_injector.invoke(func, kwargs)
+
+            # Return
+            if func_op.return_name:
+                return {
+                    func_op.return_name: ret
+                }
+            else:
+                return ret
+
+        # Done
+        self._prepare_operation_endpoint_signature(operation_endpoint, func_op, func_doc)
+        return operation_endpoint
+
+    def _prepare_operation_endpoint_signature(self, endpoint: Callable, op: operation, func_doc: Optional[doc]) -> Callable:
         """ Prepare a function that will be read by FastAPI by patching its __signature__ """
         # Give it a name that might pop up somewhere in tracebacks
         endpoint.__name__ = op.operation_id

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Hashable, Callable, Union, ClassVar
+from typing import Hashable, Callable, Union, ClassVar, Optional
 
 from apiens.util import decomarker
 from .signature import Signature
@@ -48,22 +48,31 @@ class operation(decomarker):
     # It will be used to call it as a function
     operation_id: Union[str, Hashable]
 
+    # The name of the field used for its return value.
+    return_name: Optional[str]
+
     # Operation function's signature: argument types, defaults, etc
     signature: SIGNATURE_CLS
 
     # Extra, custom, information about the operation
     info: dict
 
-    def __init__(self, operation_id: Union[str, Hashable] = None, **info):
+    def __init__(self,
+                 operation_id: Optional[Union[str, Hashable]] = None,
+                 return_name: Optional[str] = None,
+                 **info):
         """
 
         Args:
-            id: Operation id. When not provided, is taken from the function name.
-                Can be a string name, or a tuple of multiple names to mimic a tree-like structure.
+            id: Operation id. Can be a string name, or a tuple of multiple names to mimic a tree-like structure.
+                When `None`, is taken from the function's name
+            return_name: Name of the field used for its return value.
+                When `None`, no field is added, and the function's return value is used as is.
             **info: Additional information to associate with this operation. Arbitrary.
         """
         super().__init__()
         self.operation_id = operation_id
+        self.return_name = return_name
 
         # Custom extra info
         self.info: dict = info
