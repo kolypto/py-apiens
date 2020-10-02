@@ -87,9 +87,10 @@ class Injector:
         self._entered = ExitStack()
 
         # Whether the injector is done working and will not want to restart
+        self._opened: bool = False
         self._closed: bool = False
 
-    __slots__ = '_providers', '_instances', '_instance_create_lock', '_parent', '_entered', '_closed'
+    __slots__ = '_providers', '_instances', '_instance_create_lock', '_parent', '_entered', '_opened', '_closed'
 
     def provide(self, token: InjectionToken, provider: Union[ProviderFunction, ProviderContextManager, Resolvable]):
         """ Register a provider function for some dependency identified by `token`
@@ -219,6 +220,8 @@ class Injector:
         Raises:
             NoProviderError: no provider found for a dependency
         """
+        self._opened = True
+
         # If a default is given, become optional.
         # That's a shortcut.
         if default is not MISSING:
@@ -389,6 +392,7 @@ class Injector:
         """ Enter the injector """
         if self._closed:
             raise ClosedInjectorError("Cannot restart an Injector that's already done working.")
+        self._opened = True
         return self
 
     def close(self):
@@ -413,7 +417,7 @@ class Injector:
         return new
 
     def __del__(self):
-        if not self._closed:
+        if not self._closed and self._opened:
             warnings.warn(
                 f'Injector {self} has not been close()d. Providers could not do any clean-up, and you may have dangling resources out there. '
                 f'Please call close() manually, or use the Injector as a context manager!'
@@ -442,7 +446,7 @@ class NoneInjector(Injector):
         else:
             self._provider_not_found(token)
 
-    def get_provider_for(self, token: InjectionToken, flags: InjectFlags) -> Optional[Provider]:
+    def get_provider_for(self, token: InjectionToken, flags: InjectFlags = InjectFlags.DEFAULT) -> Optional[Provider]:
         if flags & InjectFlags.OPTIONAL:
             return None
         else:
