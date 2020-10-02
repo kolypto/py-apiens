@@ -1,7 +1,6 @@
 """ Schemas for the Error response """
-from typing import Optional
-
 import pydantic as pd
+from typing import Optional
 
 from apiens.errors import BaseApplicationError
 
