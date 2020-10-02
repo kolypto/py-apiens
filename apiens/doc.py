@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import functools
+
 import inspect
 from dataclasses import dataclass
 from typing import Optional, Callable, Dict, Type, Any, Union
@@ -187,11 +189,6 @@ class doc(decomarker):
                 f'{errors_str}'
             )
 
-    @di.kwargs()  # so that it can be used as a context manager
-    def error_validation_context_initializer(self):
-        """ Create a context manager that will make sure the function only raises documented errors """
-        return ErrorValidationContextManager(self)
-
     def merge(self, another: doc):
         """ Merge the documentation from another marker into this one """
         # Dicts: update()
@@ -203,8 +200,29 @@ class doc(decomarker):
         self.result_doc = self.result_doc.merge(another.result_doc) if self.result_doc else another.result_doc
         self.deprecated_doc = self.deprecated_doc.merge(another.deprecated_doc) if self.deprecated_doc else another.deprecated_doc
 
+    def wrap_func_check_thrown_errors_are_documented(self, func: Callable) -> Callable:
+        """ A wrapper that will make sure that every error raised by the function is documented """
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Call the function
+            try:
+                return func(*args, **kwargs)
+            # Catch errors, see if they're documented
+            except BaseApplicationError as e:
+                if type(e) not in self.errors_doc:
+                    raise AssertionError(
+                        f"Function {func} raised an undocumented error: {e.name!r}. "
+                        f"Please put a @doc.error({e.name!r}, '', '') on the function and document it."
+                    ) from e
+                raise
+
+        # Done
+        return wrapper
+
     def _parse_from_function_docstring(self, func: Callable):
         """ Parse the function's documentation from its docstring """
+        # Optional import of the `docstring_parser` library
         from docstring_parser import (
             DocstringParam,
             DocstringReturns,
@@ -212,77 +230,102 @@ class doc(decomarker):
             DocstringDeprecated,
         )
         from docstring_parser.google import parse
+
+        # Parse the docstring
         parsed_docstring = parse(func.__doc__)
 
+        # Parse: title & description
         if parsed_docstring.short_description or parsed_docstring.long_description:
-            if not self.function_doc:
-                self.function_doc = FunctionDoc('', None)
-            self.function_doc.merge(FunctionDoc(
+            self._add_doc_for_function(
                 summary=parsed_docstring.short_description,
                 description=parsed_docstring.long_description or None,
-            ))
+            )
 
+        # Parse: docstring sections
         for section in parsed_docstring.meta:
+            # Parse: parameters
             if isinstance(section, DocstringParam):
                 summary, _, description = section.description.partition('\n')
-                self.parameters_doc[section.arg_name] = ParameterDoc(
-                    summary=summary,
-                    description=description or None,
-                    name=section.arg_name
-                )
+                self._add_doc_for_parameter(section.arg_name, summary, description or None)
+            # Parse: return value
             elif isinstance(section, DocstringReturns):
-                if not self.result_doc:
-                    self.result_doc = ResultDoc('', None)
-                self.result_doc.merge(ResultDoc(
-                    summary=section.description,
-                    description=None,
-                ))
+                self._add_doc_for_result(section.description, None)
+            # Parse: deprecation marker
             elif isinstance(section, DocstringDeprecated):
-                if not self.deprecated_doc:
-                    self.deprecated_doc = DeprecatedDoc('', None, '')
-                self.deprecated_doc.merge(DeprecatedDoc(
-                    summary=section.description,
-                    description=None,
-                    version=section.version,
-                ))
+                self._add_doc_deprecated(section.version, section.description, None)
+            # Parse: errors
             elif isinstance(section, DocstringRaises):
-                error_type_reference = section.type_name.strip()
-
-                # Ignore global error names
-                if error_type_reference in __builtins__:
-                    continue
-
-                # Resolve the error type using function's global namespace
-                try:
-                    error_cls = find_object_in_namespace(func.__globals__, error_type_reference)
-                except (KeyError, AttributeError) as e:
-                    raise ValueError(
-                        f"The docstring for function {func} references an error named {section.type_name!r}, "
-                        f"but it cannot be found in the function's globals. Please make sure its available "
-                        f"either by its name (e.g. `E_FAIL`), or by reference (`exc.E_FAIL`). "
-                    ) from e
-
-                # Ignore non-API errors. They're technical.
-                if not issubclass(error_cls, errors.BaseApplicationError):
-                    continue
-
-                # Document
-                self.errors_doc[error_cls] = ErrorDoc(
-                    summary=section.description,
-                    description=None,
-                    error=error_cls
-                )
+                self._add_doc_exception_name(func, section.type_name.strip(), section.description, None)
+            # Parse: unknown sections
             else:
-                # If the section is unknown, add it to the description
-                # Prepare the `function_doc` to make sure it's not empty
-                if not self.function_doc:
-                    self.function_doc = FunctionDoc('', None)
+                self._add_doc_for_function(summary='', description=''.join(section.args) + ':\n' + section.description)
 
-                # Append the section name.
-                self.function_doc.merge(FunctionDoc(
-                    summary='',
-                    description=''.join(section.args) + ':\n' + section.description
-                ))
+    def _add_doc_for_function(self, summary: str, description: Optional[str]):
+        """ Add function documentation """
+        if not self.function_doc:
+            self.function_doc = FunctionDoc('', None)
+        self.function_doc.merge(FunctionDoc(
+            summary,
+            description or None
+        ))
+
+    def _add_doc_for_parameter(self, name: str, summary: str, description: Optional[str]):
+        """ Add documentation for a parameter """
+        self.parameters_doc[name] = ParameterDoc(
+            name=name,
+            summary=summary,
+            description=description or None,
+        )
+
+    def _add_doc_for_result(self, summary: str, description: Optional[str]):
+        """ Add documentation for the return value """
+        if not self.result_doc:
+            self.result_doc = ResultDoc('', None)
+        self.result_doc.merge(ResultDoc(
+            summary=summary,
+            description=description or None,
+        ))
+
+    def _add_doc_deprecated(self, version: str, summary: str, description: Optional[str]):
+        """ Add documentation for a deprecation """
+        if not self.deprecated_doc:
+            self.deprecated_doc = DeprecatedDoc('', None, '')
+        self.deprecated_doc.merge(DeprecatedDoc(
+            version=version,
+            summary=summary,
+            description=description or None,
+        ))
+
+    def _add_doc_exception(self, error_cls: Type[errors.BaseApplicationError], summary: str, description: Optional[str]):
+        """ Add documentation for an exception type """
+        self.errors_doc[error_cls] = ErrorDoc(
+            error=error_cls,
+            summary=summary,
+            description=description,
+        )
+
+    def _add_doc_exception_name(self, func: Callable, error_name: str, summary: str, description: Optional[str]):
+        """ Add documentation for an exception by name """
+        # Ignore global error names
+        if error_name in __builtins__:
+            return
+
+        # Resolve the error type using function's global namespace
+        try:
+            error_cls = find_object_in_namespace(func.__globals__, error_name)
+        except (KeyError, AttributeError) as e:
+            raise ValueError(
+                f"The docstring for function {func} references an error named {error_name!r}, "
+                f"but it cannot be found in the function's globals. Please make sure its available "
+                f"either by its name (e.g. `E_FAIL`), or by reference (`exc.E_FAIL`). "
+            ) from e
+
+        # Ignore non-API errors. They're technical.
+        if not issubclass(error_cls, errors.BaseApplicationError):
+            return
+
+        # Document it
+        self._add_doc_exception(error_cls, summary, description)
 
 
 @dataclass
@@ -351,21 +394,3 @@ def find_object_in_namespace(namespace: dict, reference: str):
 
     # Done
     return object
-
-
-class ErrorValidationContextManager:
-    """ A context manager that will make sure that every error raised by the function is documented """
-
-    def __init__(self, doc_: doc):
-        self.doc = doc_
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type: Type[Exception], exc_val: Union[Exception, BaseApplicationError], exc_tb):
-        if isinstance(exc_val, BaseApplicationError):
-            if exc_type not in self.doc.errors_doc:
-                raise AssertionError(
-                    f"Function {self.doc.func} raised an undocumented error: {exc_val.name!r}. "
-                    f"Please put a @doc.error({exc_val.name!r}, '', '') on the function and document it."
-                ) from exc_val
