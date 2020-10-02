@@ -6,7 +6,7 @@ from typing import List, Callable, ContextManager, Optional
 
 import fastapi
 
-from apiens import operation, di, doc
+from apiens import operation, di, doc, errors
 from apiens.via.fastapi.error_schema import ErrorResponse
 
 
@@ -92,8 +92,8 @@ class OperationalApiRouter(fastapi.APIRouter):
                     default=fastapi.Body(
                         func_op.signature.argument_defaults.get(argument_name, ...),
                         embed=True,
-                        title=func_doc.parameters_doc[argument_name].summary,
-                        description=func_doc.parameters_doc[argument_name].description,
+                        title=func_doc.doc.parameters[argument_name].summary,
+                        description=func_doc.doc.parameters[argument_name].description,
                     ),
                     annotation=argument_type,
                 )
@@ -173,26 +173,31 @@ class OperationalApiRouter(fastapi.APIRouter):
             return {}
 
         # Function documentation
-        if func_doc.function_doc:
-            route_kw['summary'] = func_doc.function_doc.summary
-            route_kw['description'] = func_doc.function_doc.description
+        if func_doc.doc.function:
+            route_kw['summary'] = func_doc.doc.function.summary
+            route_kw['description'] = func_doc.doc.function.description
 
         # Result documentation
-        if func_doc.result_doc:
+        if func_doc.doc.result:
             route_kw['response_description'] = (
                 # Got to put them together because we have 2 fields, but FastAPI has only one
-                (func_doc.result_doc.summary or '') +
-                (func_doc.result_doc.description or '')
+                (func_doc.doc.result.summary or '') +
+                (func_doc.doc.result.description or '')
             )
 
         # Errors documentation.
         # Unfortunately, OpenAPI's responses are only described using http codes.
         # We will have to group our errors by HTTP codes :(
-        if func_doc.errors_doc:
+        if func_doc.doc.errors:
             route_kw['responses'] = responses = {}
 
             # For every error
-            for error_type, error_doc in func_doc.errors_doc.items():
+            for error_type, error_doc in func_doc.doc.errors.items():
+                # Only handle the types we know
+                if not issubclass(error_type, errors.BaseApplicationError):
+                    continue
+
+                # Convert
                 httpcode = error_type.httpcode
 
                 # Init the HTTP code object
