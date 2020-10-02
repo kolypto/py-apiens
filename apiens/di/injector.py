@@ -159,7 +159,9 @@ class Injector:
         return self
 
     def invoke(self, func: Callable, *args, **kwargs) -> Any:
-        """ Invoke a function, provide it with dependencies
+        """ Invoke a function, provide it with dependencies.
+
+        Note that if a function is not decorated with @di, it will be executed without any DI.
 
         Example:
 
@@ -182,12 +184,23 @@ class Injector:
             NoProviderError: no provider found for a dependency
         """
         marker = resolvable_marker.get_from(func)
+
+        if marker is None:
+            return func(*args, **kwargs)
+        else:
+            return self.resolve_and_invoke(func, marker.resolvable, *args, **kwargs)
+
+    def invoke_strictly(self, func: Callable, *args, **kwargs) -> Any:
+        """ Invoke a function, provide it with dependencies, require that it's decorated with @di.
+
+        This method is useful for cases where your code absolutely requires that the function has to be decorated.
+        """
+        marker = resolvable_marker.get_from(func)
+
         if marker is None:
             raise ValueError('A function must be decorated with a @di.signature(), @di.kwargs(), or others')
-        else:
-            resolvable = marker.resolvable
 
-        return self.resolve_and_invoke(func, resolvable, *args, **kwargs)
+        return self.resolve_and_invoke(func, marker.resolvable, *args, **kwargs)
 
     def partial(self, func: Callable, *args, **kwargs):
         """ Get a partial for `func` with all dependencies provided by this Injector. Useful for passing callbacks.
