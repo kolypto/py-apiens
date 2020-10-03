@@ -141,10 +141,8 @@ class OperationalApiRouter(fastapi.APIRouter):
             response_model_exclude_unset=True,
             response_model_exclude_defaults=True,
             # Documentation.
-            **self._operation_route_documentation_kwargs(func_op)
+            **operation_route_documentation_kwargs(func_op)
         )
-
-    # TODO: make static -- top level
 
     def _prepare_function_operation_endpoint(self, func_op: operation, class_op: operation = None) -> Callable:
         """ Make an endpoint-function: to call an operation via a di.Injector()
@@ -182,7 +180,7 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         # Tune the function's signature
         operations = [class_op, func_op] if class_op else [func_op]
-        self._patch_operation_endpoint_signature(
+        patch_operation_endpoint_signature(
             operation_endpoint,
             func_op.operation_id,
             func_op.signature.return_type,
@@ -192,127 +190,128 @@ class OperationalApiRouter(fastapi.APIRouter):
         # Done
         return operation_endpoint
 
-    def _patch_operation_endpoint_signature(self, endpoint: Callable, name: str, return_type: type, *operations: operation) -> Callable:
-        """ Prepare an endpoint function that will be understood by FastAPI.
 
-        Goals:
+def patch_operation_endpoint_signature(endpoint: Callable, name: str, return_type: type, *operations: operation) -> Callable:
+    """ Prepare an endpoint function that will be understood by FastAPI.
 
-        * Give it a nice name
-        * Set the return type annotation
-        * Set types and documentation for every parameter
+    Goals:
 
-        This method is suitable for patching both a function operation and class operation functions.
-        The difference lies in the distinction between function operations and class-based operations:
-        * Function operations have arguments which become API input arguments
-        * Class-based operations have a constructor that has to be called before the method, and it may also have paramenters.
-        Therefore, with class-based operations, we have to merge the parameters from both the constructor and the method.
-        """
-        # Combine the parameters from all operations
-        combined_parameters = {
-            argument_name: self._operation_parameter_info(argument_name, argument_type, op)
-            for op in operations
-            for argument_name, argument_type in op.signature.arguments.items()
-        }
+    * Give it a nice name
+    * Set the return type annotation
+    * Set types and documentation for every parameter
 
-        # Give it a name that might pop up somewhere in tracebacks
-        endpoint.__name__ = name
+    This method is suitable for patching both a function operation and class operation functions.
+    The difference lies in the distinction between function operations and class-based operations:
+    * Function operations have arguments which become API input arguments
+    * Class-based operations have a constructor that has to be called before the method, and it may also have paramenters.
+    Therefore, with class-based operations, we have to merge the parameters from both the constructor and the method.
+    """
+    # Combine the parameters from all operations
+    combined_parameters = {
+        argument_name: operation_parameter_info(argument_name, argument_type, op)
+        for op in operations
+        for argument_name, argument_type in op.signature.arguments.items()
+    }
 
-        # Generate a signature
-        endpoint.__signature__ = inspect.Signature(
-            parameters=list(combined_parameters.values()),
-            return_annotation=return_type,
+    # Give it a name that might pop up somewhere in tracebacks
+    endpoint.__name__ = name
+
+    # Generate a signature
+    endpoint.__signature__ = inspect.Signature(
+        parameters=list(combined_parameters.values()),
+        return_annotation=return_type,
+    )
+
+    # Done
+    return endpoint
+
+def operation_parameter_info(name: str, type_: type, op: operation) -> inspect.Parameter:
+    """ Prepare a parameter for the FastAPI endpoint function """
+    # Create the FastAPI parameter
+    # In FastAPI, this determines where the parameter is coming from: Body, Query, Path, etc.
+
+    # Is there an override?
+    customized = fastapi_route.get_from(op.func)
+    if customized and name in customized.parameters:
+        parameter = fastapi_route.get_from(op.func).parameters[name]
+    # Use the default: Body()
+    else:
+        parameter = fastapi.Body(
+            # If the parameter has a default, use it.
+            # If not, use the `...`. This is how FastAPI declares required parameters
+            op.signature.argument_defaults.get(name, ...),
+            # Documentation for the parameter
+            title=op.doc.parameters[name].summary,
+            description=op.doc.parameters[name].description,
         )
 
-        # Done
-        return endpoint
+    # For `Body` parameters, make sure they have `embed=True`.
+    # That is, don't "unwrap" it and put it at the top level.
+    if isinstance(parameter, fastapi.params.Body):
+        parameter.embed = True
 
-    def _operation_parameter_info(self, name: str, type_: type, op: operation) -> inspect.Parameter:
-        """ Prepare a parameter for the FastAPI endpoint function """
-        # Create the FastAPI parameter
-        # In FastAPI, this determines where the parameter is coming from: Body, Query, Path, etc.
+    # Make the parameter
+    return inspect.Parameter(
+        # Argument name: something that the API user has to provide
+        name=name,
+        # All arguments are keyword arguments
+        kind=inspect.Parameter.KEYWORD_ONLY,
+        # Parameter type annotation
+        annotation=type_,
+        # This is how FastAPI declares dependencies: <arg name> = Body() / Query() / Path()
+        default=parameter
+    )
 
-        # Is there an override?
-        customized = fastapi_route.get_from(op.func)
-        if customized and name in customized.parameters:
-            parameter = fastapi_route.get_from(op.func).parameters[name]
-        # Use the default: Body()
-        else:
-            parameter = fastapi.Body(
-                # If the parameter has a default, use it.
-                # If not, use the `...`. This is how FastAPI declares required parameters
-                op.signature.argument_defaults.get(name, ...),
-                # Documentation for the parameter
-                title=op.doc.parameters[name].summary,
-                description=op.doc.parameters[name].description,
-            )
+def operation_route_documentation_kwargs(op: operation) -> dict:
+    """ Get documentation kwargs for the route
 
-        # For `Body` parameters, make sure they have `embed=True`.
-        # That is, don't "unwrap" it and put it at the top level.
-        if isinstance(parameter, fastapi.params.Body):
-            parameter.embed = True
+    This function reads the docstring from `func` and returns kwargs for `add_api_route()`
+    """
+    route_kw = {}
 
-        # Make the parameter
-        return inspect.Parameter(
-            # Argument name: something that the API user has to provide
-            name=name,
-            # All arguments are keyword arguments
-            kind=inspect.Parameter.KEYWORD_ONLY,
-            # Parameter type annotation
-            annotation=type_,
-            # This is how FastAPI declares dependencies: <arg name> = Body() / Query() / Path()
-            default=parameter
+    # Function documentation
+    if op.doc.function:
+        route_kw['summary'] = op.doc.function.summary
+        route_kw['description'] = op.doc.function.description
+
+    # Result documentation
+    if op.doc.result:
+        route_kw['response_description'] = (
+            # Got to put them together because we have 2 fields, but FastAPI has only one
+            (op.doc.result.summary or '') +
+            (op.doc.result.description or '')
         )
 
-    def _operation_route_documentation_kwargs(self, op: operation) -> dict:
-        """ Get documentation kwargs for the route
+    # Errors documentation.
+    # Unfortunately, OpenAPI's responses are only described using http codes.
+    # We will have to group our errors by HTTP codes :(
+    if op.doc.errors:
+        route_kw['responses'] = responses = {}
 
-        This function reads the docstring from `func` and returns kwargs for `add_api_route()`
-        """
-        route_kw = {}
-        
-        # Function documentation
-        if op.doc.function:
-            route_kw['summary'] = op.doc.function.summary
-            route_kw['description'] = op.doc.function.description
+        # For every error
+        for error_type, error_doc in op.doc.errors.items():
+            # Only handle the types we know
+            if not issubclass(error_type, errors.BaseApplicationError):
+                continue
 
-        # Result documentation
-        if op.doc.result:
-            route_kw['response_description'] = (
-                # Got to put them together because we have 2 fields, but FastAPI has only one
-                (op.doc.result.summary or '') +
-                (op.doc.result.description or '')
+            # Convert
+            httpcode = error_type.httpcode
+
+            # Init the HTTP code object
+            if httpcode not in responses:
+                responses[httpcode] = {
+                    'model': ErrorResponse,
+                    'description': '',
+                }
+
+            # Add our error to this description as some sort of Markdown list.
+            # That's probably the best we can do here.
+            responses[httpcode]['description'] += (
+                f'`{error_type.__name__}`. {error_doc.summary}{error_doc.description or ""}\n\n'
             )
 
-        # Errors documentation.
-        # Unfortunately, OpenAPI's responses are only described using http codes.
-        # We will have to group our errors by HTTP codes :(
-        if op.doc.errors:
-            route_kw['responses'] = responses = {}
-
-            # For every error
-            for error_type, error_doc in op.doc.errors.items():
-                # Only handle the types we know
-                if not issubclass(error_type, errors.BaseApplicationError):
-                    continue
-
-                # Convert
-                httpcode = error_type.httpcode
-
-                # Init the HTTP code object
-                if httpcode not in responses:
-                    responses[httpcode] = {
-                        'model': ErrorResponse,
-                        'description': '',
-                    }
-
-                # Add our error to this description as some sort of Markdown list.
-                # That's probably the best we can do here.
-                responses[httpcode]['description'] += (
-                    f'`{error_type.__name__}`. {error_doc.summary}{error_doc.description or ""}\n\n'
-                )
-
-        # Done
-        return route_kw
+    # Done
+    return route_kw
 
 
 def get_operation_method(op: operation) -> str:
