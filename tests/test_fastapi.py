@@ -219,7 +219,6 @@ def test_class_endpoint():
     openapi = app.openapi()
 
     assert set(openapi['paths']) == {
-        '/index',
         '/user/list',
         '/user/create',
         '/user/get',

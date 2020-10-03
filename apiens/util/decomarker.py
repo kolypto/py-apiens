@@ -3,6 +3,7 @@ from inspect import unwrap, isfunction
 from typing import ClassVar, Callable, TypeVar, Optional, Sequence, Any, Type, Union
 
 Cls_T = TypeVar('Cls_T')
+Self_T = TypeVar('Self_T')
 
 
 class decomarker_meta(type):
@@ -74,6 +75,11 @@ class decomarker(metaclass=decomarker_meta):
         # Make sure this decorator is callable only once
         assert self.func is None
 
+        # Function decorated multipl times? Merge.
+        prev_marker = self.get_from(func)
+        if prev_marker is not None:
+            self._merge(prev_marker)
+
         # Mark the func. Use unwrap() to make sure we get to the meat.
         setattr(unwrap(func), self.MARKER_ATTR, self)
 
@@ -81,6 +87,10 @@ class decomarker(metaclass=decomarker_meta):
         self.func = func
         self.func_name = func.__name__
         return func
+
+    def _merge(self: Self_T, another: Self_T):
+        cls_name = self.__class__.__name__
+        raise NotImplementedError(f'@{cls_name} does not support re-decoration')
 
     def __repr__(self):
         return f'@{self.__class__.__name__}({self.__dict__!r})'

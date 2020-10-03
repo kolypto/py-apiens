@@ -9,6 +9,7 @@ from typing import Optional, Callable, Dict, Type, Any
 from apiens.errors import BaseApplicationError
 from apiens.operations import operation
 from apiens.util import decomarker
+from apiens.util.decomarker import Self_T
 
 
 class doc(decomarker):
@@ -58,13 +59,11 @@ class doc(decomarker):
             except Exception as e:
                 raise ValueError(f'Error while parsing docstring of {func}') from e
 
-        # If the function is decorated multiple times, merge
-        marker = self.get_from(func)
-        if marker is not None:
-            self.doc.merge(marker.doc)
-
         # Done
         return super().decorator(func)
+
+    def _merge(self: Self_T, another: Self_T):
+        self.doc.merge(another.doc)
 
     def validate(self):
         """ Check that all documentations make sense """

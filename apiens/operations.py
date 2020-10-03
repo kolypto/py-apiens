@@ -72,7 +72,7 @@ class operation(decomarker):
         # Custom extra info
         self.info: dict = info
 
-    def decorator(self, func: Callable):
+    def decorator(self, func: Union[Callable, type]):
         # `id` defaults to function name
         if self.operation_id is None:
             self.operation_id = func.__name__

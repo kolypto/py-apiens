@@ -8,6 +8,7 @@ from typing import get_type_hints
 from apiens.util import decomarker
 from .const import MISSING
 from .defs import InjectionToken, Dependency, Resolvable
+from ..util.decomarker import Self_T
 
 
 def signature(*include, exclude: Container[str] = None) -> Callable[[Callable], resolvable_marker]:
@@ -127,14 +128,11 @@ class resolvable_marker(decomarker):
         # Bind the Resolvable to a function
         self.resolvable.func = func
 
-        # See if the function is already decorated.
-        # If so, merge
-        marker = self.get_from(func)
-        if marker is not None:
-            self.resolvable.merge(marker.resolvable)
-
         # Done
         return super().decorator(func)
+
+    def _merge(self: Self_T, another: Self_T):
+        self.resolvable.merge(another.resolvable)
 
 
 def resolvable_from_function_signature(func: Callable,
