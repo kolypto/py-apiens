@@ -68,33 +68,8 @@ class OperationalApiRouter(fastapi.APIRouter):
         func_op = operation.get_from(func)
         assert func_op is not None, f'Function {func} must be decorated with @operation'
 
-        # Validate the documentation
-        if self.debug:
-            func_op.check_operation_documentation(fully_documented=self.fully_documented)
-            func = func_op.wrap_func_check_thrown_errors_are_documented(func)
-
-        # Prepare the actual operation endpoint
-        operation_endpoint = self._prepare_function_operation_endpoint(func_op)
-
-        # Register the route
-        self.add_api_route(
-            # Path: the operation id itself
-            '/' + func_op.operation_id,
-            # Func: the function to all
-            operation_endpoint,
-            # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
-            methods=['POST'],  # TODO: choose methods and paths
-            # Use the same operation id: openapi-generator will find a good use to it
-            operation_id=func_op.operation_id,
-            name=func_op.operation_id,
-            # Its return type: exactly what the function returns.
-            # With some pydantic tuning.
-            response_model=func_op.signature.return_type,
-            response_model_exclude_unset=True,
-            response_model_exclude_defaults=True,
-            # Documentation.
-            **self._operation_route_documentation_kwargs(func_op)
-        )
+        # Register
+        self._register_operation(func_op)
 
         # Done
         return func
@@ -107,39 +82,10 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         # List its sub-operations
         for func_op in operation.all_decorated_from(class_, inherited=True):
-            self._register_class_operation(class_op, func_op)
+            self._register_operation(func_op, class_op)
 
         # Done
         return class_
-
-    def _register_class_operation(self, class_op: operation, func_op: operation):
-        """ low-level: register a single class-based operation """
-        # Validate the documentation
-        if self.debug:
-            func_op.check_operation_documentation(fully_documented=self.fully_documented)
-
-        # Prepare the class operation endpoint
-        operation_endpoint = self._prepare_function_operation_endpoint(func_op, class_op)
-
-        # Register the route
-        self.add_api_route(
-            # Path: the operation id itself
-            '/' + class_op.operation_id + '/' + func_op.operation_id,
-            # Func: the function to all
-            operation_endpoint,
-            # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
-            methods=['POST'],
-            # Use the same operation id: openapi-generator will find a good use to it
-            operation_id=class_op.operation_id + '.' + func_op.operation_id,
-            name=class_op.operation_id + '.' + func_op.operation_id,
-            # Its return type: exactly what the function returns.
-            # With some pydantic tuning.
-            response_model=func_op.signature.return_type,
-            response_model_exclude_unset=True,
-            response_model_exclude_defaults=True,
-            # Documentation.
-            **self._operation_route_documentation_kwargs(func_op)
-        )
 
     def _request_injector(self, func_op: operation) -> di.Injector:
         """ Create a di.Injector() for this request """
@@ -153,6 +99,42 @@ class OperationalApiRouter(fastapi.APIRouter):
         request_injector.provide_value(di.Injector, request_injector)
 
         return request_injector
+
+    def _register_operation(self, func_op: operation, class_op: operation = None):
+        # Validate the documentation
+        if self.debug:
+            func_op.check_operation_documentation(fully_documented=self.fully_documented)
+
+        # Prepare the operation endpoint
+        operation_endpoint = self._prepare_function_operation_endpoint(func_op, class_op or None)
+
+        # Names
+        path = '/' + func_op.operation_id
+        operation_id = func_op.operation_id
+
+        if class_op:
+            path = '/' + class_op.operation_id + path
+            operation_id = class_op.operation_id + '.' + operation_id
+
+        # Register the route
+        self.add_api_route(
+            # Path: the operation id itself
+            path,
+            # Func: the function to all
+            operation_endpoint,
+            # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
+            methods=['POST'],  # TODO: choose methods and paths
+            # Use the same operation id: openapi-generator will find a good use to it
+            operation_id=operation_id,
+            name=operation_id,
+            # Its return type: exactly what the function returns.
+            # With some pydantic tuning.
+            response_model=func_op.signature.return_type,
+            response_model_exclude_unset=True,
+            response_model_exclude_defaults=True,
+            # Documentation.
+            **self._operation_route_documentation_kwargs(func_op)
+        )
 
     def _prepare_function_operation_endpoint(self, func_op: operation, class_op: operation = None) -> Callable:
         """ Make an endpoint-function: to call an operation via a di.Injector()
