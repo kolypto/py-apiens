@@ -2,11 +2,14 @@
 from copy import copy
 
 import fastapi
+import fastapi.params
 import inspect
 from typing import List, Callable, Union
+import urllib.parse
 
 from apiens import operation, di, errors
 from apiens.via.fastapi.error_schema import ErrorResponse
+from apiens.via.fastapi.fastapi_route import fastapi_route
 
 
 class OperationalApiRouter(fastapi.APIRouter):
@@ -108,13 +111,18 @@ class OperationalApiRouter(fastapi.APIRouter):
         # Prepare the operation endpoint
         operation_endpoint = self._prepare_function_operation_endpoint(func_op, class_op or None)
 
-        # Names
-        path = '/' + func_op.operation_id
-        operation_id = func_op.operation_id
+        # Choose the method and the path
+        method = get_operation_method(func_op)
+        path = get_operation_path(func_op)
 
         if class_op:
-            path = '/' + class_op.operation_id + path
-            operation_id = class_op.operation_id + '.' + operation_id
+            path = path_join(get_operation_path(class_op), path)
+
+        # Choose an operation id
+        if class_op:
+            operation_id = f'{class_op.operation_id}.{func_op.operation_id}'
+        else:
+            operation_id = f'{func_op.operation_id}'
 
         # Register the route
         self.add_api_route(
@@ -123,7 +131,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             # Func: the function to all
             operation_endpoint,
             # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
-            methods=['POST'],  # TODO: choose methods and paths
+            methods=[method],
             # Use the same operation id: openapi-generator will find a good use to it
             operation_id=operation_id,
             name=operation_id,
@@ -135,6 +143,8 @@ class OperationalApiRouter(fastapi.APIRouter):
             # Documentation.
             **self._operation_route_documentation_kwargs(func_op)
         )
+
+    # TODO: make static -- top level
 
     def _prepare_function_operation_endpoint(self, func_op: operation, class_op: operation = None) -> Callable:
         """ Make an endpoint-function: to call an operation via a di.Injector()
@@ -170,9 +180,16 @@ class OperationalApiRouter(fastapi.APIRouter):
                 # ... execute the function
                 return request_injector.invoke(func_op.func, *args, **kwargs)
 
+        # Tune the function's signature
+        operations = [class_op, func_op] if class_op else [func_op]
+        self._patch_operation_endpoint_signature(
+            operation_endpoint,
+            func_op.operation_id,
+            func_op.signature.return_type,
+            *operations
+        )
+
         # Done
-        operations = filter(None, [class_op, func_op])
-        self._patch_operation_endpoint_signature(operation_endpoint, func_op.operation_id, func_op.signature.return_type, *operations)
         return operation_endpoint
 
     def _patch_operation_endpoint_signature(self, endpoint: Callable, name: str, return_type: type, *operations: operation) -> Callable:
@@ -211,6 +228,30 @@ class OperationalApiRouter(fastapi.APIRouter):
 
     def _operation_parameter_info(self, name: str, type_: type, op: operation) -> inspect.Parameter:
         """ Prepare a parameter for the FastAPI endpoint function """
+        # Create the FastAPI parameter
+        # In FastAPI, this determines where the parameter is coming from: Body, Query, Path, etc.
+
+        # Is there an override?
+        customized = fastapi_route.get_from(op.func)
+        if customized and name in customized.parameters:
+            parameter = fastapi_route.get_from(op.func).parameters[name]
+        # Use the default: Body()
+        else:
+            parameter = fastapi.Body(
+                # If the parameter has a default, use it.
+                # If not, use the `...`. This is how FastAPI declares required parameters
+                op.signature.argument_defaults.get(name, ...),
+                # Documentation for the parameter
+                title=op.doc.parameters[name].summary,
+                description=op.doc.parameters[name].description,
+            )
+
+        # For `Body` parameters, make sure they have `embed=True`.
+        # That is, don't "unwrap" it and put it at the top level.
+        if isinstance(parameter, fastapi.params.Body):
+            parameter.embed = True
+
+        # Make the parameter
         return inspect.Parameter(
             # Argument name: something that the API user has to provide
             name=name,
@@ -219,19 +260,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             # Parameter type annotation
             annotation=type_,
             # This is how FastAPI declares dependencies: <arg name> = Body() / Query() / Path()
-            # TODO: Choose Body() / Query() / Path()
-            default=fastapi.Body(
-                # If the argument has a default, use it.
-                # If not, use the `...`. This is how FastAPI declares required parameters
-                op.signature.argument_defaults.get(name, ...),
-                # Have this parameter named. That is, don't "unwrap" it and put it at the top level.
-                # We could have generated our own Pydantic model for the whole body, and gave it an `embed=False`, \
-                # but why do it ourselves if FastAPI can?
-                embed=True,
-                # Documentation for the parameter
-                title=op.doc.parameters[name].summary,
-                description=op.doc.parameters[name].description,
-            ),
+            default=parameter
         )
 
     def _operation_route_documentation_kwargs(self, op: operation) -> dict:
@@ -284,3 +313,26 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         # Done
         return route_kw
+
+
+def get_operation_method(op: operation) -> str:
+    """ Having an @operation, decide which HTTP method to use for it. It may be overridden with @fastapi_route() """
+    if fastapi_route.is_decorated(op.func):
+        return fastapi_route.get_from(op.func).method
+    else:
+        return 'POST'
+
+
+def get_operation_path(op: operation) -> str:
+    """ Having an @operation, decide which path to use for it. It may be overridden with @fastapi_route() """
+    if fastapi_route.is_decorated(op.func):
+        return path_join('/', fastapi_route.get_from(op.func).path)
+    else:
+        return path_join('/', op.operation_id)
+
+
+def path_join(base: str, url: str) -> str:
+    """ Join two parts of an URL """
+    base = base.rstrip('/') + '/'
+    url = url.lstrip('/')
+    return urllib.parse.urljoin(base, url)

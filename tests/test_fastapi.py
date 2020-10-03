@@ -1,8 +1,10 @@
 from fastapi import FastAPI
+from fastapi.params import Path
 from starlette.testclient import TestClient
 
 from apiens import errors_default as app_exc  # noqa: used in docstrings
 from apiens import operation, di
+from apiens.via.fastapi import fastapi_route
 
 
 def test_flat_operation():
@@ -104,6 +106,7 @@ def test_class_endpoint():
         """ Operations on the User object """
 
         @operation()
+        @fastapi_route('GET', '/')
         def list(self) -> dict:
             """ Get a list of all users
 
@@ -113,6 +116,7 @@ def test_class_endpoint():
             return {'users': []}
 
         @operation()
+        @fastapi_route('POST', '/')
         def create(self, user: dict) -> dict:
             """ Create a user
 
@@ -125,6 +129,7 @@ def test_class_endpoint():
             return {'user': user}
 
         @operation()
+        @fastapi_route('GET', '/{id:int}', id=Path(...))
         def get(self, id: int) -> dict:
             """ Get a user
 
@@ -137,6 +142,7 @@ def test_class_endpoint():
             return {'user': {'id': id}}
 
         @operation()
+        @fastapi_route('PATCH', '/{id:int}', id=Path(...))
         def update(self, id: int, user: dict) -> dict:
             """ Update a user
 
@@ -150,6 +156,7 @@ def test_class_endpoint():
             return {'user': {'id': id, **user}}
 
         @operation()
+        @fastapi_route('DELETE', '/{id:int}', id=Path(...))
         def delete(self, id: int) -> dict:
             """ Delete a user
 
@@ -177,42 +184,63 @@ def test_class_endpoint():
         (route.path, tuple(sorted(route.methods)))
         for route in app.routes
     } == {
-        ('/user/list', ('POST',)),
-        ('/user/create', ('POST',)),
-        ('/user/get', ('POST',)),
-        ('/user/update', ('POST',)),
-        ('/user/delete', ('POST',)),
+        ('/user/', ('GET',)),  # list()
+        ('/user/', ('POST',)),  # create()
+        ('/user/{id:int}', ('GET',)),  # get()
+        ('/user/{id:int}', ('PATCH',)),  # update()
+        ('/user/{id:int}', ('DELETE',)),  # delete
     }
 
     # Test the API
     with TestClient(app) as c:
         # list()
-        res = c.post('/user/list')
+        res = c.get('/user/')
         assert res.json() == {'users': []}
 
         # create()
-        res = c.post('/user/create', json={'user': {'name': 'K'}})
+        res = c.post('/user/', json={'user': {'name': 'K'}})
         assert res.json() == {'user': {'name': 'K'}}
 
         # get()
-        res = c.post('/user/get', json={'id': 1})
+        res = c.get('/user/1')
         assert res.json() == {'user': {'id': 1}}
 
         # update()
-        res = c.post('/user/update', json={'id': 1, 'user': {'name': 'K'}})
+        res = c.patch('/user/1', json={'id': 1, 'user': {'name': 'K'}})
         assert res.json() == {'user': {'id': 1, 'name': 'K'}}
 
         # delete()
-        res = c.post('/user/delete', json={'id': 1})
+        res = c.delete('/user/1', json={'id': 1})
         assert res.json() == {'user': {'id': 1}}
 
     # Test the OpenAPI
     openapi = app.openapi()
 
     assert set(openapi['paths']) == {
-        '/user/list',
-        '/user/create',
-        '/user/get',
-        '/user/update',
-        '/user/delete',
+        '/user/',
+        '/user/{id}',
     }
+    assert set(openapi['paths']['/user/']) == {
+        'get',
+        'post',
+    }
+    assert set(openapi['paths']['/user/{id}']) == {
+        'get',
+        'delete',
+        'patch',
+    }
+
+    assert openapi['paths']['/user/']['get']['operationId'] == 'user.list'
+    assert openapi['paths']['/user/']['post']['operationId'] == 'user.create'
+    assert openapi['paths']['/user/{id}']['get']['operationId'] == 'user.get'
+    assert openapi['paths']['/user/{id}']['patch']['operationId'] == 'user.update'
+    assert openapi['paths']['/user/{id}']['delete']['operationId'] == 'user.delete'
+
+    assert openapi['paths']['/user/{id}']['get']['parameters'] == [
+      {
+        "required": True,
+        "schema": {"title": "Id", "type": "integer"},
+        "name": "id",
+        "in": "path",  # the parameter has successfully gone into Path()
+      }
+    ]
