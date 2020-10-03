@@ -4,12 +4,12 @@ import sqlalchemy.orm
 from typing import Union, Iterable, ClassVar, Generic
 
 from apiens.views.crud import CrudBase
-from apiens.views.crud.crudbase import ModelT, ResponseValueT
+from apiens.views.crud.crudbase import SAInstanceT, ResponseValueT
 from apiens.views.mongoquery_crud.defs import QueryObject
 from apiens.views.mongoquery_crud.mongocrud_settings import MongoCrudSettings
 
 
-class MongoCrudBase(CrudBase[ModelT, ResponseValueT], Generic[ModelT, ResponseValueT]):
+class MongoCrudBase(CrudBase[SAInstanceT, ResponseValueT], Generic[SAInstanceT, ResponseValueT]):
     """ MongoSQL-enabled CRUD """
 
     crudsettings: ClassVar[MongoCrudSettings]
@@ -30,7 +30,7 @@ class MongoCrudBase(CrudBase[ModelT, ResponseValueT], Generic[ModelT, ResponseVa
         """
         return mq
 
-    def _query(self, *filter, **filter_by) -> Union[sa.orm.Query, Iterable[ModelT]]:
+    def _query(self, *filter, **filter_by) -> Union[sa.orm.Query, Iterable[SAInstanceT]]:
         query = super()._query(*filter, **filter_by)
 
         if self.crudsettings._mongoquery_enabled:

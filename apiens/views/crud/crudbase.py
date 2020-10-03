@@ -5,13 +5,14 @@ import sqlalchemy as sa
 import sqlalchemy.orm
 from typing import TypeVar, Generic, Iterable, Union, Mapping, Any, Generator, ClassVar, Set, Sequence, Type, ContextManager, Optional
 
-# SqlAlchemy model
 from apiens.util import decomarker
 from . import crud_signals
 from .crud_settings import CrudSettings
 from .instance_history_proxy import get_history_proxy_for_instance
 
-ModelT = TypeVar("ModelT")
+
+# SqlAlchemy instance
+SAInstanceT = TypeVar("SAInstanceT")
 
 # Response object
 ResponseValueT = TypeVar("ResponseValueT")
@@ -26,7 +27,7 @@ InstanceDict = Mapping[str, Any]
 UserFilterValue = Any
 
 
-class SimpleCrudBase(Generic[ModelT]):
+class SimpleCrudBase(Generic[SAInstanceT]):
     """ CRUD Handler: basic business-logic layer for your SqlAlchemy instances.
 
     Main features:
@@ -75,11 +76,11 @@ class SimpleCrudBase(Generic[ModelT]):
 
     # These methods implement the basic features of CRUD operations: get the input, apply it, yield results.
     # Every method receives *filter and **filter_by arguments that let you apply custom filtering.
-    # They all return SqlAlchemy models, or Query[ModelT] iterables
+    # They all return SqlAlchemy models, or Query[SAInstanceT] iterables
     # They do not flush() nor commit()
     # These are the basic building blocks for your application.
 
-    def _get_instance(self, *filter: sa.sql.expression.BinaryExpression, **filter_by: Mapping[str, Any]) -> ModelT:
+    def _get_instance(self, *filter: sa.sql.expression.BinaryExpression, **filter_by: Mapping[str, Any]) -> SAInstanceT:
         """ get() method: load one instance
 
         Args:
@@ -94,17 +95,17 @@ class SimpleCrudBase(Generic[ModelT]):
         # Raises: sqlalchemy.orm.exc.MultipleResultsFound
         return self._query(*filter, **filter_by).one()
 
-    def _list_instances(self, *filter: sa.sql.expression.BinaryExpression, **filter_by: Mapping[str, Any]) -> Union[sa.orm.Query, Iterable[ModelT]]:
+    def _list_instances(self, *filter: sa.sql.expression.BinaryExpression, **filter_by: Mapping[str, Any]) -> Union[sa.orm.Query, Iterable[SAInstanceT]]:
         """ list() method: load multiple instances
 
         This method will ssn.query() them and return
 
         Returns:
-            Query[ModelT] that can be iterated for models
+            Query[SAInstanceT] that can be iterated for models
         """
         return self._query(*filter, **filter_by)
 
-    def _create_instance(self, input: pd.BaseModel) -> ModelT:
+    def _create_instance(self, input: pd.BaseModel) -> SAInstanceT:
         """ create() method: create an instance
 
         This method will Model(**input.dict()) , do @saves_custom_fields(), but won't ssn.add() it
@@ -132,7 +133,7 @@ class SimpleCrudBase(Generic[ModelT]):
         # Done
         return instance
 
-    def _update_instance(self, input: pd.BaseModel, *filter, **filter_by) -> ModelT:
+    def _update_instance(self, input: pd.BaseModel, *filter, **filter_by) -> SAInstanceT:
         """ update() method: load an existing instance and modify it
 
         This method will ssn.query() it, setattr() changes, do @saves_custom_fields(), but won't ssn.flush() it.
@@ -164,7 +165,7 @@ class SimpleCrudBase(Generic[ModelT]):
         # Done
         return instance
 
-    def _delete_instance(self, *filter, **filter_by) -> ModelT:
+    def _delete_instance(self, *filter, **filter_by) -> SAInstanceT:
         """ delete() method: delete an existing instance and return it
 
         This method will ssn.query() it ... and nothing else.
@@ -188,7 +189,7 @@ class SimpleCrudBase(Generic[ModelT]):
         # Done
         return instance
 
-    def _instance_hook_presave(self, new: Optional[ModelT] = None, prev: Optional[ModelT] = None):
+    def _instance_hook_presave(self, new: Optional[SAInstanceT] = None, prev: Optional[SAInstanceT] = None):
         """ A hook called when an instance is going to be saved. Pre-flush, before signals.
 
         This hook is called before_flush:
@@ -224,7 +225,7 @@ class SimpleCrudBase(Generic[ModelT]):
     # Methods that simply create/modify an instance from an input
     # Create/Update an instance using the input model
 
-    def _create_instance_from_input(self, input: pd.BaseModel, *, exclude: Set[str]) -> ModelT:
+    def _create_instance_from_input(self, input: pd.BaseModel, *, exclude: Set[str]) -> SAInstanceT:
         """ Given an `input` model, create a new SA Model, do @saves_custom_fields(), return """
         input_dict = input.dict(exclude_unset=True, exclude=exclude)
 
@@ -235,7 +236,7 @@ class SimpleCrudBase(Generic[ModelT]):
 
         return instance
 
-    def _update_instance_from_input(self, instance: ModelT, input: pd.BaseModel, *, exclude: Set[str]) -> ModelT:
+    def _update_instance_from_input(self, instance: SAInstanceT, input: pd.BaseModel, *, exclude: Set[str]) -> SAInstanceT:
         """ Given an `input` and an `instance`, update it, do @saves_custom_fields(), return """
         input_dict = input.dict(exclude_unset=True, exclude=exclude)
 
@@ -248,11 +249,11 @@ class SimpleCrudBase(Generic[ModelT]):
 
     # Create/Update an instance using the input dict
 
-    def _create_instance_from_input_dict(self, input_dict: dict) -> ModelT:
+    def _create_instance_from_input_dict(self, input_dict: dict) -> SAInstanceT:
         """ Given an `input_dict` dict, create a new Model """
         return self.crudsettings.Model(**input_dict)
 
-    def _update_instance_from_input_dict(self, instance: ModelT, input_dict: dict) -> ModelT:
+    def _update_instance_from_input_dict(self, instance: SAInstanceT, input_dict: dict) -> SAInstanceT:
         """ Given an `input_dict` and an `instance`, update it """
         for name, value in input_dict.items():
             setattr(instance, name, value)  # triggers SqlAlchemy change detection logic
@@ -264,7 +265,7 @@ class SimpleCrudBase(Generic[ModelT]):
 
     # region Querying
 
-    def _query(self, *filter, **filter_by) -> Union[sa.orm.Query, Iterable[ModelT]]:
+    def _query(self, *filter, **filter_by) -> Union[sa.orm.Query, Iterable[SAInstanceT]]:
         """ Start a Query for loading instances of our Model
 
         Args:
@@ -288,7 +289,7 @@ class SimpleCrudBase(Generic[ModelT]):
     # endregion
 
 
-class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
+class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]):
     """ Feature-complete Crud Handler for your application's business logic
 
     In addition to SimpleCrudBase, provides:
@@ -481,15 +482,15 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
 
     # These methods implement the SqlAlchemy Session saving logic
 
-    def _session_get_instance(self, **kwargs: UserFilterValue) -> ModelT:
+    def _session_get_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
         """ Session support for get(): load an instance by filtering """
         return self._get_instance(**kwargs)
 
-    def _session_list_instances(self, **kwargs: UserFilterValue) -> Iterable[ModelT]:
+    def _session_list_instances(self, **kwargs: UserFilterValue) -> Iterable[SAInstanceT]:
         """ Session support for list(): load instances by filtering """
         return self._list_instances(**kwargs)
 
-    def _session_create_instance(self, input: pd.BaseModel) -> ModelT:
+    def _session_create_instance(self, input: pd.BaseModel) -> SAInstanceT:
         """ Session support for create(): create an instance and flush() it """
         # Create
         instance = self._create_instance(input)
@@ -505,7 +506,7 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
         # Done
         return instance
 
-    def _session_update_instance(self, input: pd.BaseModel, **kwargs: UserFilterValue) -> ModelT:
+    def _session_update_instance(self, input: pd.BaseModel, **kwargs: UserFilterValue) -> SAInstanceT:
         """ Session support for update(): load an instance, modify it, flush() it """
         # Update
         instance = self._update_instance(input, **kwargs)
@@ -522,7 +523,7 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
         # Done
         return instance
 
-    def _session_delete_instance(self, **kwargs: UserFilterValue) -> ModelT:
+    def _session_delete_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
         """ Session support for delete(): load an instance, Session.delete() it, flush it  """
         # Delete
         instance = self._delete_instance(**kwargs)
@@ -543,7 +544,7 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
         # Done
         return instance
 
-    def _session_create_or_update_instance(self, input: pd.BaseModel, **kwargs) -> ModelT:
+    def _session_create_or_update_instance(self, input: pd.BaseModel, **kwargs) -> SAInstanceT:
         """ Session support for create_or_update(): choose _create_instance() or _update_instance() """
         # Is there a primary key inside?
         pk_provided = self.crudsettings._primary_key_provided(input)
@@ -565,13 +566,13 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
 
     # These methods override SimpleCrudBase methods and add support for filter() & filter1()
 
-    def _get_instance(self, **kwargs: UserFilterValue) -> ModelT:
+    def _get_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
         return super()._get_instance(*self._filter1(**{**self.kwargs, **kwargs}))
 
-    def _list_instances(self, **kwargs: UserFilterValue) -> Iterable[ModelT]:
+    def _list_instances(self, **kwargs: UserFilterValue) -> Iterable[SAInstanceT]:
         return super()._list_instances(*self._filter(**{**self.kwargs, **kwargs}))
 
-    def _update_instance(self, input: pd.BaseModel, **kwargs: UserFilterValue) -> ModelT:
+    def _update_instance(self, input: pd.BaseModel, **kwargs: UserFilterValue) -> SAInstanceT:
         # Pull the primary key from the `input`, if provided
         pk_fields_in_input = set(self.crudsettings._primary_key) & input.__fields_set__
         kwargs.update({pk_field: getattr(input, pk_field)
@@ -581,14 +582,14 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
         # Update
         return super()._update_instance(input, *self._filter1(**{**self.kwargs, **kwargs}))
 
-    def _delete_instance(self, **kwargs: UserFilterValue) -> ModelT:
+    def _delete_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
         return super()._delete_instance(*self._filter1(**{**self.kwargs, **kwargs}))
 
     # endregion
 
     # region Output
 
-    def _instance_output(self, instance: ModelT, schema: Type[pd.BaseModel]) -> ResponseValueT:
+    def _instance_output(self, instance: SAInstanceT, schema: Type[pd.BaseModel]) -> ResponseValueT:
         """ Convert an SqlAlchemy instance to the final output value """
         # Use Pydantic to convert it
         return schema.from_orm(instance)

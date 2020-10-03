@@ -9,7 +9,7 @@ from sa2schema import sa_model_info, AttributeType
 from sa2schema.info import RelationshipInfo, PropertyInfo, HybridPropertyInfo
 
 
-ModelT = TypeVar('ModelT')
+SAInstanceT = TypeVar('SAInstanceT')
 
 
 class InstanceHistoryProxy:
@@ -99,7 +99,7 @@ class InstanceHistoryProxy:
         return new_state
 
 
-def get_history_proxy_for_instance(instance: ModelT, copy: bool = False) -> ModelT:
+def get_history_proxy_for_instance(instance: SAInstanceT, copy: bool = False) -> SAInstanceT:
     """ Get a permanent InstanceHistoryProxy for an instance.
 
     Every time this function is called on an instance, even after flush, the very same InstanceHistoryProxy will be returned.
