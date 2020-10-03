@@ -3,7 +3,7 @@ from copy import copy
 
 import fastapi
 import inspect
-from typing import List, Callable, Optional
+from typing import List, Callable, Union
 
 from apiens import operation, di, errors
 from apiens.via.fastapi.error_schema import ErrorResponse
@@ -45,29 +45,20 @@ class OperationalApiRouter(fastapi.APIRouter):
         self.func_operations: List[Callable] = []
         self.class_operations: List[type] = []
 
-    def add_flat_operations(self, *operations: Callable):
-        """ Add flat operations: plain, @operation-decorated, functions.
-
-        Use register_flat_operation() if you want to customize.
+    def add_operations(self, *operations: Union[Callable, type]):
+        """ Add operations to the router
 
         Args:
-            *operations: Functions. Decorated by @operation. Optionally decorated by @di.*.
+             *operations: Functions, or classes, decorated by @operation.
         """
         for operation in operations:
-            self.func_operations.append(
-                self.register_flat_operation(operation)
-            )
-        return self
+            if inspect.isclass(operation):
+                self.class_operations.append(self.register_class_operations(operation))
+            else:
+                self.func_operations.append(self.register_func_operation(operation))
 
-    def add_class_operations(self, *operations: type):
-        for operation in operations:
-            self.class_operations.append(
-                self.register_class_operations(operation)
-            )
-        return self
-
-    def register_flat_operation(self, func: Callable) -> Callable:
-        """ Register a single flat operation
+    def register_func_operation(self, func: Callable) -> Callable:
+        """ Register a single function-operation
 
         Args:
             func: The function to register as an operation
@@ -82,7 +73,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             func = func_op.wrap_func_check_thrown_errors_are_documented(func)
 
         # Prepare the actual operation endpoint
-        operation_endpoint = self._prepare_operation_endpoint_function(func, func_op)
+        operation_endpoint = self._prepare_function_operation_endpoint(func, func_op)
 
         # Register the route
         self.add_api_route(
@@ -91,7 +82,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             # Func: the function to all
             operation_endpoint,
             # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
-            methods=['POST'],
+            methods=['POST'],  # TODO: choose methods and paths
             # Use the same operation id: openapi-generator will find a good use to it
             operation_id=func_op.operation_id,
             name=func_op.operation_id,
@@ -101,7 +92,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             response_model_exclude_unset=True,
             response_model_exclude_defaults=True,
             # Documentation.
-            **self._route_documentation_kwargs(func_op)
+            **self._operation_route_documentation_kwargs(func_op)
         )
 
         # Done
@@ -123,7 +114,7 @@ class OperationalApiRouter(fastapi.APIRouter):
                 func = func_op.wrap_func_check_thrown_errors_are_documented(func)
 
             # Prepare the class operation endpoint
-            operation_endpoint = self._prepare_class_operation_endpoint_function(class_, class_op, func, func_op)
+            operation_endpoint = self._prepare_method_operation_endpoint_function(class_, class_op, func, func_op)
 
             # Register the route
             self.add_api_route(
@@ -142,7 +133,7 @@ class OperationalApiRouter(fastapi.APIRouter):
                 response_model_exclude_unset=True,
                 response_model_exclude_defaults=True,
                 # Documentation.
-                **self._route_documentation_kwargs(func_op)
+                **self._operation_route_documentation_kwargs(func_op)
             )
 
         # Done
@@ -161,7 +152,7 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         return request_injector
 
-    def _prepare_operation_endpoint_function(self, func: Callable, func_op: operation) -> Callable:
+    def _prepare_function_operation_endpoint(self, func: Callable, func_op: operation) -> Callable:
         """ Prepare a function that will be used to call the operation """
         # Prepare the actual endpoint function
         def operation_endpoint(**kwargs):
@@ -171,10 +162,10 @@ class OperationalApiRouter(fastapi.APIRouter):
                 return request_injector.invoke(func, **kwargs)
 
         # Done
-        self._prepare_operation_endpoint_signature(operation_endpoint, func_op)
+        self._patch_operation_endpoint_signature(operation_endpoint, func_op.operation_id, func_op.signature.return_type, func_op)
         return operation_endpoint
 
-    def _prepare_class_operation_endpoint_function(self, class_: type, class_op: operation, func: Callable, func_op: operation) -> Callable:
+    def _prepare_method_operation_endpoint_function(self, class_: type, class_op: operation, func: Callable, func_op: operation) -> Callable:
         # Prepare the actual endpoint function
         def operation_endpoint(**kwargs):
             # Inside a working injector ...
@@ -183,59 +174,37 @@ class OperationalApiRouter(fastapi.APIRouter):
                 instance_kwargs = class_op.pluck_kwargs_from(kwargs)
                 instance = request_injector.invoke(class_, **instance_kwargs)
 
-                # ... execute its method
+                # ... execute its method.
+                # Provide `self=instance` as the 1st positional argument
                 func_kwargs = func_op.pluck_kwargs_from(kwargs)
                 return request_injector.invoke(func, instance, **func_kwargs)
 
         # Done
-        self._prepare_class_based_operation_endpoint_signature(operation_endpoint, class_op, func_op)
+        self._patch_operation_endpoint_signature(operation_endpoint, func_op.operation_id, func_op.signature.return_type, class_op, func_op)
         return operation_endpoint
 
-    def _prepare_operation_endpoint_signature(self, endpoint: Callable, op: operation) -> Callable:
-        """ Prepare an endpoint function that will be understood by FastAPI for calling a function """
-        return self._patch_operation_endpoint_function_signature(
-            endpoint,
-            name=op.func_name,
-            parameters=[
-                # Get parameters from the function
-                self._operation_parameter_info(argument_name, argument_type, op)
-                for argument_name, argument_type in op.signature.arguments.items()
-            ],
-            return_type=op.signature.return_type,
-        )
+    def _patch_operation_endpoint_signature(self, endpoint: Callable, name: str, return_type: type, *operations: operation) -> Callable:
+        """ Prepare an endpoint function that will be understood by FastAPI for calling a function
 
-    def _prepare_class_based_operation_endpoint_signature(self, endpoint: Callable, class_op: operation, op: operation):
-        """ Prepare an endpoint function that will be understood by FastAPI for calling a method of a class """
-        # We have to prepare a combined endpoint that's able to read arguments for both the class and the method.
-        # This requires merging the arguments of the two functions into one signature,
-        # and then picking the arguments for a function from the combined input.
-
-        # Combine the parameters for the class constructor and the method
-        combined_parameters = {}
-        combined_parameters.update({
-            argument_name: self._operation_parameter_info(argument_name, argument_type, class_op)
-            for argument_name, argument_type in class_op.signature.arguments.items()
-        })
-        combined_parameters.update({
+        This method is suitable for patching both a function operation and class operation functions.
+        The difference lies in the distinction between function operations and class-based operations:
+        * Function operations have arguments which become API input arguments
+        * Class-based operations have a constructor that has to be called before the method, and it may also have paramenters.
+        Therefore, with class-based operations, we have to merge the parameters from both the constructor and the method.
+        """
+        # Combine the parameters from all operations
+        combined_parameters = {
             argument_name: self._operation_parameter_info(argument_name, argument_type, op)
+            for op in operations
             for argument_name, argument_type in op.signature.arguments.items()
-        })
+        }
 
-        # Patch the endpoint with the combined arguments
-        return self._patch_operation_endpoint_function_signature(
-            endpoint,
-            name=op.func_name,
-            parameters=list(combined_parameters.values()),
-            return_type=op.signature.return_type,
-        )
-
-    def _patch_operation_endpoint_function_signature(self, endpoint: Callable, name: str, parameters: List[inspect.Parameter], return_type: type):
         # Give it a name that might pop up somewhere in tracebacks
         endpoint.__name__ = name
 
         # Generate a signature
         endpoint.__signature__ = inspect.Signature(
-            parameters=parameters,
+            parameters=list(combined_parameters.values()),
             return_annotation=return_type,
         )
 
@@ -252,6 +221,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             # Parameter type annotation
             annotation=type_,
             # This is how FastAPI declares dependencies: <arg name> = Body() / Query() / Path()
+            # TODO: Choose Body() / Query() / Path()
             default=fastapi.Body(
                 # If the argument has a default, use it.
                 # If not, use the `...`. This is how FastAPI declares required parameters
@@ -266,7 +236,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             ),
         )
 
-    def _route_documentation_kwargs(self, op: operation) -> dict:
+    def _operation_route_documentation_kwargs(self, op: operation) -> dict:
         """ Get documentation kwargs for the route
 
         This function reads the docstring from `func` and returns kwargs for `add_api_route()`

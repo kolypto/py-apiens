@@ -42,7 +42,7 @@ def test_flat_operation():
     router.injector.providers({
         AuthenticationService: AuthenticationService,
     })
-    router.add_flat_operations(index)
+    router.add_operations(index)
 
     # Application
     app = FastAPI(debug=True)
@@ -166,7 +166,7 @@ def test_class_endpoint():
     from apiens.via.fastapi import OperationalApiRouter
 
     router = OperationalApiRouter(debug=True, fully_documented=True)
-    router.add_class_operations(UserOperations)
+    router.add_operations(UserOperations)
 
     # Application
     app = FastAPI(debug=True, redoc_url=None, docs_url=None, openapi_url=None)
