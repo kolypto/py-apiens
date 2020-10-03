@@ -1,6 +1,6 @@
 import inspect
 import typing
-from typing import Callable, Mapping, Union, Any, Set, FrozenSet
+from typing import Callable, Mapping, Union, Any, Set, FrozenSet, Literal
 
 from apiens import di
 
@@ -11,17 +11,21 @@ class Signature:
     This signature information can be used to generate validation schemas, e.g. attrs or pydantic.
     """
 
-    # Function info: arguments that will be provided by the DI Injector
-    provided_arguments: Mapping[str, Union[type, Any]]
+    # Arguments that will be provided by the DI Injector
+    # Mapping: { name => type }
+    provided_arguments: Mapping[str, Union[type, Literal[Any]]]
 
-    # Function info: arguments that must be provided by the caller
-    arguments: Mapping[str, Union[type, Any]]
+    # Arguments that must be provided by the caller
+    # Mapping: { name => type }
+    arguments: Mapping[str, Union[type, Literal[Any]]]
 
-    # Function info: argument and their default values
+    # Argument and their default values
+    # Mapping: { name => default value }
     argument_defaults: Mapping[str, Any]
 
-    # Function info: return value type, as read from the function's signature
-    return_type: Union[type, Any]
+    # Return value type, as read from the function's signature
+    # Value: type
+    return_type: Union[type, Literal[Any]]
 
     def __init__(self, func: Callable):
         # Get all annotations.
@@ -39,6 +43,10 @@ class Signature:
 
         # Read every parameter from the function
         for name, parameter in inspect.signature(func).parameters.items():
+            # Skip variadic arguments
+            if parameter.kind in (parameter.VAR_KEYWORD, parameter.VAR_POSITIONAL):
+                continue
+
             # Get the type. Default to `Any`
             type_ = parameter_annotations.get(parameter.name, Any)
 

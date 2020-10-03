@@ -1,10 +1,9 @@
 """ Bindings to the FastAPI framework """
-import functools
 from copy import copy
 
 import fastapi
 import inspect
-from typing import List, Callable, Optional
+from typing import List, Callable, Optional, Dict
 
 from apiens import operation, di, doc, errors
 from apiens.via.fastapi.error_schema import ErrorResponse
@@ -110,11 +109,38 @@ class OperationalApiRouter(fastapi.APIRouter):
         """ Register a single class-based operation with all of its sub-operations """
         # Get the class operation itself
         class_op = operation.get_from(class_)
+        class_, class_doc = self._get_func_documentation(class_)
         assert class_ is not None, f'Class {class_} must be decorated with @operation'
 
         # List its sub-operations
-        for op in operation.all_decorated_from(class_, inherited=True):
-            pass
+        for func_op in operation.all_decorated_from(class_, inherited=True):
+            func = func_op.func
+
+            # Get the documentation for the operation
+            func, func_doc = self._get_func_documentation(func)
+
+            # Prepare the class operation endpoint
+            operation_endpoint = self._prepare_class_operation_endpoint_function(class_, class_op, class_doc, func, func_op, func_doc)
+
+            # Register the route
+            self.add_api_route(
+                # Path: the operation id itself
+                '/' + class_op.operation_id + '/' + func_op.operation_id,
+                # Func: the function to all
+                operation_endpoint,
+                # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
+                methods=['POST'],
+                # Use the same operation id: openapi-generator will find a good use to it
+                operation_id=func_op.operation_id,
+                name=func_op.operation_id,
+                # Its return type: exactly what the function returns.
+                # With some pydantic tuning.
+                response_model=func_op.signature.return_type,
+                response_model_exclude_unset=True,
+                response_model_exclude_defaults=True,
+                # Documentation.
+                **self._route_documentation_kwargs(func_doc)
+            )
 
         # Done
         return class_
@@ -136,42 +162,86 @@ class OperationalApiRouter(fastapi.APIRouter):
         """ Prepare a function that will be used to call the operation """
         # Prepare the actual endpoint function
         def operation_endpoint(**kwargs):
-            # Execute the function
+            # Within an injector ...
             with self._request_injector(func_op) as request_injector:
-                ret = request_injector.invoke(func, kwargs)
-
-            # Return
-            if func_op.return_name:
-                return {
-                    func_op.return_name: ret
-                }
-            else:
-                return ret
+                # ... execute the function
+                return request_injector.invoke(func, **kwargs)
 
         # Done
         self._prepare_operation_endpoint_signature(operation_endpoint, func_op, func_doc)
         return operation_endpoint
 
+    def _prepare_class_operation_endpoint_function(self,
+                                                   class_: type, class_op: operation, class_doc: Optional[doc],
+                                                   func: Callable, func_op: operation, func_doc: Optional[doc]) -> Callable:
+        # Prepare the actual endpoint function
+        def operation_endpoint(**kwargs):
+            # Inside a working injector ...
+            with self._request_injector(func_op) as request_injector:
+                # ... init the class
+                instance_kwargs = class_op.pluck_kwargs_from(kwargs)
+                instance = request_injector.invoke(class_, **instance_kwargs)
+
+                # ... execute its method
+                func_kwargs = func_op.pluck_kwargs_from(kwargs)
+                return request_injector.invoke(func, instance, **func_kwargs)
+
+        # Done
+        self._prepare_class_based_operation_endpoint_signature(operation_endpoint, class_op, class_doc, func_op, func_doc)
+        return operation_endpoint
+
     def _prepare_operation_endpoint_signature(self, endpoint: Callable, op: operation, func_doc: Optional[doc]) -> Callable:
-        """ Prepare a function that will be read by FastAPI by patching its __signature__ """
+        """ Prepare an endpoint function that will be understood by FastAPI for calling a function """
+        return self._patch_operation_endpoint_function_signature(
+            endpoint,
+            name=op.func_name,
+            parameters=[
+                # Get parameters from the function
+                self._operation_parameter_info(argument_name, argument_type, op, func_doc)
+                for argument_name, argument_type in op.signature.arguments.items()
+            ],
+            return_type=op.signature.return_type,
+        )
+
+    def _prepare_class_based_operation_endpoint_signature(self, endpoint: Callable, class_op: operation, class_doc: Optional[doc], op: operation, func_doc: Optional[doc]):
+        """ Prepare an endpoint function that will be understood by FastAPI for calling a method of a class """
+        # We have to prepare a combined endpoint that's able to read arguments for both the class and the method.
+        # This requires merging the arguments of the two functions into one signature,
+        # and then picking the arguments for a function from the combined input.
+
+        # Combine the parameters for the class constructor and the method
+        combined_parameters = {}
+        combined_parameters.update({
+            argument_name: self._operation_parameter_info(argument_name, argument_type, class_op, class_doc)
+            for argument_name, argument_type in class_op.signature.arguments.items()
+        })
+        combined_parameters.update({
+            argument_name: self._operation_parameter_info(argument_name, argument_type, op, func_doc)
+            for argument_name, argument_type in op.signature.arguments.items()
+        })
+
+        # Patch the endpoint with the combined arguments
+        return self._patch_operation_endpoint_function_signature(
+            endpoint,
+            name=op.func_name,
+            parameters=list(combined_parameters.values()),
+            return_type=op.signature.return_type,
+        )
+
+    def _patch_operation_endpoint_function_signature(self, endpoint: Callable, name: str, parameters: List[inspect.Parameter], return_type: type):
         # Give it a name that might pop up somewhere in tracebacks
-        endpoint.__name__ = op.operation_id
+        endpoint.__name__ = name
 
         # Generate a signature
         endpoint.__signature__ = inspect.Signature(
-            # Go over every parameter and put the signature and the documentation together
-            parameters=[
-                self._prepare_operation_parameter(argument_name, argument_type, op, func_doc)
-                for argument_name, argument_type in op.signature.arguments.items()
-            ],
-            # Output value
-            return_annotation=op.signature.return_type,
+            parameters=parameters,
+            return_annotation=return_type,
         )
 
         # Done
         return endpoint
 
-    def _prepare_operation_parameter(self, name: str, type_: type, op: operation, func_doc: Optional[doc]) -> inspect.Parameter:
+    def _operation_parameter_info(self, name: str, type_: type, op: operation, func_doc: Optional[doc]) -> inspect.Parameter:
         """ Prepare a parameter for the FastAPI endpoint function """
         return inspect.Parameter(
             # Argument name: something that the API user has to provide
@@ -200,12 +270,16 @@ class OperationalApiRouter(fastapi.APIRouter):
         # Get the function's doc
         func_doc = doc.get_from(func)
 
+        # Validate the documentation
+        if self.debug and func_doc is not None:
+            func_doc.validate()
+
         # The `fully_documented` mode
         if self.fully_documented and self.debug:
             # Is documented?
             assert func_doc is not None, (
-                f"Function {func} has no documentation associated with it. "
-                f"Please use @doc.string(), or other @doc functions to document it."
+                f"Operation `{func.__qualname__}` has no documentation associated with it. "
+                f"Please add a docstring to it."
             )
 
             # Validate documentation

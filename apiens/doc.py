@@ -88,35 +88,40 @@ class doc(decomarker):
         * The function is documented
         * Every parameter and the return value are both annotated and documented
 
+        Args:
+            as_class_method: Validate it as a class method (i.e. ignoring the first parameter)
+
         Raises:
             AssertionError if anything failed.
         """
         errors = []
 
+        # Class? Drop a few checks.
+        is_class = inspect.isclass(self.func)
+
         # Check that the function itself is documented
         if not self.doc.function:
-            errors.append(f"The function is not documented. Please add a docstring, or use `@doc.function()`.")
+            errors.append(f"The function is not documented. Please add a docstring.")
 
         # Check that its return value is documented
-        if not self.doc.result:
-            errors.append(f"The return value is not documented. Please add the 'Returns' section, or use `@doc.result()`. ")
+        if not is_class and not self.doc.result:
+            errors.append(f"The return value is not documented. Please add the 'Returns' section.")
 
         # Get its signature
         signature = operation.get_from(self.func).signature
 
         # Check that its return value is typed
-        if signature.return_type is Any:
+        if not is_class and signature.return_type is Any:
             errors.append(f"The return type is unknown. Please provide a return type annotation.")
 
         # Check every parameter's type and documentation
         for name, type_ in signature.arguments.items():
             if type_ is Any:
-                errors.append(f"Parameter {name!r} is not documented. "
-                              f"Please add an 'Args' section for it, or use `@doc.parameter()`"
-                              f"")
-            if name not in self.doc.parameters:
                 errors.append(f"Parameter {name!r} type is unknown. "
                               f"Please put a type annotation on it.")
+            if name not in self.doc.parameters:
+                errors.append(f"Parameter {name!r} is not documented. "
+                              f"Please add an 'Args' section for it")
 
         # We can't validate errors.
         # But error_validator_decorator() can make a wrapper that will validate them at runtime :)

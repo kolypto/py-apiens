@@ -1,7 +1,5 @@
-from inspect import unwrap, isfunction, isclass
-
 from functools import lru_cache
-
+from inspect import unwrap, isfunction
 from typing import ClassVar, Callable, TypeVar, Optional, Sequence, Any, Type, Union
 
 Cls_T = TypeVar('Cls_T')
@@ -118,7 +116,7 @@ class decomarker(metaclass=decomarker_meta):
             class_: the class to collect decorated methods from
             inherited: whether to include methods decorated on parent classes
         """
-        assert isinstance(class_, type)
+        assert isinstance(unwrap(class_), type)
 
         if inherited:
             members = [getattr(class_, attr) for attr in dir(class_)]

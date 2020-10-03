@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+
 from typing import Hashable, Callable, Union, ClassVar, Optional
 
 from apiens.util import decomarker
@@ -48,9 +50,6 @@ class operation(decomarker):
     # It will be used to call it as a function
     operation_id: Union[str, Hashable]
 
-    # The name of the field used for its return value.
-    return_name: Optional[str]
-
     # Operation function's signature: argument types, defaults, etc
     signature: SIGNATURE_CLS
 
@@ -59,20 +58,16 @@ class operation(decomarker):
 
     def __init__(self,
                  operation_id: Optional[Union[str, Hashable]] = None,
-                 return_name: Optional[str] = None,
                  **info):
         """
 
         Args:
             id: Operation id. Can be a string name, or a tuple of multiple names to mimic a tree-like structure.
-                When `None`, is taken from the function's name
-            return_name: Name of the field used for its return value.
-                When `None`, no field is added, and the function's return value is used as is.
+                When `None`, is taken from the function's name3
             **info: Additional information to associate with this operation. Arbitrary.
         """
         super().__init__()
         self.operation_id = operation_id
-        self.return_name = return_name
 
         # Custom extra info
         self.info: dict = info
@@ -85,5 +80,24 @@ class operation(decomarker):
         # Read function signature into information
         self.signature = self.SIGNATURE_CLS(func)
 
+        # If we've decorated a class, go through every method and tell it about it
+        if inspect.isclass(func):
+            for method_operation in self.all_decorated_from(func, inherited=True):
+                # Remove the first argument.
+                # TODO: remove hardcoded "self" and support any name. Support @classmethod. Support @staticmethod.
+                del method_operation.signature.arguments['self']
+
         # Done
         return super().decorator(func)
+
+    def pluck_kwargs_from(self, kwargs: dict):
+        """ Given a dict of many parameters, choose the ones that this operation needs
+
+        This method is used with class-based views, where the input contains parameters for both
+        the __init__() method of the class and the operation method.
+        """
+        return {
+            name: kwargs[name]
+            for name in self.signature.arguments
+            if name in kwargs  # because some defaults might not be provided
+        }

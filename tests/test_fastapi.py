@@ -102,26 +102,72 @@ def test_class_endpoint():
     # Operations
 
     @operation('user')
+    @doc.string()
     @di.signature()
     class UserOperations:
+        """ Operations on the User object """
+
         @operation()
-        def list(self):
+        @doc.string()
+        def list(self) -> dict:
+            """ Get a list of all users
+
+            Returns:
+                the list of users
+            """
             return {'users': []}
 
         @operation()
-        def create(self, user: dict):
+        @doc.string()
+        def create(self, user: dict) -> dict:
+            """ Create a user
+
+            Args:
+                user: The user to create
+
+            Returns:
+                the created user
+            """
             return {'user': user}
 
         @operation()
-        def get(self, id: int):
+        @doc.string()
+        def get(self, id: int) -> dict:
+            """ Get a user
+
+            Args:
+                id: The user to get
+
+            Returns:
+                the user
+            """
             return {'user': {'id': id}}
 
         @operation()
-        def update(self, id: int, user: dict):
+        @doc.string()
+        def update(self, id: int, user: dict) -> dict:
+            """ Update a user
+
+            Args:
+                id: The user to update
+                user: Updated fields
+
+            Returns:
+                the updated user
+            """
             return {'user': {'id': id, **user}}
 
         @operation()
-        def delete(self, id: int):
+        @doc.string()
+        def delete(self, id: int) -> dict:
+            """ Delete a user
+
+            Args:
+                id: The user to delete
+
+            Returns:
+                the user
+            """
             return {'user': {'id': id}}
 
 
@@ -140,11 +186,11 @@ def test_class_endpoint():
         (route.path, tuple(sorted(route.methods)))
         for route in app.routes
     } == {
-        ('/user/list', 'POST'),
-        ('/user/create', 'POST'),
-        ('/user/get', 'POST'),
-        ('/user/update', 'POST'),
-        ('/user/delete', 'POST'),
+        ('/user/list', ('POST',)),
+        ('/user/create', ('POST',)),
+        ('/user/get', ('POST',)),
+        ('/user/update', ('POST',)),
+        ('/user/delete', ('POST',)),
     }
 
     # Test the API
@@ -170,3 +216,13 @@ def test_class_endpoint():
         assert res.json() == {'user': {'id': 1}}
 
     # Test the OpenAPI
+    openapi = app.openapi()
+
+    assert set(openapi['paths']) == {
+        '/index',
+        '/user/list',
+        '/user/create',
+        '/user/get',
+        '/user/update',
+        '/user/delete',
+    }
