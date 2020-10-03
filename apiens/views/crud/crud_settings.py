@@ -6,7 +6,7 @@ from typing import Type, Optional, Tuple, Iterable, FrozenSet, Set, Mapping
 
 import sa2schema
 from . import crudbase
-from apiens.views.mongoquery_crud.defs import AUTOMATIC
+from .defs import AUTOMATIC
 
 PydanticModelT = Type[pd.BaseModel]
 

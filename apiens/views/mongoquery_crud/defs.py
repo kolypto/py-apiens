@@ -1,4 +1,3 @@
-import pydantic as pd
 from typing import Mapping, Union, TypedDict, List, Any
 
 
@@ -22,7 +21,3 @@ class ModernQueryObject(TypedDict):
     sort: Union[str, List[str]]
     skip: int
     limit: int
-
-
-# Sugar. Marks a field that will be automatically initialized.
-AUTOMATIC = None
