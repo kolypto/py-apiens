@@ -8,6 +8,7 @@ from typing import TypeVar, Generic, Iterable, Union, Mapping, Any, Generator, C
 from apiens.util import decomarker
 from . import crud_signals
 from .crud_settings import CrudSettings
+from .defs import UserFilterValue, InstanceDict
 from .instance_history_proxy import get_history_proxy_for_instance
 
 
@@ -19,12 +20,6 @@ ResponseValueT = TypeVar("ResponseValueT")
 
 # Crud Handler
 CrudHandlerT = TypeVar('CrudHandlerT')
-
-
-# Values for an SqlAlchemy instance, in the form of a dictionary. Possibly, partial.
-InstanceDict = Mapping[str, Any]
-# User-supplied values for filtering objects
-UserFilterValue = Any
 
 
 class SimpleCrudBase(Generic[SAInstanceT]):

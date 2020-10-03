@@ -1,6 +1,7 @@
 """ Class-based views for Create, Read, Update, Delete operations """
 
 from . import crud_signals
+from .defs import AUTOMATIC, InstanceDict, UserFilterValue
 from .crudbase import SimpleCrudBase, CrudBase
 from .crudbase import saves_custom_fields
 from .crud_settings import CrudSettings
