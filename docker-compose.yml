@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-  py-myproject-postgres-test:
+  py-apiens-postgres-test:
     image: postgres:latest
     restart: always
     ports:
@@ -9,4 +9,4 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: test_myproject
+      POSTGRES_DB: test_apiens
