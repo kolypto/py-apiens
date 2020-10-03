@@ -25,28 +25,27 @@ def test_user_crud_basic(ssn: sa.orm.Session):
             ResponseSchema=schemas.load.User,
             CreateSchema=schemas.modify.User,
             UpdateSchema=schemas.modify.User,
-        ).mongosql_config(
+        ).query_defaults(
             # Put a {limit:1} just to test that it works
-            query_defaults={'limit': 1},
-            **mongosql.MongoQuerySettingsDict(
-                # Mimic GraphQL: very very few fields by default
-                default_projection=('id',),
-                # Only one relationship is allowed
-                allowed_relations=('articles',),
-                # Tell them everything about properties
-                bundled_project={
-                    'age_in_100_years': ['age'],
-                },
-                # Configure related objects
-                related={
-                    'articles': mongosql.MongoQuerySettingsDict(
-                        default_projection=('id',),
-                        allowed_relations=('author',),
-                    )
-                },
-                # Absolute limit
-                max_items=10,
-            ),
+            limit=1,
+        ).mongosql_config(
+            # Mimic GraphQL: very very few fields by default
+            default_projection=('id',),
+            # Only one relationship is allowed
+            allowed_relations=('articles',),
+            # Tell them everything about properties
+            bundled_project={
+                'age_in_100_years': ['age'],
+            },
+            # Configure related objects
+            related={
+                'articles': mongosql.MongoQuerySettingsDict(
+                    default_projection=('id',),
+                    allowed_relations=('author',),
+                )
+            },
+            # Absolute limit
+            max_items=10,
         ).create_or_update_config(
             # Enable create_or_update()
             CreateOrUpdateSchema=schemas.modify.User,

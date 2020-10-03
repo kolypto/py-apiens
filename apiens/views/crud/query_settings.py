@@ -36,17 +36,22 @@ class MongoSqlCrudSetttings(CrudSettings):
 
     # Configure
 
-    def mongosql_config(self, *,
-                        query_defaults: dict = None,
-                        **mongoquery_settings):
+    def query_defaults(self, **query_defaults):
         """ Configure MongoSQL auerying
 
         Args:
             query_defaults: MongoSQL query defaults
-            **mongoquery_settings: Settings for MongoQuery.
-                Example: **mongosql.MongoQuerySettingsDict(...)
         """
-        self._query_defaults = query_defaults or {}
+        self._query_defaults = query_defaults
+        return self
+
+    def mongosql_config(self, **mongoquery_settings):
+        """ Configure MongoSQL auerying
+
+        Args:
+            **mongoquery_settings: Settings for MongoQuery.
+                See `MongoQuerySettingsDict`.
+        """
         self._reusable_mongoquery = mongosql.Reusable(  # noqa
             self.MONGOQUERY_CLASS(self.Model, mongoquery_settings)
         )
