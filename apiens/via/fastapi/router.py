@@ -4,7 +4,7 @@ from copy import copy
 import fastapi
 import fastapi.params
 import inspect
-from typing import List, Callable, Union
+from typing import List, Callable, Union, Optional
 import urllib.parse
 
 from apiens import operation, di, errors
@@ -103,6 +103,27 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         return request_injector
 
+    def _execute_operation(self, /, func_op: operation, class_op: Optional[operation], operation_kwargs: dict):
+        """ Execute an operation, using the di.Injector() from this router
+
+        This function is basically the actual FastAPI endpoint that executes your operations.
+        """
+        # Within an injector ...
+        with self._request_injector(func_op) as request_injector:
+            args = []
+
+            # ... init the class
+            if class_op:
+                instance_kwargs = class_op.pluck_kwargs_from(operation_kwargs)
+                instance = request_injector.invoke(class_op.func, **instance_kwargs)
+
+                # Pass the `self` as the first argument
+                args.append(instance)
+
+            # ... execute the function
+            func_kwargs = func_op.pluck_kwargs_from(operation_kwargs)
+            return request_injector.invoke(func_op.func, *args, **func_kwargs)
+
     def _register_operation(self, func_op: operation, class_op: operation = None):
         # Validate the documentation
         if self.debug:
@@ -163,20 +184,7 @@ class OperationalApiRouter(fastapi.APIRouter):
         """
         # Prepare the actual endpoint function
         def operation_endpoint(**kwargs):
-            # Within an injector ...
-            with self._request_injector(func_op) as request_injector:
-                args = []
-
-                # ... init the class
-                if class_op:
-                    instance_kwargs = class_op.pluck_kwargs_from(kwargs)
-                    instance = request_injector.invoke(class_op.func, **instance_kwargs)
-
-                    # Pass the `self` as the first argument
-                    args.append(instance)
-
-                # ... execute the function
-                return request_injector.invoke(func_op.func, *args, **kwargs)
+            return self._execute_operation(func_op, class_op, kwargs)
 
         # Tune the function's signature
         operations = [class_op, func_op] if class_op else [func_op]
