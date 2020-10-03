@@ -13,7 +13,21 @@ from apiens.via.fastapi.fastapi_route import fastapi_route
 
 
 class OperationalApiRouter(fastapi.APIRouter):
-    """ A FastAPI-compatible router to run your @operations """
+    """ A FastAPI-compatible router to run your @operations
+
+    Example:
+        from apiens.via.fastapi import OperationalApiRouter
+
+        router = OperationalApiRouter(debug=True, fully_documented=True)
+        router.add_operations(
+            index,
+            UserOperations,
+        )
+
+        # Application
+        app = FastAPI()
+        app.include_router(router)
+    """
 
     # The injector that's used to run your operations.
     # Don't forget to register your providers on it.
@@ -233,6 +247,7 @@ def patch_operation_endpoint_signature(endpoint: Callable, name: str, return_typ
     # Done
     return endpoint
 
+
 def operation_parameter_info(name: str, type_: type, op: operation) -> inspect.Parameter:
     """ Prepare a parameter for the FastAPI endpoint function """
     # Create the FastAPI parameter
@@ -269,6 +284,7 @@ def operation_parameter_info(name: str, type_: type, op: operation) -> inspect.P
         # This is how FastAPI declares dependencies: <arg name> = Body() / Query() / Path()
         default=parameter
     )
+
 
 def operation_route_documentation_kwargs(op: operation) -> dict:
     """ Get documentation kwargs for the route
