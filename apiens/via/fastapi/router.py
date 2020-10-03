@@ -74,7 +74,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             func = func_op.wrap_func_check_thrown_errors_are_documented(func)
 
         # Prepare the actual operation endpoint
-        operation_endpoint = self._prepare_function_operation_endpoint(func, func_op)
+        operation_endpoint = self._prepare_function_operation_endpoint(func_op)
 
         # Register the route
         self.add_api_route(
@@ -107,20 +107,19 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         # List its sub-operations
         for func_op in operation.all_decorated_from(class_, inherited=True):
-            self._register_class_operation(class_, class_op, func_op.func, func_op)
+            self._register_class_operation(class_op, func_op)
 
         # Done
         return class_
 
-    def _register_class_operation(self, class_: type, class_op: operation, func: Callable, func_op: operation) -> type:
+    def _register_class_operation(self, class_op: operation, func_op: operation):
         """ low-level: register a single class-based operation """
         # Validate the documentation
         if self.debug:
             func_op.check_operation_documentation(fully_documented=self.fully_documented)
-            func = func_op.wrap_func_check_thrown_errors_are_documented(func)
 
         # Prepare the class operation endpoint
-        operation_endpoint = self._prepare_function_operation_endpoint(func, func_op, class_, class_op)
+        operation_endpoint = self._prepare_function_operation_endpoint(func_op, class_op)
 
         # Register the route
         self.add_api_route(
@@ -142,9 +141,6 @@ class OperationalApiRouter(fastapi.APIRouter):
             **self._operation_route_documentation_kwargs(func_op)
         )
 
-        # Done
-        return class_
-
     def _request_injector(self, func_op: operation) -> di.Injector:
         """ Create a di.Injector() for this request """
         # Init the request Injector by copy()ing the template injector that already has providers set up
@@ -158,10 +154,7 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         return request_injector
 
-    def _prepare_function_operation_endpoint(self,
-                                             func: Callable, func_op: operation,
-                                             class_: type = None, class_op: operation = None,
-                                             ) -> Callable:
+    def _prepare_function_operation_endpoint(self, func_op: operation, class_op: operation = None) -> Callable:
         """ Make an endpoint-function: to call an operation via a di.Injector()
 
         This function has to:
@@ -185,15 +178,15 @@ class OperationalApiRouter(fastapi.APIRouter):
                 args = []
 
                 # ... init the class
-                if class_:
+                if class_op:
                     instance_kwargs = class_op.pluck_kwargs_from(kwargs)
-                    instance = request_injector.invoke(class_, **instance_kwargs)
+                    instance = request_injector.invoke(class_op.func, **instance_kwargs)
 
                     # Pass the `self` as the first argument
                     args.append(instance)
 
                 # ... execute the function
-                return request_injector.invoke(func, *args, **kwargs)
+                return request_injector.invoke(func_op.func, *args, **kwargs)
 
         # Done
         operations = filter(None, [class_op, func_op])
