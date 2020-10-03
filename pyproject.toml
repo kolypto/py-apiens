@@ -31,6 +31,7 @@ sa2schema = "^0.1.3"
 blinker = "^1.4"
 mongosql = "^2.0.11"
 psycopg2 = "^2.8.6"
+docstring-parser = "^0.7.3"
 
 [tool.pytest.ini_options]
 testpaths = [
