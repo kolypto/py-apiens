@@ -7,9 +7,17 @@ repository = 'https://github.com/kolypto/py-apiens'
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pydantic = {version = "^1.6.1", optional = true}
 fastapi = {version = "^0.61.1", optional = true}
 docstring-parser = {version = "^0.7.3", optional = true}
+pydantic = {version = "^1.6.1", optional = true}
+sqlalchemy = {version = "^1.3.19", optional = true}
+mongosql = {version = "^2.0.11", optional = true}
+sa2schema = {version = "^0.1.3", optional = true}
+blinker = {version = "^1.4", optional = true}
+
+[tool.poetry.extras]
+crud = ["pydantic", "sqlalchemy", "mongosql", "sa2schema", "blinker"]
+fastapi = ["fastapi"]
 
 [tool.poetry.dev-dependencies]
 nox = "^2020.8.22"
@@ -18,6 +26,11 @@ pytest-cov = "^2.10.1"
 pydantic = "^1.6.1"
 fastapi = "^0.61.1"
 requests = "^2.24.0"
+sqlalchemy = "^1.3.19"
+sa2schema = "^0.1.3"
+blinker = "^1.4"
+mongosql = "^2.0.11"
+psycopg2 = "^2.8.6"
 
 [tool.pytest.ini_options]
 testpaths = [
