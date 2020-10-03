@@ -5,13 +5,11 @@ import sqlalchemy as sa
 import sqlalchemy.orm
 from typing import TypeVar, Generic, Iterable, Union, Mapping, Any, Generator, ClassVar, Set, Sequence, Type, ContextManager, Optional
 
-from . import crud_signals
-from .crud_settings import CrudSettings
-from .defs import QueryObject
-from .instance_history_proxy import get_history_proxy_for_instance
-
 # SqlAlchemy model
 from apiens.util import decomarker
+from . import crud_signals
+from .crud_settings import CrudSettings
+from .instance_history_proxy import get_history_proxy_for_instance
 
 ModelT = TypeVar("ModelT")
 
@@ -45,19 +43,22 @@ class SimpleCrudBase(Generic[ModelT]):
 
     For a more thorough implementation that is able to actually save objects, see `CrudBase` class.
     """
+
     # CRUD settings: the static container for all the configuration of this CRUD handler.
     crudsettings: ClassVar[CrudSettings]
 
-    def __init__(self, ssn: sa.orm.Session, *, query_object: QueryObject = None):
+    # The database session to use
+    ssn: sqlalchemy.orm.Session
+
+    def __init__(self, ssn: sa.orm.Session):
         """ Initialize the Crud handler for one request
 
         Args:
             ssn: The Session to work with. This implementation only uses it for loading.
         """
         self.ssn = ssn
-        self.query_object = query_object
 
-    __slots__ = 'ssn', 'query_object'
+    __slots__ = 'ssn'
 
     # Use deep copying for historical `prev` objects?
     # Set to `True` if your Crud handler requires accessing the historical value of a mutable field (dict, etc)
@@ -280,9 +281,6 @@ class SimpleCrudBase(Generic[ModelT]):
         if filter_by:
             q = q.filter_by(**filter_by)
 
-        # Customization
-        q = self.crudsettings._crud_query_customize(self, q)
-
         # Done
         return q
 
@@ -303,13 +301,16 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
     * Does not commit(). You have to commit() manually
     """
 
-    def __init__(self, ssn: sa.orm.Session, *, query_object: QueryObject = None, **kwargs):
+    # Keyword arguments given to the CRUD handler
+    kwargs: dict
+
+    def __init__(self, ssn: sa.orm.Session, **kwargs):
         """
 
         Args:
             **kwargs: Filtering values for filter() for every operation
         """
-        super().__init__(ssn, query_object=query_object)
+        super().__init__(ssn)
         self.kwargs = kwargs
 
     __slots__ = 'kwargs',
@@ -604,7 +605,7 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
         """ Wrap a section of code into a Crud transaction. commit() if everything goes fine; rollback() if not
 
         Example:
-            with UserCrud(ssn, query_object=query).transaction() as crud:
+            with UserCrud(ssn).transaction() as crud:
                 user = crud.update(user, id=id)
                 return {'user': user}
         """

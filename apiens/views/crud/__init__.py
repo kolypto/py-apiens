@@ -4,7 +4,6 @@ from . import crud_signals
 from .crudbase import SimpleCrudBase, CrudBase
 from .crudbase import saves_custom_fields
 from .crud_settings import CrudSettings
-from .query_settings import MongoSqlCrudSetttings
 from .instance_history_proxy import InstanceHistoryProxy, get_history_proxy_for_instance
 
 try:

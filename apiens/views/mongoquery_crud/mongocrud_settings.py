@@ -2,24 +2,13 @@ import sqlalchemy as sa
 from typing import Type, Optional, ClassVar
 
 import mongosql
-from . import crudbase
-from .crud_settings import CrudSettings
-from .defs import QueryObject
+from apiens.views.crud import crudbase
+from apiens.views.crud.crud_settings import CrudSettings
+from apiens.views.mongoquery_crud.defs import QueryObject
 
 
-class MongoSqlCrudMixin:
-    """ A mixin for CrudBase that lets it customize a mongoquery """
-
-    def _mongoquery(self, mq: mongosql.MongoQuery) -> mongosql.MongoQuery:
-        """ Customize the MongoQuery that this Crud Handler is going to use
-
-        This hook is called right before the MongoQuery is finalized with .end()
-        """
-        raise NotImplementedError
-
-
-class MongoSqlCrudSetttings(CrudSettings):
-    """ Settings object that enables MongoSql for a Crud Handler.
+class MongoCrudSettings(CrudSettings):
+    """ Settings for MongoSql-enabled Crud Base
 
     Expectations:
     * crud.query_object: MongoSql query object

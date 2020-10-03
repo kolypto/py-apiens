@@ -10,7 +10,9 @@ from sa2schema.to.pydantic import SALoadedModel
 from sqlalchemy.ext.declarative.api import declarative_base
 from typing import List
 
-from apiens.views.crud import CrudSettings, MongoSqlCrudSetttings, CrudBase, saves_custom_fields
+from apiens.views.crud import CrudSettings, CrudBase, saves_custom_fields
+from apiens.views.mongoquery_crud.mongocrud_settings import MongoCrudSettings
+from apiens.views.mongoquery_crud.mongocrudbase import MongoCrudBase
 from tests.lib.object_match import DictMatch, Parameter
 
 
@@ -18,8 +20,8 @@ from tests.lib.object_match import DictMatch, Parameter
 def test_user_crud_basic(ssn: sa.orm.Session):
     ABSENT = object()
 
-    class UserCrud(CrudBase[User, SALoadedModel]):
-        crudsettings = MongoSqlCrudSetttings(
+    class UserCrud(MongoCrudBase[User, SALoadedModel]):
+        crudsettings = MongoCrudSettings(
             User,
             # Proper schemas
             ResponseSchema=schemas.load.User,
