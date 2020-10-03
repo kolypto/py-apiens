@@ -52,6 +52,7 @@ class OperationalApiRouter(fastapi.APIRouter):
              *operations: Functions, or classes, decorated by @operation.
         """
         for operation in operations:
+            # Tell classes and functions apart
             if inspect.isclass(operation):
                 self.class_operations.append(self.register_class_operations(operation))
             else:
@@ -125,8 +126,8 @@ class OperationalApiRouter(fastapi.APIRouter):
                 # HTTP method. Always 'POST', to let us pass arguments of arbitrary complexity in the body as JSON
                 methods=['POST'],
                 # Use the same operation id: openapi-generator will find a good use to it
-                operation_id=func_op.operation_id,
-                name=func_op.operation_id,
+                operation_id=class_op.operation_id + '.' + func_op.operation_id,
+                name=class_op.operation_id + '.' + func_op.operation_id,
                 # Its return type: exactly what the function returns.
                 # With some pydantic tuning.
                 response_model=func_op.signature.return_type,
@@ -153,7 +154,16 @@ class OperationalApiRouter(fastapi.APIRouter):
         return request_injector
 
     def _prepare_function_operation_endpoint(self, func: Callable, func_op: operation) -> Callable:
-        """ Prepare a function that will be used to call the operation """
+        """ Make an endpoint-function: to call an operation via a di.Injector()
+
+        This function has to:
+
+        * Receive arbitrary **kwargs to be compatible with any operation's arguments
+        * Have a signature that FastAPI can read to infer its arguments and their types
+        * Start an injector as a context manager -- to provide dependencies to the operation
+        * Run the function
+        * Return the result
+        """
         # Prepare the actual endpoint function
         def operation_endpoint(**kwargs):
             # Within an injector ...
@@ -166,6 +176,13 @@ class OperationalApiRouter(fastapi.APIRouter):
         return operation_endpoint
 
     def _prepare_method_operation_endpoint_function(self, class_: type, class_op: operation, func: Callable, func_op: operation) -> Callable:
+        """ Make an endpoint-function: to construct a class and call its method via a di.Injector()
+
+        In addition to the above, it has to:
+
+        * Create an instance of the class, providing it with the arguments it needs
+        * Call the method, providing it with the arguments it needs
+        """
         # Prepare the actual endpoint function
         def operation_endpoint(**kwargs):
             # Inside a working injector ...
@@ -184,7 +201,13 @@ class OperationalApiRouter(fastapi.APIRouter):
         return operation_endpoint
 
     def _patch_operation_endpoint_signature(self, endpoint: Callable, name: str, return_type: type, *operations: operation) -> Callable:
-        """ Prepare an endpoint function that will be understood by FastAPI for calling a function
+        """ Prepare an endpoint function that will be understood by FastAPI.
+
+        Goals:
+
+        * Give it a nice name
+        * Set the return type annotation
+        * Set types and documentation for every parameter
 
         This method is suitable for patching both a function operation and class operation functions.
         The difference lies in the distinction between function operations and class-based operations:
