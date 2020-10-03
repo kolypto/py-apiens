@@ -2,6 +2,7 @@ from contextlib import contextmanager
 
 import pydantic as pd
 import sqlalchemy as sa
+import sqlalchemy.orm
 from typing import TypeVar, Generic, Iterable, Union, Mapping, Any, Generator, ClassVar, Set, Sequence, Type, ContextManager, Optional
 
 from . import crud_signals
@@ -36,7 +37,6 @@ class SimpleCrudBase(Generic[ModelT]):
     * Only implements operations on instances themselves. Does not save anything to a Session.
     * Uses Pydantic models for input data validation
     * Uses Pydantic models for output data modification
-    * Accepts a `query_object` for MongoSQL queries
     * Supports any means of filtering/selection using *filter and **filter_by arguments
     * Sends CRUD signals. See `crud_signals.py`
     * Can save relationships (by using @saves_custom_fields)
@@ -53,23 +53,24 @@ class SimpleCrudBase(Generic[ModelT]):
 
         Args:
             ssn: The Session to work with. This implementation only uses it for loading.
-            query_object: The query object to use for this request. Optional.
-                It determines which fields should be returned, and the filtering for your records.
-                Requires MongoSQL to work, or any other implementation.
         """
         self.ssn = ssn
         self.query_object = query_object
 
-    __slots__ = ('ssn', 'query_object')
+    __slots__ = 'ssn', 'query_object'
 
     # Use deep copying for historical `prev` objects?
     # Set to `True` if your Crud handler requires accessing the historical value of a mutable field (dict, etc)
     # Technically, it will use InstanceHistoryProxy(copy=True)
     COPY_INSTANCE_HISTORY: bool = False
 
-    # TODO: direct to JSON
 
     # region CRUD Operations
+
+    # Genus: _*_instance()
+    # input: filter, Pydantic model
+    # output: SqlAlchemy instance
+    # Purpose: implement CRUD on instance level
 
     # These methods implement the basic features of CRUD operations: get the input, apply it, yield results.
     # Every method receives *filter and **filter_by arguments that let you apply custom filtering.
@@ -214,6 +215,11 @@ class SimpleCrudBase(Generic[ModelT]):
 
     # region Low-Level: assign values to attributes
 
+    # Genus: _*_instance_from_input()
+    # Input: Pydantic model
+    # Output: SqlAlchemy Model, created/modified
+    # Purpose: apply input model to actual SqlAlchemy model
+
     # Methods that simply create/modify an instance from an input
     # Create/Update an instance using the input model
 
@@ -267,7 +273,7 @@ class SimpleCrudBase(Generic[ModelT]):
         # Query
         q = self.ssn.query(self.crudsettings.Model)
 
-        # We have to apply our filtering in advance, because later on, MongoSQL may put on a LIMIT, or something worse,
+        # We have to apply our filtering in advance, because later on, someone (like MongoSQL) may put on a LIMIT,
         # and no filter() will be possible anymore
         if filter:
             q = q.filter(*filter)
@@ -306,7 +312,7 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
         super().__init__(ssn, query_object=query_object)
         self.kwargs = kwargs
 
-    __slots__ = ('kwargs',)
+    __slots__ = 'kwargs',
 
     # region Filtering
 
@@ -352,6 +358,12 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
 
 
     # region CRUD operations
+
+    # Genus: CRUD() methods
+    # input: **kwargs, Pydantic model or dict
+    # output: Pydantic model or dict
+    # They call: _session_*_instance()
+    # Purpose: top-level CRUD methods that implement the full data cycle
 
     # TODO: optionally disable validation for response schemas (only in testing)
 
@@ -449,12 +461,22 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
 
     # endregion
 
+
+
     # region Low-level CRUD operations
 
     # These methods implement CRUD operations on SqlAlchemy instances.
     # This is unlike the get()/list()/create()/update()/delete() operations that work with Pydantic models.
 
+
+
     # region Session Operations
+
+    # Genus: _session_*_instance() methods
+    # input: **kwargs, Pydantic model
+    # output: SqlAlchemy instance
+    # They call: _*_instance()
+    # Purpose: use Session to load/save things
 
     # These methods implement the SqlAlchemy Session saving logic
 
@@ -533,7 +555,12 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
 
     # endregion
 
+
     # region CRUD operations
+
+    # Genus: _*_instance() overrides
+    # Purpose: implement CRUD on instance level
+    # Twist: apply filter() and filter1()
 
     # These methods override SimpleCrudBase methods and add support for filter() & filter1()
 
@@ -568,7 +595,6 @@ class CrudBase(SimpleCrudBase[ModelT], Generic[ModelT, ResponseValueT]):
     # region
 
     # endregion
-
 
 
     # region Querying
