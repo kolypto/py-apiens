@@ -1,15 +1,14 @@
-import fastapi
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from apiens import operation, doc, di
 from apiens import errors_default as app_exc  # noqa: used in docstrings
+from apiens import operation, di
 
 
 def test_flat_operation():
     # Services
 
-    @di.kwargs()
+    @di.signature()
     class AuthenticationService:
         def current_user(self):
             return {'user': {'email': 'kolypto@gmail.com'}}
@@ -17,7 +16,6 @@ def test_flat_operation():
     # Operations
 
     @operation()
-    @doc.string()
     @di.signature('auth')
     def index(a: int, auth: AuthenticationService, b: str = '1') -> dict:
         """ Index page
@@ -102,13 +100,10 @@ def test_class_endpoint():
     # Operations
 
     @operation('user')
-    @doc.string()
-    @di.signature()
     class UserOperations:
         """ Operations on the User object """
 
         @operation()
-        @doc.string()
         def list(self) -> dict:
             """ Get a list of all users
 
@@ -118,7 +113,6 @@ def test_class_endpoint():
             return {'users': []}
 
         @operation()
-        @doc.string()
         def create(self, user: dict) -> dict:
             """ Create a user
 
@@ -131,7 +125,6 @@ def test_class_endpoint():
             return {'user': user}
 
         @operation()
-        @doc.string()
         def get(self, id: int) -> dict:
             """ Get a user
 
@@ -144,7 +137,6 @@ def test_class_endpoint():
             return {'user': {'id': id}}
 
         @operation()
-        @doc.string()
         def update(self, id: int, user: dict) -> dict:
             """ Update a user
 
@@ -158,7 +150,6 @@ def test_class_endpoint():
             return {'user': {'id': id, **user}}
 
         @operation()
-        @doc.string()
         def delete(self, id: int) -> dict:
             """ Delete a user
 

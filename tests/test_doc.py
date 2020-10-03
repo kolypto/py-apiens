@@ -1,22 +1,22 @@
 import pytest
 from typing import Callable
 
-from apiens import doc
+from apiens import operation
 
 
 # Fixtures
 
-@doc.string()
+@operation()
 def f_no_docstring():
     pass
 
 
-@doc.string()
+@operation()
 def f_docstring_only_title():
     """ Some title """
 
 
-@doc.string()
+@operation()
 def f_docstring_title_with_description():
     """ Short
 
@@ -26,7 +26,7 @@ def f_docstring_title_with_description():
     """
 
 
-@doc.string()
+@operation()
 def f_with_examples():
     """ Title
 
@@ -35,7 +35,7 @@ def f_with_examples():
     """
 
 
-@doc.string()
+@operation()
 def f_arguments():
     """
 
@@ -49,7 +49,7 @@ def f_arguments():
     """
 
 
-@doc.string()
+@operation()
 def f_result():
     """
 
@@ -60,7 +60,7 @@ def f_result():
 import apiens.errors_default as exc  # noqa
 
 
-@doc.string()
+@operation()
 def f_errors():
     """
 
@@ -105,7 +105,7 @@ def f_errors():
 )
 def test_operation_doc_string(func: Callable, expected_doc: dict):
     """ Test how operation docstrings are read """
-    actual_doc = doc.get_from(func).doc
+    actual_doc = operation.get_from(func).doc
 
     # Test: function doc
     expected_function_doc = expected_doc.get('function', None)
