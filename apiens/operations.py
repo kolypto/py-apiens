@@ -136,6 +136,9 @@ class operation(decomarker):
         if fully_documented:
             self._assert_is_fully_documented()
 
+            # Also, wrap the function to check what sort of errors does it throw
+            self.func = self.wrap_func_check_thrown_errors_are_documented(self.func)
+
     def _assert_is_fully_documented(self):
         """ Check that the function is fully documented. Used in projects by documenting freaks.
 
@@ -193,6 +196,7 @@ class operation(decomarker):
 
     def wrap_func_check_thrown_errors_are_documented(self, func: Callable) -> Callable:
         """ A wrapper that will make sure that every error raised by the function is documented """
+        # Wrap the function
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Call the function

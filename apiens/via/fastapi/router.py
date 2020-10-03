@@ -120,7 +120,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             func = func_op.wrap_func_check_thrown_errors_are_documented(func)
 
         # Prepare the class operation endpoint
-        operation_endpoint = self._prepare_method_operation_endpoint_function(class_, class_op, func, func_op)
+        operation_endpoint = self._prepare_function_operation_endpoint(func, func_op, class_, class_op)
 
         # Register the route
         self.add_api_route(
@@ -158,7 +158,10 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         return request_injector
 
-    def _prepare_function_operation_endpoint(self, func: Callable, func_op: operation) -> Callable:
+    def _prepare_function_operation_endpoint(self,
+                                             func: Callable, func_op: operation,
+                                             class_: type = None, class_op: operation = None,
+                                             ) -> Callable:
         """ Make an endpoint-function: to call an operation via a di.Injector()
 
         This function has to:
@@ -168,41 +171,33 @@ class OperationalApiRouter(fastapi.APIRouter):
         * Start an injector as a context manager -- to provide dependencies to the operation
         * Run the function
         * Return the result
+
+        In addition, if this function is a method of a class:
+
+        * Create an instance of this class
+        * Call the function as a method
+        * When calling both, be sure to pluck arguments from **kwargs
         """
         # Prepare the actual endpoint function
         def operation_endpoint(**kwargs):
             # Within an injector ...
             with self._request_injector(func_op) as request_injector:
-                # ... execute the function
-                return request_injector.invoke(func, **kwargs)
+                args = []
 
-        # Done
-        self._patch_operation_endpoint_signature(operation_endpoint, func_op.operation_id, func_op.signature.return_type, func_op)
-        return operation_endpoint
-
-    def _prepare_method_operation_endpoint_function(self, class_: type, class_op: operation, func: Callable, func_op: operation) -> Callable:
-        """ Make an endpoint-function: to construct a class and call its method via a di.Injector()
-
-        In addition to the above, it has to:
-
-        * Create an instance of the class, providing it with the arguments it needs
-        * Call the method, providing it with the arguments it needs
-        """
-        # Prepare the actual endpoint function
-        def operation_endpoint(**kwargs):
-            # Inside a working injector ...
-            with self._request_injector(func_op) as request_injector:
                 # ... init the class
-                instance_kwargs = class_op.pluck_kwargs_from(kwargs)
-                instance = request_injector.invoke(class_, **instance_kwargs)
+                if class_:
+                    instance_kwargs = class_op.pluck_kwargs_from(kwargs)
+                    instance = request_injector.invoke(class_, **instance_kwargs)
 
-                # ... execute its method.
-                # Provide `self=instance` as the 1st positional argument
-                func_kwargs = func_op.pluck_kwargs_from(kwargs)
-                return request_injector.invoke(func, instance, **func_kwargs)
+                    # Pass the `self` as the first argument
+                    args.append(instance)
+
+                # ... execute the function
+                return request_injector.invoke(func, *args, **kwargs)
 
         # Done
-        self._patch_operation_endpoint_signature(operation_endpoint, func_op.operation_id, func_op.signature.return_type, class_op, func_op)
+        operations = filter(None, [class_op, func_op])
+        self._patch_operation_endpoint_signature(operation_endpoint, func_op.operation_id, func_op.signature.return_type, *operations)
         return operation_endpoint
 
     def _patch_operation_endpoint_signature(self, endpoint: Callable, name: str, return_type: type, *operations: operation) -> Callable:
