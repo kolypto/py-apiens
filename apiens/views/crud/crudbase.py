@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import pydantic as pd
 import sqlalchemy as sa
 import sqlalchemy.orm
-from typing import TypeVar, Generic, Iterable, Union, Mapping, Any, Generator, ClassVar, Set, Sequence, Type, ContextManager, Optional
+from typing import TypeVar, Generic, Iterable, Union, Mapping, Any, ClassVar, Set, Sequence, Type, ContextManager, Optional
 
 from apiens.util import decomarker
 from . import crud_signals
@@ -34,6 +34,8 @@ class SimpleCrudBase(Generic[SAInstanceT]):
     * Supports any means of filtering/selection using *filter and **filter_by arguments
     * Sends CRUD signals. See `crud_signals.py`
     * Can save relationships (by using @saves_custom_fields)
+    * Works with SqlAlchemy Session and actually stores objects into the database
+    * Does not commit(). You have to commit() manually
 
     This object is supposed to be re-initialized for every request.
 
@@ -62,7 +64,7 @@ class SimpleCrudBase(Generic[SAInstanceT]):
     COPY_INSTANCE_HISTORY: bool = False
 
 
-    # region CRUD Operations
+    # region CRUD Operation implementations
 
     # Genus: _*_instance()
     # input: filter, Pydantic model
@@ -74,6 +76,8 @@ class SimpleCrudBase(Generic[SAInstanceT]):
     # They all return SqlAlchemy models, or Query[SAInstanceT] iterables
     # They do not flush() nor commit()
     # These are the basic building blocks for your application.
+
+    # TODO: implement options() with lazy-loads and raise-loads
 
     def _get_instance(self, *filter: sa.sql.expression.BinaryExpression, **filter_by: Mapping[str, Any]) -> SAInstanceT:
         """ get() method: load one instance
@@ -258,6 +262,91 @@ class SimpleCrudBase(Generic[SAInstanceT]):
 
     # endregion
 
+
+    # region Low-level CRUD operations
+
+    # These methods implement CRUD operations on SqlAlchemy instances.
+    # This is unlike the get()/list()/create()/update()/delete() operations that work with Pydantic models.
+
+
+
+    # region Session Operations (load/save)
+
+    # Genus: _session_*_instance() methods
+    # input: filter, Pydantic model
+    # output: SqlAlchemy instance
+    # They call: _*_instance()
+    # Purpose: use Session to load/save things
+
+    # These methods implement the SqlAlchemy Session saving logic
+
+    def _session_get_instance(self, *filter, **filter_by) -> SAInstanceT:
+        """ Session support for get(): load an instance by filtering """
+        return self._get_instance(*filter, **filter_by)
+
+    def _session_list_instances(self, *filter, **filter_by) -> Iterable[SAInstanceT]:
+        """ Session support for list(): load instances by filtering """
+        return self._list_instances(*filter, **filter_by)
+
+    def _session_create_instance(self, input: pd.BaseModel) -> SAInstanceT:
+        """ Session support for create(): create an instance and flush() it """
+        # Create
+        instance = self._create_instance(input)
+
+        # Flush
+        self.ssn.add(instance)
+        self.ssn.flush()
+
+        # Signals
+        crud_signals.on_create.send(type(self), crud=self, new=instance)
+        crud_signals.on_save.send(type(self), crud=self, new=instance, prev=None, action='create')
+
+        # Done
+        return instance
+
+    def _session_update_instance(self, input: pd.BaseModel, *filter, **filter_by) -> SAInstanceT:
+        """ Session support for update(): load an instance, modify it, flush() it """
+        # Update
+        instance = self._update_instance(input, *filter, **filter_by)
+        prev = get_history_proxy_for_instance(instance)  # returns the proxy that has already been initialized by _update_instance()
+
+        # Flush
+        self.ssn.add(instance)
+        self.ssn.flush()
+
+        # Signals
+        crud_signals.on_update.send(type(self), crud=self, new=instance, prev=prev)
+        crud_signals.on_save.send(type(self), crud=self, new=instance, prev=prev, action='update')
+
+        # Done
+        return instance
+
+    def _session_delete_instance(self, *filter, **filter_by) -> SAInstanceT:
+        """ Session support for delete(): load an instance, Session.delete() it, flush it  """
+        # Delete
+        instance = self._delete_instance(*filter, **filter_by)
+
+        # Workaround: remove all possible lazy loads and raiseloads. raiseload() is especially harmful here:
+        # SqlAlchemy will do cascade deletions, and it will need the values of foreign key fields.
+        # See: https://github.com/sqlalchemy/sqlalchemy/issues/5398
+        self.ssn.refresh(instance)
+
+        # Flush
+        self.ssn.delete(instance)
+        self.ssn.flush()
+
+        # Signals
+        crud_signals.on_delete.send(type(self), crud=self, prev=instance)
+        crud_signals.on_save.send(type(self), crud=self, new=None, prev=instance, action='delete')
+
+        # Done
+        return instance
+
+    # endregion
+
+    # endregion
+
+
     # region Querying
 
     def _query(self, *filter, **filter_by) -> Union[sa.orm.Query, Iterable[SAInstanceT]]:
@@ -280,6 +369,42 @@ class SimpleCrudBase(Generic[SAInstanceT]):
         # Done
         return q
 
+    @contextmanager
+    def transaction(self: Type[CrudHandlerT]) -> ContextManager[CrudHandlerT]:
+        """ Wrap a section of code into a Crud transaction. commit() if everything goes fine; rollback() if not
+
+        Example:
+            with UserCrud(ssn).transaction() as crud:
+                user = crud.update(user, id=id)
+                return {'user': user}
+        """
+        try:
+            yield self
+        except Exception:
+            self.rollback()
+            raise
+        else:
+            self.commit()
+
+    def commit(self) -> sa.orm.Session:
+        """ Actually commit the changes.
+
+        Note that no other place in this class performs a commit!
+        You have to call it when you're done with this CRUD object.
+        """
+        # Send signals and commit
+        crud_signals.on_commit_before.send(type(self), crud=self)
+        self.ssn.commit()
+        crud_signals.on_commit_after.send(type(self), crud=self)
+        return self.ssn
+
+    def rollback(self) -> sa.orm.Session:
+        """ Send signals and Session.rollback() """
+        # Send signals and rollback
+        crud_signals.on_rollback_before.send(type(self), crud=self)
+        self.ssn.rollback()
+        crud_signals.on_rollback_after.send(type(self), crud=self)
+        return self.ssn
 
     # endregion
 
@@ -289,12 +414,12 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
 
     In addition to SimpleCrudBase, provides:
 
+    * Public CRUD methods: get(), list(), create(), update(), delete(), etc
+    * Receives **kwargs key-value pairs that the CRUD implementation is supposed to interpret
     * Customizable _filter() to specify which objects fall into the scope of this handler
     * Customizable _filter1() to specify how to find one particular entity.
       Initially, geared up to find objects by their primary key
-    * Works with SqlAlchemy Session and actually stores objects into the database
-    * Provides CRUD signals
-    * Does not commit(). You have to commit() manually
+
     """
 
     # Keyword arguments given to the CRUD handler
@@ -362,8 +487,6 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
     # They call: _session_*_instance()
     # Purpose: top-level CRUD methods that implement the full data cycle
 
-    # TODO: optionally disable validation for response schemas (only in testing)
-
     # The final CRUD operations.
     # They transparently work with Pydantic models both on the input and on the output. SqlAlchemy is not visible.
     # Every method accepts **kwargs: the custom data received from the user for filtering. Typically, view arguments.
@@ -378,12 +501,12 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
             sa.exc.NoResultFound
             sa.exc.MultipleResultsFound
         """
-        instance = self._session_get_instance(**kwargs)
+        instance = self._session_get_instance(*self._filter1(**{**self.kwargs, **kwargs}))
         return self._instance_output(instance, self.crudsettings.GetResponseSchema)
 
     def list(self, **kwargs: UserFilterValue) -> Iterable[ResponseValueT]:
         """ list() method: load multiple objects using criteria """
-        instances = self._list_instances(**kwargs)
+        instances = self._list_instances(*self._filter(**{**self.kwargs, **kwargs}))
         return self._instances_output(instances, self.crudsettings.ListResponseSchema)
 
     # NOTE: create() and update() methods receive either a dict or a Pydantic model.
@@ -399,7 +522,9 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
         Raises:
             sa.exc.IntegrityError
         """
-        input = self.crudsettings.CreateInputSchema.parse_obj(input) if not isinstance(input, self.crudsettings.CreateInputSchema) else input
+        if not isinstance(input, self.crudsettings.CreateInputSchema):  # CHECKME: isinstance(input, pd.BaseModel) ?
+            input = self.crudsettings.CreateInputSchema.parse_obj(input)
+
         instance = self._session_create_instance(input)
         return self._instance_output(instance, self.crudsettings.CreateResponseSchema)
 
@@ -416,8 +541,18 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
             sa.exc.MultipleResultsFound
             sa.exc.IntegrityError
         """
-        input = self.crudsettings.UpdateInputSchema.parse_obj(input) if not isinstance(input, self.crudsettings.UpdateInputSchema) else input
-        instance = self._session_update_instance(input, **kwargs)
+        # Input
+        if not isinstance(input, self.crudsettings.UpdateInputSchema):  # CHECKME: isinstance(input, pd.BaseModel) ?
+            input = self.crudsettings.UpdateInputSchema.parse_obj(input)
+
+        # Pull the primary key from the `input`, if provided
+        pk_fields_in_input = set(self.crudsettings._primary_key) & input.__fields_set__
+        kwargs.update({pk_field: getattr(input, pk_field)
+                       for pk_field in pk_fields_in_input
+                       if pk_field not in kwargs})
+
+        # Update
+        instance = self._session_update_instance(input, *self._filter1(**{**self.kwargs, **kwargs}))
         return self._instance_output(instance, self.crudsettings.UpdateResponseSchema)
 
     def delete(self, **kwargs: UserFilterValue) -> ResponseValueT:
@@ -430,7 +565,7 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
             sa.exc.NoResultFound
             sa.exc.MultipleResultsFound
         """
-        instance = self._session_delete_instance(**kwargs)
+        instance = self._session_delete_instance(*self._filter1(**{**self.kwargs, **kwargs}))
         return self._instance_output(instance, self.crudsettings.DeleteResponseSchema)
 
     def create_or_update(self, input: Union[InstanceDict, pd.BaseModel], **kwargs: UserFilterValue) -> ResponseValueT:
@@ -449,140 +584,22 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
             sa.exc.IntegrityError
         """
         assert self.crudsettings._create_or_update_enabled  # Must be enabled in the CrudSettings
-        input = self.crudsettings.CreateOrUpdateInputSchema.parse_obj(input)
-        instance = self._session_create_or_update_instance(input, **kwargs)
-        return self._instance_output(instance, self.crudsettings.CreateOrUpdateResponseSchema)
 
-    # endregion
-
-
-
-    # region Low-level CRUD operations
-
-    # These methods implement CRUD operations on SqlAlchemy instances.
-    # This is unlike the get()/list()/create()/update()/delete() operations that work with Pydantic models.
-
-
-
-    # region Session Operations (load/save)
-
-    # Genus: _session_*_instance() methods
-    # input: **kwargs, Pydantic model
-    # output: SqlAlchemy instance
-    # They call: _*_instance()
-    # Purpose: use Session to load/save things
-
-    # These methods implement the SqlAlchemy Session saving logic
-
-    def _session_get_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
-        """ Session support for get(): load an instance by filtering """
-        return self._get_instance(**kwargs)
-
-    def _session_list_instances(self, **kwargs: UserFilterValue) -> Iterable[SAInstanceT]:
-        """ Session support for list(): load instances by filtering """
-        return self._list_instances(**kwargs)
-
-    def _session_create_instance(self, input: pd.BaseModel) -> SAInstanceT:
-        """ Session support for create(): create an instance and flush() it """
-        # Create
-        instance = self._create_instance(input)
-
-        # Flush
-        self.ssn.add(instance)
-        self.ssn.flush()
-
-        # Signals
-        crud_signals.on_create.send(type(self), crud=self, new=instance)
-        crud_signals.on_save.send(type(self), crud=self, new=instance, prev=None, action='create')
-
-        # Done
-        return instance
-
-    def _session_update_instance(self, input: pd.BaseModel, **kwargs: UserFilterValue) -> SAInstanceT:
-        """ Session support for update(): load an instance, modify it, flush() it """
-        # Update
-        instance = self._update_instance(input, **kwargs)
-        prev = get_history_proxy_for_instance(instance)  # returns the proxy that has already been initialized by _update_instance()
-
-        # Flush
-        self.ssn.add(instance)
-        self.ssn.flush()
-
-        # Signals
-        crud_signals.on_update.send(type(self), crud=self, new=instance, prev=prev)
-        crud_signals.on_save.send(type(self), crud=self, new=instance, prev=prev, action='update')
-
-        # Done
-        return instance
-
-    def _session_delete_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
-        """ Session support for delete(): load an instance, Session.delete() it, flush it  """
-        # Delete
-        instance = self._delete_instance(**kwargs)
-
-        # Workaround: remove all possible lazy loads and raiseloads. raiseload() is especially harmful here:
-        # SqlAlchemy will do cascade deletions, and it will need the values of foreign key fields.
-        # See: https://github.com/sqlalchemy/sqlalchemy/issues/5398
-        self.ssn.refresh(instance)
-
-        # Flush
-        self.ssn.delete(instance)
-        self.ssn.flush()
-
-        # Signals
-        crud_signals.on_delete.send(type(self), crud=self, prev=instance)
-        crud_signals.on_save.send(type(self), crud=self, new=None, prev=instance, action='delete')
-
-        # Done
-        return instance
-
-    def _session_create_or_update_instance(self, input: pd.BaseModel, **kwargs) -> SAInstanceT:
-        """ Session support for create_or_update(): choose _create_instance() or _update_instance() """
         # Is there a primary key inside?
-        pk_provided = self.crudsettings._primary_key_provided(input)
+        input_field_names = set(input.__fields_set__) if isinstance(input, pd.BaseModel) else set(input)
+        pk_provided = self.crudsettings._primary_key_provided(input_field_names)
 
         # Update
-        if pk_provided:
-            return self._session_update_instance(input, **kwargs)
+        if not pk_provided:
+            return self.create(input)
         else:
-            return self._session_create_instance(input)
+            return self.update(input, **kwargs)
 
     # endregion
-
-
-    # region Instance operations
-
-    # Genus: _*_instance() overrides
-    # Purpose: implement CRUD on instance level
-    # Twist: apply filter() and filter1()
-
-    # These methods override SimpleCrudBase methods and add support for filter() & filter1()
-
-    def _get_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
-        return super()._get_instance(*self._filter1(**{**self.kwargs, **kwargs}))
-
-    def _list_instances(self, **kwargs: UserFilterValue) -> Iterable[SAInstanceT]:
-        return super()._list_instances(*self._filter(**{**self.kwargs, **kwargs}))
-
-    def _update_instance(self, input: pd.BaseModel, **kwargs: UserFilterValue) -> SAInstanceT:
-        # Pull the primary key from the `input`, if provided
-        pk_fields_in_input = set(self.crudsettings._primary_key) & input.__fields_set__
-        kwargs.update({pk_field: getattr(input, pk_field)
-                       for pk_field in pk_fields_in_input
-                       if pk_field not in kwargs})
-
-        # Update
-        return super()._update_instance(input, *self._filter1(**{**self.kwargs, **kwargs}))
-
-    def _delete_instance(self, **kwargs: UserFilterValue) -> SAInstanceT:
-        return super()._delete_instance(*self._filter1(**{**self.kwargs, **kwargs}))
-
-    # endregion
-
-    # endregion
-
 
     # region Output
+
+    # TODO: optionally disable validation for response schemas (only in testing)
 
     def _instance_output(self, instance: SAInstanceT, schema: Type[pd.BaseModel]) -> ResponseValueT:
         """ Convert an SqlAlchemy instance to the final output value """
@@ -597,49 +614,6 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
         )
 
     # endregion
-
-
-    # region Querying
-
-    @contextmanager
-    def transaction(self: Type[CrudHandlerT]) -> ContextManager[CrudHandlerT]:
-        """ Wrap a section of code into a Crud transaction. commit() if everything goes fine; rollback() if not
-
-        Example:
-            with UserCrud(ssn).transaction() as crud:
-                user = crud.update(user, id=id)
-                return {'user': user}
-        """
-        try:
-            yield self
-        except Exception:
-            self.rollback()
-            raise
-        else:
-            self.commit()
-
-    def commit(self) -> sa.orm.Session:
-        """ Actually commit the changes.
-
-        Note that no other place in this class performs a commit!
-        You have to call it when you're done with this CRUD object.
-        """
-        # Send signals and commit
-        crud_signals.on_commit_before.send(type(self), crud=self)
-        self.ssn.commit()
-        crud_signals.on_commit_after.send(type(self), crud=self)
-        return self.ssn
-
-    def rollback(self) -> sa.orm.Session:
-        """ Send signals and Session.rollback() """
-        # Send signals and rollback
-        crud_signals.on_rollback_before.send(type(self), crud=self)
-        self.ssn.rollback()
-        crud_signals.on_rollback_after.send(type(self), crud=self)
-        return self.ssn
-
-    # endregion
-
 
     # TODO: _method_create_or_update_many() from MongoSQL 2.x
 

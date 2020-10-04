@@ -192,12 +192,12 @@ class CrudSettings:
 
     # Methods that help use these settings
 
-    def _primary_key_provided(self, input: pd.BaseModel):
+    def _primary_key_provided(self, provided_names: Iterable[str]):
         """ Check whether the input contains a primary key
 
         This is necessary to determine whether we will create() or update()
         """
-        return input.__fields_set__ >= set(self._primary_key)
+        return set(provided_names) >= set(self._primary_key)
 
     @cached_property
     def _exclude_on_create(self) -> FrozenSet[str]:
