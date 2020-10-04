@@ -354,9 +354,9 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
     # endregion
 
 
-    # region CRUD operations
+    # region Public CRUD operations
 
-    # Genus: CRUD() methods
+    # Genus: Public CRUD: get(), list(), create(), update(), delete(), etc, methods
     # input: **kwargs, Pydantic model or dict
     # output: Pydantic model or dict
     # They call: _session_*_instance()
@@ -381,13 +381,10 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
         instance = self._session_get_instance(**kwargs)
         return self._instance_output(instance, self.crudsettings.GetResponseSchema)
 
-    def list(self, **kwargs: UserFilterValue) -> Generator[ResponseValueT, None, None]:
+    def list(self, **kwargs: UserFilterValue) -> Iterable[ResponseValueT]:
         """ list() method: load multiple objects using criteria """
         instances = self._list_instances(**kwargs)
-        return (
-            self._instance_output(instance, self.crudsettings.ListResponseSchema)
-            for instance in instances
-        )
+        return self._instances_output(instances, self.crudsettings.ListResponseSchema)
 
     # NOTE: create() and update() methods receive either a dict or a Pydantic model.
     # In both cases, the data will be validated.
@@ -467,7 +464,7 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
 
 
 
-    # region Session Operations
+    # region Session Operations (load/save)
 
     # Genus: _session_*_instance() methods
     # input: **kwargs, Pydantic model
@@ -553,7 +550,7 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
     # endregion
 
 
-    # region CRUD operations
+    # region Instance operations
 
     # Genus: _*_instance() overrides
     # Purpose: implement CRUD on instance level
@@ -582,6 +579,9 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
 
     # endregion
 
+    # endregion
+
+
     # region Output
 
     def _instance_output(self, instance: SAInstanceT, schema: Type[pd.BaseModel]) -> ResponseValueT:
@@ -589,7 +589,12 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
         # Use Pydantic to convert it
         return schema.from_orm(instance)
 
-    # region
+    def _instances_output(self, instances: Iterable[SAInstanceT], schema: Type[pd.BaseModel]) -> Iterable[ResponseValueT]:
+        """ Convert an iterable of SqlAlchemy instances into the final output value """
+        return (
+            self._instance_output(instance, schema)
+            for instance in instances
+        )
 
     # endregion
 
