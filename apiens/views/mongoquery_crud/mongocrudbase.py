@@ -35,9 +35,9 @@ class MongoCrudBase(CrudBase[SAInstanceT, ResponseValueT], Generic[SAInstanceT, 
 
         if self.crudsettings._mongoquery_enabled:
             # Init MongoQuery
-            mq = self.crudsettings._mongoquery_for_crud(self, query)
+            mq = self.crudsettings._mongoquery(query, self.query_object)
 
-            # crud._mongoquery() hook
+            # _mongoquery() hook
             mq = self._mongoquery(mq)
 
             # Finish
