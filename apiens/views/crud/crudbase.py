@@ -270,23 +270,15 @@ class SimpleCrudBase(Generic[SAInstanceT]):
 
 
 
-    # region Session Operations (load/save)
+    # region Session Saving Operations
 
     # Genus: _session_*_instance() methods
     # input: filter, Pydantic model
     # output: SqlAlchemy instance
     # They call: _*_instance()
-    # Purpose: use Session to load/save things
+    # Purpose: use Session to save things
 
     # These methods implement the SqlAlchemy Session saving logic
-
-    def _session_get_instance(self, *filter, **filter_by) -> SAInstanceT:
-        """ Session support for get(): load an instance by filtering """
-        return self._get_instance(*filter, **filter_by)
-
-    def _session_list_instances(self, *filter, **filter_by) -> Iterable[SAInstanceT]:
-        """ Session support for list(): load instances by filtering """
-        return self._list_instances(*filter, **filter_by)
 
     def _session_create_instance(self, input: pd.BaseModel) -> SAInstanceT:
         """ Session support for create(): create an instance and flush() it """
@@ -501,7 +493,7 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
             sa.exc.NoResultFound
             sa.exc.MultipleResultsFound
         """
-        instance = self._session_get_instance(*self._filter1(**{**self.kwargs, **kwargs}))
+        instance = self._get_instance(*self._filter1(**{**self.kwargs, **kwargs}))
         return self._instance_output(instance, self.crudsettings.GetResponseSchema)
 
     def list(self, **kwargs: UserFilterValue) -> Iterable[ResponseValueT]:
