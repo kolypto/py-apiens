@@ -1,8 +1,9 @@
+import mongosql
 import sqlalchemy as sa
 import sqlalchemy.orm
-from typing import Type, Optional, ClassVar
+import sqlalchemy.orm.attributes
+from typing import Type, Optional, ClassVar, Union, Tuple
 
-import mongosql
 from apiens.views.crud.crud_settings import CrudSettings
 from apiens.views.mongoquery_crud.defs import QueryObject
 
@@ -20,10 +21,24 @@ class MongoCrudSettings(CrudSettings):
     # MongoSQL default query object
     _query_defaults: Optional[dict] = None
 
+    # Load only for CRUD operations
+    _load_only: Tuple[Union[str, sa.orm.attributes.InstrumentedAttribute]] = ()
+
     # The MongoQuery object that's going to be used for new queries
     _reusable_mongoquery: Optional[mongosql.MongoQuery] = None
 
     # Configure
+
+    def load_only(self, *fields: Union[str, sa.orm.attributes.InstrumentedAttribute]):
+        """ Configure the names of instance fields that will be loaded for your CRUD handler.
+
+        Only name fields that you're actually going to use in your update() and delete() operations
+
+        Args:
+            *fields: Names of fields, attributes, or columns
+        """
+        self._load_only = fields
+        return self
 
     def query_defaults(self, **query_defaults):
         """ Configure MongoSQL auerying
@@ -55,7 +70,7 @@ class MongoCrudSettings(CrudSettings):
 
     # Query
 
-    def _mongoquery(self, from_query: sa.orm.Query, query_object: QueryObject = None):
+    def _mongoquery(self, from_query: sa.orm.Query, query_object: Optional[QueryObject] = None):
         """ Start a MongoSql query using the provided QueryObject and Query
 
         Args:
@@ -64,7 +79,7 @@ class MongoCrudSettings(CrudSettings):
         """
         # Merge the defaults in
         query_obj = {
-            **self._query_defaults,
+            **(self._query_defaults or {}),
             **(query_object or {})
         }
 

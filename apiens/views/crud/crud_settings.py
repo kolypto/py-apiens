@@ -13,6 +13,9 @@ PydanticModelT = Type[pd.BaseModel]
 
 class CrudSettings:
     """ Crud Settings object """
+    # Debug mode?
+    _debug: bool = False
+
     # The SqlAlchemy model this settings object is made for
     Model: DeclarativeMeta
 
@@ -37,6 +40,7 @@ class CrudSettings:
                  ResponseSchema: PydanticModelT,
                  CreateSchema: Optional[PydanticModelT],
                  UpdateSchema: Optional[PydanticModelT],
+                 debug: bool = False
                  ):
         """
         Args:
@@ -44,7 +48,10 @@ class CrudSettings:
             ResponseSchema: Pydantic model for returned objects
             CreateSchema: Pydantic input model for creating objects
             UpdateSchema: Pydantic input model for updating objects
+            debug: Debug mode (for testing and non-production instances)
         """
+        self._debug = debug
+
         # SqlAlchemy
         self.Model = Model
 
@@ -69,6 +76,14 @@ class CrudSettings:
     # region Settings
 
     # Methods to further refine the settings
+
+    def debug(self, debug: bool):
+        """ Enable debug mode?"
+
+        In debug mode, Crud handlers may make additional checks and throw extra errors to make sure things add up.
+        """
+        self._debug = debug
+        return self
 
     def primary_key_config(self, primary_key: Iterable[str], *, natural_primary_key: bool = False):
         """ Customize the primary key settings.
@@ -164,20 +179,6 @@ class CrudSettings:
             validate_primary_key_is_not_writable,
         ])
         return self
-
-    # endregion
-
-    # region Extensions
-
-    def _crud_query_customize(self, crud: 'crudbase.SimpleCrudBase', query: sa.orm.Query) -> sa.orm.Query:
-        """ Customize the ORM query
-
-        This is a low-level method that lets you use a CrudSettings object with some query handler
-        that may put additional filtering to the query and whatnot.
-
-        For instance, MongoSQL uses this hook to inject its magic into the query.
-        """
-        return query
 
     # endregion
 

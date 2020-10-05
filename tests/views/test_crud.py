@@ -5,8 +5,8 @@ import pydantic
 import pytest
 import sa2schema as sa2
 import sqlalchemy as sa
+import sqlalchemy.orm
 from sa2schema import loads_attributes_readcode
-from sa2schema.to.pydantic import SALoadedModel
 from sqlalchemy.ext.declarative.api import declarative_base
 from typing import List
 
@@ -20,7 +20,7 @@ from tests.lib.object_match import DictMatch, Parameter
 def test_user_crud_basic(ssn: sa.orm.Session):
     ABSENT = object()
 
-    class UserCrud(MongoCrudBase[User, SALoadedModel]):
+    class UserCrud(MongoCrudBase[User]):
         crudsettings = MongoCrudSettings(
             User,
             # Proper schemas
@@ -44,6 +44,11 @@ def test_user_crud_basic(ssn: sa.orm.Session):
                 'articles': mongosql.MongoQuerySettingsDict(
                     default_projection=('id',),
                     allowed_relations=('author',),
+                    related={
+                        'author': mongosql.MongoQuerySettingsDict(
+                            default_projection=('id',),
+                        )
+                    }
                 )
             },
             # Absolute limit
@@ -53,7 +58,7 @@ def test_user_crud_basic(ssn: sa.orm.Session):
             CreateOrUpdateSchema=schemas.modify.User,
         ).exclude_config(
             create_and_update=('articles',),
-        )
+        ).debug(True)
 
         # One special field handled by saves_custom_fields()
 
@@ -72,7 +77,7 @@ def test_user_crud_basic(ssn: sa.orm.Session):
     with session_reset(ssn):
         users = list(UserCrud(ssn).list())
         assert len(users) == 1  # only 1 user, because {limit: 1} is the default
-        assert users[0].dict(exclude_unset=True) == {
+        assert users[0] == {
             'id': 1,  # only one field is loaded! (default projection)
         }
 
@@ -91,7 +96,6 @@ def test_user_crud_basic(ssn: sa.orm.Session):
     get_user = lambda kwargs, **query_object: (
         UserCrud(ssn, query_object=query_object)
             .get(**kwargs)
-            .dict(exclude_unset=True)
     )
 
     # Query as is
@@ -109,51 +113,60 @@ def test_user_crud_basic(ssn: sa.orm.Session):
     with session_reset(ssn):
         assert get_user({'id': 1}, join={'articles': {'project': ['id', 'author']}}) == {
             'id': 1,
-            'name': 'John', 'login': 'john', 'age': 18, 'age_in_100_years': 118,  # FIXME: (CrudBase-projections) unexpected fields
             'articles': [
-                # Every 'author' is replaced with a None because of recursion
-                {'id': 1, 'author': None},
-                {'id': 2, 'author': None},
+                {'id': 1, 'author': {'id': 1}},
+                {'id': 2, 'author': {'id': 1}},
             ]
         }
 
     # Try: @property
     with session_reset(ssn):
         assert get_user({'id': 1}, project=['age_in_100_years']) == {
-            'id': 1,
+            # 'id': 1,  # not included because not requested!
             'age_in_100_years': 18 + 100,  # yeah, loaded!
-            'age': 18,  # FIXME: (CrudBase-projections) unexpected fields
         }
 
 
-    # === Test: create()
+    # === Prepare two crud handlers:
+    # One that only returns the `id`
     crud = UserCrud(ssn, query_object=dict(project=['id']))
+    # One that does not return the `id`, but gives you the `name` and the `age`
+    crud_fields = UserCrud(ssn, query_object=dict(project=['name', 'age']))
 
+    # well, actually, those crud handlers aren't supposed to be reused.
+    # but currently, there is nothing that prevents us from doing so.
+    # So... why not?
+
+
+    # === Test: create()
     # Create with minimum fields
     user = crud.create({'name': 'Bird'})
-    assert user.dict(exclude_unset=True) == {
+    assert user == {
         'id': (bird_id := Parameter()),  # projected
-        'name': 'Bird',  # modified, hence, included
         # nothing else is included, because not set.
     }
 
     # Create with a writable @property
     # This is only possible because schemas.create was configured to include attributes
     user = crud.create({'name': 'Turtle', 'age_in_100_years': 169})
-    assert user.dict(exclude_unset=True) == {
+    assert user == {
         'id': (turtle_id := Parameter()),
+    }
+    assert crud_fields.get(id=turtle_id.value) == {
         'name': 'Turtle',
-        'age': 69,  # written property!
-        'age_in_100_years': 169,
+        'age': 69,
     }
 
     # Create: try to set a primary key. Ignored.
     user = crud.create({'id': 1000, 'name': 'Lion'})
-    assert user.dict(exclude_unset=True) == {
+    assert user == {
         'id': (lion_id := Parameter()),  # projected
-        'name': 'Lion',  # modified, hence, included
     }
     assert lion_id.value != 1000
+    assert crud_fields.get(id=lion_id.value) == {
+        'name': 'Lion',
+        'age': None,
+    }
 
     # Create: try to set an unknown attribute (fail)
     with pytest.raises(pydantic.ValidationError) as e:
@@ -165,10 +178,13 @@ def test_user_crud_basic(ssn: sa.orm.Session):
 
     # Create: @saves_custom_fields()
     user = crud.create({'name': 'Human', 'passwd': 'qwerty'})
-    assert user.dict(exclude_unset=True) == {
+    assert user == {
         'id': (human_id := Parameter()),
+
+    }
+    assert crud_fields.get(id=human_id.value) == {
         'name': 'Human',
-        # password is not reported
+        'age': None,
     }
 
     assert len(saves_custom_fields.all_decorated_from(UserCrud)) == 1  # found our decorated objecr
@@ -182,23 +198,26 @@ def test_user_crud_basic(ssn: sa.orm.Session):
 
 
     # === Test: update()
-    crud = UserCrud(ssn, query_object=dict(project=['id']))
-
     # Update a column
-    bird = crud.update({'age': 3}, id=bird_id.value)
-    assert bird.dict(exclude_unset=True) == {'id': bird_id.value, 'age': 3, 'age_in_100_years': 103}
+    bird = crud_fields.update({'age': 3}, id=bird_id.value)
+    assert bird == {
+        'name': 'Bird',
+        'age': 3,
+    }
 
     # Update the primary key (ignored)
-    bird = crud.update({'id': 300, 'age': 6}, id=bird_id.value)
-    assert bird.dict(exclude_unset=True) == {
-        'id': bird_id.value,  # PK unadulterated; the incoming value ignored
+    bird = crud_fields.update({'id': 300, 'age': 6}, id=bird_id.value)
+    assert bird == {
+        'name': 'Bird',
         'age': 6,  # modified
-        'age_in_100_years': 106,
     }
 
     # Provide the primary key in the input
-    bird = crud.update({'id': bird_id.value, 'age': 16})
-    assert bird.age == 16  # updated
+    bird = crud_fields.update({'id': bird_id.value, 'age': 16})
+    assert bird == {
+        'name': 'Bird',
+        'age': 16,  # updated
+    }
 
     # Provide the wrong PK in the input
     with pytest.raises(sa.orm.exc.NoResultFound):
@@ -210,17 +229,11 @@ def test_user_crud_basic(ssn: sa.orm.Session):
 
 
     # === Test: delete()
-    crud = UserCrud(ssn, query_object=dict(project=['id']))
-
     # Delete
-    bird = crud.delete(id=bird_id.value)
-    assert bird.dict(exclude_unset=True) == {
-        'id': bird_id.value,
-        # FIXME: (CrudBase-projections) unexpected fields
-        # when an instance is removed, relationships get loaded for CASCADE
-        'articles': [],
-        # in fact, all fields get loaded during delete()
-        'age': 16, 'age_in_100_years': 116, 'login': None, 'name': 'Bird',
+    bird = crud_fields.delete(id=bird_id.value)
+    assert bird == {
+        'name': 'Bird',
+        'age': 16,
     }
 
     # Deleted
@@ -228,25 +241,25 @@ def test_user_crud_basic(ssn: sa.orm.Session):
 
 
     # === Test: create_or_update()
-    crud = UserCrud(ssn, query_object=dict(project=['id']))
-
     # Try update(): pk provided, but not found. Error.
     with pytest.raises(sa.orm.exc.NoResultFound):
         lizard = crud.create_or_update({'id': 1000, 'name': 'Lizard'})
 
     # Try create(): pk not provided, created ok
     lizard = crud.create_or_update({'name': 'Lizard'})
-    assert lizard.dict(exclude_unset=True) == {
+    assert lizard == {
         'id': (lizard_id := Parameter()),
+    }
+    assert crud_fields.get(id=lizard_id.value) == {
         'name': 'Lizard',
+        'age': None,
     }
 
     # Try update() again
-    lizard = crud.create_or_update({'id': lizard_id.value, 'age': 15})
-    assert lizard.dict(exclude_unset=True) == {
-        'id': lizard_id.value,
-        'age': 15,
-        'age_in_100_years': 115,
+    lizard = crud_fields.create_or_update({'id': lizard_id.value, 'age': 15})
+    assert lizard == {
+        'name': 'Lizard',
+        'age': 15,  # updated
     }
 
 
@@ -457,7 +470,7 @@ class schemas:
         naming='{model}Load',
         types=sa2.AttributeType.ALL_LOCAL_FIELDS | sa2.AttributeType.ALL_RELATIONSHIPS,
         Base=sa2.pydantic.SALoadedModel,
-        make_optional=sa2.filter.ALL_BUT_PRIMARY_KEY(),
+        make_optional=True,
     )
     load.sa_model(User, exclude=('passwd',))
     load.sa_model(Article)

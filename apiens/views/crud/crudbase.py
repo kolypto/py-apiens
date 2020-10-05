@@ -22,6 +22,7 @@ ResponseValueT = TypeVar("ResponseValueT")
 CrudHandlerT = TypeVar('CrudHandlerT')
 
 
+# Generic[SAInstanceT]: your SqlAlchemy model
 class SimpleCrudBase(Generic[SAInstanceT]):
     """ CRUD Handler: basic business-logic layer for your SqlAlchemy instances.
 
@@ -76,8 +77,6 @@ class SimpleCrudBase(Generic[SAInstanceT]):
     # They all return SqlAlchemy models, or Query[SAInstanceT] iterables
     # They do not flush() nor commit()
     # These are the basic building blocks for your application.
-
-    # TODO: implement options() with lazy-loads and raise-loads
 
     def _get_instance(self, *filter: sa.sql.expression.BinaryExpression, **filter_by: Mapping[str, Any]) -> SAInstanceT:
         """ get() method: load one instance
@@ -401,6 +400,9 @@ class SimpleCrudBase(Generic[SAInstanceT]):
     # endregion
 
 
+# Generic[SAInstanceT]: your SqlAlchemy model
+# ResponseValueT[ResponseValueT]: the type your custom _instance_output() returns.
+#   That is, the final output type for your crud methods.
 class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]):
     """ Feature-complete Crud Handler for your application's business logic
 
@@ -457,7 +459,7 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
             *self._filter_primary_key(kwargs),
         )
 
-    def _filter_primary_key(self, kwargs: Mapping[str, UserFilterValue]):
+    def _filter_primary_key(self, kwargs: Mapping[str, UserFilterValue]) -> Iterable[sa.sql.expression.BinaryExpression]:
         """ Find an instance by its primary key values
 
         Args:
@@ -587,7 +589,10 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
         else:
             return self.update(input, **kwargs)
 
+    # TODO: _method_create_or_update_many() from MongoSQL 2.x
+
     # endregion
+
 
     # region Output
 
@@ -606,8 +611,6 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
         )
 
     # endregion
-
-    # TODO: _method_create_or_update_many() from MongoSQL 2.x
 
 
 class saves_custom_fields(decomarker):
