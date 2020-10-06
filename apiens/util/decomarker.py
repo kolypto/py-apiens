@@ -65,8 +65,9 @@ class decomarker(metaclass=decomarker_meta):
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
 
-        # Initialize the marker
-        cls.MARKER_ATTR = '::' + cls.__name__
+        # Initialize the marker if not already:
+        if getattr(cls, 'MARKER_ATTR', None) is None:
+            cls.MARKER_ATTR = '::' + cls.__name__
 
     def __call__(self, func):
         return self.decorator(func)
