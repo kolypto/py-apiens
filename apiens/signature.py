@@ -1,10 +1,12 @@
 import inspect
 import typing
-from typing import Callable, Mapping, Union, Any, Set, FrozenSet, Literal
+from typing import Callable, Mapping, Union, Any, FrozenSet, Literal
 
 from apiens import di
+from dataclasses import dataclass
 
 
+@dataclass
 class Signature:
     """ A function's type signature: the information about its input and output types
 
@@ -28,13 +30,20 @@ class Signature:
     return_type: Union[type, Literal[Any]]
 
     def __init__(self, func: Callable):
+        # Get the names of dependencies that will be provided
+        provided_names = get_provided_names(func)
+
+        # If it's a class, go to its constructor instead.
+        # We only do this after `get_provided_names()` to make sure
+        # we support both decorated classes and decorated constructors
+        if inspect.isclass(func):
+            func = func.__init__
+            provided_names |= get_provided_names(func)
+
         # Get all annotations.
         # Note that un-annotated parameters will be missing.
         parameter_annotations = typing.get_type_hints(func)
         self.return_type = parameter_annotations.pop('return', Any)
-
-        # Get the names of dependencies that will be provided
-        provided_names = get_provided_names(func)
 
         # Prepare
         self.provided_arguments: dict = {}
