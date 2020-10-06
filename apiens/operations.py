@@ -45,15 +45,13 @@ class operation(decomarker):
             def delete(self, id: int):
                 ...
     """
-    # The signature class to use
-    SIGNATURE_CLS: ClassVar[type] = Signature
 
     # A unique name of this operation.
     # It will be used to call it as a function
     operation_id: Union[str, Hashable]
 
     # Operation function's signature: argument types, defaults, etc
-    signature: SIGNATURE_CLS
+    signature: Signature
 
     # Operation's documentation
     doc: DocumentedFunction
@@ -87,7 +85,7 @@ class operation(decomarker):
             self.operation_id = func.__name__
 
         # Read function signature into information
-        self.signature = self.SIGNATURE_CLS(func)
+        self.signature = Signature(func)
 
         # Parse the function's docstring
         if self._parse_docstring:
@@ -98,10 +96,13 @@ class operation(decomarker):
 
         # If we've decorated a class, go through every method and tell it about it
         if inspect.isclass(func):
+            # Remove the "self" argument from the constructor signature
+            remove_first_key(self.signature.arguments)
+
+            # Remove the "self" argument from every decorated method as well
             for method_operation in self.all_decorated_from(func, inherited=True):
-                # Remove the first argument.
-                # TODO: remove hardcoded "self" and support any name. Support @classmethod. Support @staticmethod.
-                del method_operation.signature.arguments['self']
+                if not isinstance(func, staticmethod):
+                    remove_first_key(method_operation.signature.arguments)
 
         # Done
         return super().decorator(func)
@@ -133,6 +134,8 @@ class operation(decomarker):
         )
 
         # Fully documented?
+        # TODO: disable "fully_documented" on a per-method basis
+        # TODO: inherit documentation (errors, parameters, function doc) from the class and from the implementation on the parent
         if fully_documented:
             self._assert_is_fully_documented()
 
@@ -213,3 +216,9 @@ class operation(decomarker):
 
         # Done
         return wrapper
+
+
+def remove_first_key(d: dict):
+    """ Remove the first key from a dictionary. Used to remove `self` """
+    first_key = list(d)[0]
+    d.pop(first_key)
