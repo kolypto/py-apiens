@@ -40,7 +40,7 @@ class OperationalApiRouter(fastapi.APIRouter):
     # Class-based operations: classes
     class_operations: List[type]
 
-    def __init__(self, debug: bool = False, fully_documented: bool = True, **kwargs):
+    def __init__(self, *, debug: bool = False, fully_documented: bool = True, **kwargs):
         """
 
         Args:
@@ -264,8 +264,8 @@ def operation_parameter_info(name: str, type_: type, op: operation) -> inspect.P
             # If not, use the `...`. This is how FastAPI declares required parameters
             op.signature.argument_defaults.get(name, ...),
             # Documentation for the parameter
-            title=op.doc.parameters[name].summary,
-            description=op.doc.parameters[name].description,
+            title=op.doc.parameters[name].summary if name in op.doc.parameters else None,
+            description=op.doc.parameters[name].description if name in op.doc.parameters else None,
         )
 
     # For `Body` parameters, make sure they have `embed=True`.
@@ -297,6 +297,10 @@ def operation_route_documentation_kwargs(op: operation) -> dict:
     if op.doc.function:
         route_kw['summary'] = op.doc.function.summary
         route_kw['description'] = op.doc.function.description
+
+    if op.doc.deprecated:
+        route_kw['deprecated'] = True
+        # TODO: include more info? `op.doc.deprecated.version/summary/description` & stuff
 
     # Result documentation
     if op.doc.result:
