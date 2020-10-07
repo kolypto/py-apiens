@@ -180,7 +180,6 @@ class OperationalApiRouter(fastapi.APIRouter):
             # With some pydantic tuning.
             response_model=func_op.signature.return_type,
             response_model_exclude_unset=True,
-            response_model_exclude_defaults=True,
             # Documentation.
             **operation_route_documentation_kwargs(func_op)
         )
