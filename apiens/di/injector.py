@@ -188,7 +188,10 @@ class Injector:
         if marker is None:
             return func(*args, **kwargs)
         else:
-            return self.resolve_and_invoke(func, marker.resolvable, *args, **kwargs)
+            try:
+                return self.resolve_and_invoke(func, marker.resolvable, *args, **kwargs)
+            except NoProviderError as e:
+                raise NoProviderError(f'Injector failed while resolving dependency for {func}: token={e.token!r}') from e
 
     def invoke_strictly(self, func: Callable, *args, **kwargs) -> Any:
         """ Invoke a function, provide it with dependencies, require that it's decorated with @di.
