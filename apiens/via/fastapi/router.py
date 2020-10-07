@@ -86,7 +86,10 @@ class OperationalApiRouter(fastapi.APIRouter):
         assert func_op is not None, f'Function {func} must be decorated with @operation'
 
         # Register
-        self._register_operation(func_op)
+        try:
+            self._register_operation(func_op)
+        except Exception as e:
+            raise ValueError(f"Error registering @operation {func_op}") from e
 
         # Done
         return func
@@ -99,7 +102,10 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         # List its sub-operations
         for func_op in operation.all_decorated_from(class_, inherited=True):
-            self._register_operation(func_op, class_op)
+            try:
+                self._register_operation(func_op, class_op)
+            except Exception as e:
+                raise ValueError(f"Error registering @operation {func_op}") from e
 
         # Done
         return class_

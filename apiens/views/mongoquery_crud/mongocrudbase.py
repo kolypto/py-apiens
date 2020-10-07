@@ -43,38 +43,17 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
     def get(self, **kwargs: UserFilterValue) -> dict:
         # Don't use CrudBase.get() because it will load ORM objects, which is suboptimal.
         # Use MongoQuery instead
-        mq = self._mongoquery(*self._filter1(**{**self.kwargs, **kwargs}))
-        result = self._one_result_from_mongoquery(mq, self.crudsettings.GetResponseSchema)
-
-        return result
+        return self._result_fetch_one(self.crudsettings.GetResponseSchema, **kwargs)
 
     def list(self, **kwargs: UserFilterValue) -> Iterable[dict]:
-        # Query
-        mq = self._mongoquery(*self._filter(**{**self.kwargs, **kwargs}))
-        mq_instances: Union[sa.orm.Query, Iterable[SAInstanceT]] = mq.end()
-
-        # Pluck
-        result = (
-            mq.pluck_instance(mq_instance)
-            for mq_instance in mq_instances
-        )
-
-        # Validate
-        if self.crudsettings._debug:
-            result = list(result)
-            for item in result:
-                self.crudsettings.ListResponseSchema.parse_obj(item)
-
-        # Done
-        return result
+        return self._result_fetch_many(self.crudsettings.ListResponseSchema, **kwargs)
 
     def create(self, input: Union[InstanceDict, pd.BaseModel]) -> dict:
         # create()
         instance: SAInstanceT = super().create(input)
 
         # re-load the instance with the user's projection
-        mq = self._mongoquery_instance_by_primary_key(instance)
-        result = self._one_result_from_mongoquery(mq, self.crudsettings.CreateResponseSchema)
+        result = self._result_refetch_instance(self.crudsettings.CreateResponseSchema, instance)
 
         # Done
         return result
@@ -84,8 +63,7 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
         instance: SAInstanceT = super().update(input, **kwargs)
 
         # re-load the instance with the user's projection
-        mq = self._mongoquery_instance_by_primary_key(instance)
-        result = self._one_result_from_mongoquery(mq, self.crudsettings.UpdateResponseSchema)
+        result = self._result_refetch_instance(self.crudsettings.UpdateResponseSchema, instance)
 
         # Done
         return result
@@ -93,8 +71,7 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
     def delete(self, **kwargs: UserFilterValue) -> dict:
         # load the instance with a custom projection before it is removed!
         # This is the only way we can fetch all those relationships and everything
-        mq = self._mongoquery(*self._filter1(**{**self.kwargs, **kwargs}))
-        result = self._one_result_from_mongoquery(mq, self.crudsettings.DeleteResponseSchema)
+        result = self._result_fetch_one(self.crudsettings.DeleteResponseSchema, **kwargs)
 
         # delete()
         super().delete(**kwargs)
@@ -106,17 +83,23 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
 
     # region MongoSql Query
 
-    def _mongoquery_instance_by_primary_key(self, instance: SAInstanceT):
-        """ Start a MongoQuery to load a known instance by primary key """
-        # Extract the primary key and build the condition
-        filter = self._filter_primary_key(
-            # Use the instance dict as the `kwargs`.
-            # This will work because `kwargs` is expected to contain attribute name-value pairs anyway
-            kwargs=sa.orm.base.instance_dict(instance)
-        )
+    def _result_refetch_instance(self, response_schema: Type[pd.BaseModel], instance: SAInstanceT) -> dict:
+        """ Fetch the instance again through a MongoQuery and return an object """
+        mq = self._mongoquery_instance_by_primary_key(instance)
+        result = self._one_result_from_mongoquery(mq, response_schema)
+        return result
 
-        # mongoquery
-        return self._mongoquery(*filter)
+    def _result_fetch_one(self, /, response_schema: Type[pd.BaseModel], **kwargs) -> dict:
+        """ Fetch one object through a MongoQuery """
+        mq = self._mongoquery(*self._filter1(**{**self.kwargs, **kwargs}))
+        result = self._one_result_from_mongoquery(mq, response_schema)
+        return result
+
+    def _result_fetch_many(self, /, response_schema: Type[pd.BaseModel], **kwargs) -> Iterable[dict]:
+        """ Fetch many objects through a MongoQuery """
+        mq = self._mongoquery(*self._filter(**{**self.kwargs, **kwargs}))
+        results = self._many_results_from_mongoquery(mq, response_schema)
+        return results
 
     def _mongoquery(self, *filter, **filter_by) -> mongosql.MongoQuery:
         """ Start a MongoQuery to load instance[s]
@@ -129,22 +112,6 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
     # Override the CrudBase output and let the instance pass through
     # We do it like this because we don't need that instance at all.
     # Instead, we'll make another query and fetch it with MongoSQL using the custom projection from the QueryObject
-
-    def _one_result_from_mongoquery(self, mq: mongosql.MongoQuery, response_schema: Type[pd.BaseModel]):
-        """ Prepare a singular result from a MongoQuery """
-        # Query
-        query = mq.end()
-        mq_instance = query.one()
-
-        # Pluck
-        result = mq.pluck_instance(mq_instance)
-
-        # Optionally, in debug mode, validate the response model
-        if self.crudsettings._debug:
-            self.crudsettings.GetResponseSchema.parse_obj(result)
-
-        # Done
-        return result
 
     def _instance_output(self, instance: SAInstanceT, schema: Type[pd.BaseModel]) -> SAInstanceT:
         return instance
@@ -173,6 +140,57 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
 
         # Done
         return query
+
+    # endregion
+
+    # region Helpers
+
+    def _mongoquery_instance_by_primary_key(self, instance: SAInstanceT):
+        """ Start a MongoQuery to load a known instance by primary key """
+        # Extract the primary key and build the condition
+        filter = self._filter_primary_key(
+            # Use the instance dict as the `kwargs`.
+            # This will work because `kwargs` is expected to contain attribute name-value pairs anyway
+            kwargs=sa.orm.base.instance_dict(instance)
+        )
+
+        # mongoquery
+        return self._mongoquery(*filter)
+
+    def _one_result_from_mongoquery(self, mq: mongosql.MongoQuery, response_schema: Type[pd.BaseModel]) -> dict:
+        """ Prepare a singular result from a MongoQuery """
+        # Query
+        query = mq.end()
+        mq_instance = query.one()
+
+        # Pluck
+        result = mq.pluck_instance(mq_instance)
+
+        # Optionally, in debug mode, validate the response model
+        if self.crudsettings._debug:
+            response_schema.parse_obj(result)
+
+        # Done
+        return result
+
+    def _many_results_from_mongoquery(self, mq: mongosql.MongoQuery, response_schema: Type[pd.BaseModel]) -> Iterable[dict]:
+        """ Prepare a plural result from a MongoQuery """
+        mq_instances: Union[sa.orm.Query, Iterable[SAInstanceT]] = mq.end()
+
+        # Pluck
+        results = (
+            mq.pluck_instance(mq_instance)
+            for mq_instance in mq_instances
+        )
+
+        # Validate
+        if self.crudsettings._debug:
+            results = list(results)  # otherwise the generator would be exhausted
+            for item in results:
+                response_schema.parse_obj(item)
+
+        # Done
+        return results
 
     # endregion
 

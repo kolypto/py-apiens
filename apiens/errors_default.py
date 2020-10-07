@@ -1,6 +1,7 @@
 """ A default set of errors for your convenience. Use it if you will. """
 
 from typing import Iterable, List, Union
+from http import HTTPStatus
 
 
 # Init translations
