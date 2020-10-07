@@ -36,7 +36,7 @@ class ErrorObject(pd.BaseModel):
 
     @classmethod
     def from_exception(cls, e: BaseApplicationError, include_debug_info: bool):
-        """ Create the `Error` object from a Python exception """
+        """ Create the `ErrorObject` from a Python exception """
         return cls(
             name=e.name,
             title=e.title,
@@ -51,3 +51,8 @@ class ErrorObject(pd.BaseModel):
 class ErrorResponse(pd.BaseModel):
     """ Error response as returned by the API """
     error: ErrorObject
+
+    @classmethod
+    def from_exception(cls, e: BaseApplicationError, include_debug_info: bool):
+        """ Create the `ErrorResponse` from a Python exception """
+        return ErrorResponse(error=ErrorObject.from_exception(e, include_debug_info=include_debug_info))

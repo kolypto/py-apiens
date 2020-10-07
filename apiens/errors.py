@@ -20,7 +20,7 @@ class BaseApplicationError(Exception):
 
     Example:
 
-        class E_NOT_FOUND(BaseApplicationException):
+        class E_NOT_FOUND(BaseApplicationError):
             \""" Object not found \"""
             httpcode = 404
             title = _('Not found')

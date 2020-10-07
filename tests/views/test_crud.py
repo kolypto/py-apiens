@@ -13,7 +13,7 @@ from typing import List
 from apiens.views.crud import CrudSettings, CrudBase, saves_custom_fields
 from apiens.views.mongoquery_crud.mongocrud_settings import MongoCrudSettings
 from apiens.views.mongoquery_crud.mongocrudbase import MongoCrudBase
-from tests.lib.object_match import DictMatch, Parameter
+from apiens.testing.object_match import DictMatch, Parameter
 
 
 @pytest.mark.usefixtures('sample_users_articles')
