@@ -62,20 +62,21 @@ class OperationalApiRouter(fastapi.APIRouter):
         self.func_operations: List[Callable] = []
         self.class_operations: List[type] = []
 
-    def add_operations(self, *operations: Union[Callable, type]):
+    def add_operations(self, *operations: Union[Callable, type], prefix: str = None):
         """ Add operations to the router
 
         Args:
              *operations: Functions, or classes, decorated by @operation.
+             prefix: the prefix to add to every operation
         """
         for operation in operations:
             # Tell classes and functions apart
             if inspect.isclass(operation):
-                self.class_operations.append(self.register_class_operations(operation))
+                self.class_operations.append(self.register_class_operations(operation, prefix))
             else:
-                self.func_operations.append(self.register_func_operation(operation))
+                self.func_operations.append(self.register_func_operation(operation, prefix))
 
-    def register_func_operation(self, func: Callable) -> Callable:
+    def register_func_operation(self, func: Callable, prefix: str = None) -> Callable:
         """ Register a single function-operation
 
         Args:
@@ -87,14 +88,14 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         # Register
         try:
-            self._register_operation(func_op)
+            self._register_operation(func_op, prefix)
         except Exception as e:
             raise ValueError(f"Error registering @operation {func_op}") from e
 
         # Done
         return func
 
-    def register_class_operations(self, class_: type) -> type:
+    def register_class_operations(self, class_: type, prefix: str = None) -> type:
         """ Register class-based operations """
         # Get the class operation itself
         class_op = operation.get_from(class_)
@@ -103,7 +104,7 @@ class OperationalApiRouter(fastapi.APIRouter):
         # List its sub-operations
         for func_op in operation.all_decorated_from(class_, inherited=True):
             try:
-                self._register_operation(func_op, class_op)
+                self._register_operation(func_op, class_op, prefix)
             except Exception as e:
                 raise ValueError(f"Error registering @operation {func_op}") from e
 
@@ -144,7 +145,7 @@ class OperationalApiRouter(fastapi.APIRouter):
             func_kwargs = func_op.pluck_kwargs_from(operation_kwargs)
             return request_injector.invoke(func_op.func, *args, **func_kwargs)
 
-    def _register_operation(self, func_op: operation, class_op: operation = None):
+    def _register_operation(self, func_op: operation, class_op: operation = None, prefix: str = None):
         # Validate the documentation
         if self.debug:
             func_op.check_operation_documentation(fully_documented=self.fully_documented)
@@ -158,6 +159,9 @@ class OperationalApiRouter(fastapi.APIRouter):
 
         if class_op:
             path = path_join(get_operation_path(class_op), path)
+
+        if prefix:
+            path = path_join(prefix, path)
 
         # Choose an operation id
         if class_op:
