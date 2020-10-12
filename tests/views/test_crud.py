@@ -92,6 +92,20 @@ def test_user_crud_basic(ssn: sa.orm.Session):
         assert len(users) == 2  # only 2 users that young
 
 
+    # === Test: count()
+    count_users = lambda **query_object: UserCrud(ssn, query_object=query_object).count()
+
+    # Query as is.
+    # See that the limit does not apply
+    with session_reset(ssn):
+        n = count_users()
+        assert n == 5  # all users are seen, without limits
+
+    # Query with filter
+    with session_reset(ssn):
+        n = count_users(filter={'age': {'$lte': 20}})
+        assert n == 2  # only 2 users that young
+
     # === Test: get()
     get_user = lambda kwargs, **query_object: (
         UserCrud(ssn, query_object=query_object)

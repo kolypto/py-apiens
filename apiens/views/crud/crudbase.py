@@ -103,6 +103,10 @@ class SimpleCrudBase(Generic[SAInstanceT]):
         """
         return self._query(*filter, **filter_by)
 
+    def _count_instances(self, *filter: sa.sql.expression.BinaryExpression, **filter_by: Mapping[str, Any]) -> int:
+        """ count() method: filter instances and give their count """
+        return self._query(*filter, **filter_by).count()
+
     def _create_instance(self, input: pd.BaseModel) -> SAInstanceT:
         """ create() method: create an instance
 
@@ -502,6 +506,11 @@ class CrudBase(SimpleCrudBase[SAInstanceT], Generic[SAInstanceT, ResponseValueT]
         """ list() method: load multiple objects using criteria """
         instances = self._list_instances(*self._filter(**{**self.kwargs, **kwargs}))
         return self._instances_output(instances, self.crudsettings.ListResponseSchema)
+
+    def count(self, **kwargs: UserFilterValue) -> int:
+        """ count() method: get the number of matching instances """
+        n = self._count_instances(*self._filter(**{**self.kwargs, **kwargs}))
+        return n
 
     # NOTE: create() and update() methods receive either a dict or a Pydantic model.
     # In both cases, the data will be validated.

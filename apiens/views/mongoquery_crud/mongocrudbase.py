@@ -48,6 +48,9 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
     def list(self, **kwargs: UserFilterValue) -> Iterable[dict]:
         return self._result_fetch_many(self.crudsettings.ListResponseSchema, **kwargs)
 
+    def count(self, **kwargs: UserFilterValue) -> int:
+        return self._result_fetch_count(**kwargs)
+
     def create(self, input: Union[InstanceDict, pd.BaseModel]) -> dict:
         # create()
         instance: SAInstanceT = super().create(input)
@@ -100,6 +103,16 @@ class MongoCrudBase(CrudBase[SAInstanceT, dict], Generic[SAInstanceT]):
         mq = self._mongoquery(*self._filter(**{**self.kwargs, **kwargs}))
         results = self._many_results_from_mongoquery(mq, response_schema)
         return results
+
+    def _result_fetch_count(self, **kwargs) -> int:
+        """ Fetch the number of matching objects """
+        q: sa.orm.Query = self._query(*self._filter(**{**self.kwargs, **kwargs}))
+        mq = self.crudsettings._mongoquery(q, {
+            **self.query_object,
+            'count': 1,  # override it with a count
+        })
+        q = mq.end()
+        return q.scalar()
 
     def _mongoquery(self, *filter, **filter_by) -> mongosql.MongoQuery:
         """ Start a MongoQuery to load instance[s]
