@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Mapping, Union, TypedDict, List, Any
 
 
@@ -16,7 +17,7 @@ class QueryObject(TypedDict):
 
 class ModernQueryObject(TypedDict):
     """ Modern Query Object """
-    select: Union[str, List[str], Mapping[str, Union[int, Mapping]]]
+    select: Union[str, List[Union[str, Mapping]], Mapping[str, Union[int, Mapping]]]
     filter: Mapping[str, Any]
     sort: Union[str, List[str]]
     skip: int

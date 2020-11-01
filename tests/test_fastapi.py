@@ -5,6 +5,36 @@ from starlette.testclient import TestClient
 from apiens import errors_default as app_exc  # noqa: used in docstrings
 from apiens import operation, di
 from apiens.via.fastapi import fastapi_route
+from apiens.via.fastapi.query_object import query_object
+
+
+def test_query_object():
+    """ Test query object parser """
+    # === select
+    inones = dict(filter=None, sort=None, skip=None, limit=None)
+    onones = dict(filter=None, sort=None, skip=None, limit=None)
+    assert query_object(select=None, **inones) == None
+    # As list
+    assert query_object(select='[a,b,c]', **inones) == dict(project=['a', 'b', 'c'], **onones)
+    # As dict
+    assert query_object(select='{a: 1,b: 1,c: 1}', **inones) == dict(project={'a': 1, 'b': 1, 'c': 1}, **onones)
+    # As mixed
+    assert query_object(select='[a,b,{c: 1}]', **inones) == dict(project={'a': 1, 'b': 1, 'c': 1}, **onones)
+
+    # === filter
+    inones = dict(select=None, sort=None, skip=None, limit=None)
+    onones = dict(project=None, sort=None, skip=None, limit=None)
+    assert query_object(filter='{age: {$gt: 18}}', **inones) == dict(filter={'age': {'$gt': 18}}, **onones)
+
+    # === sort
+    inones = dict(select=None, filter=None, skip=None, limit=None)
+    onones = dict(project=None, filter=None, skip=None, limit=None)
+    assert query_object(sort='[a+,c-]', **inones) == dict(sort=['a+', 'c-'], **onones)
+
+    # === skip, limit
+    inones = dict(select=None, filter=None, sort=None)
+    onones = dict(project=None, filter=None, sort=None)
+    assert query_object(skip=0, limit=100, **inones) == dict(skip=0, limit=100, **onones)
 
 
 def test_flat_operation():
