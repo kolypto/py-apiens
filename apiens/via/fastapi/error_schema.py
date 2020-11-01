@@ -39,10 +39,10 @@ class ErrorObject(pd.BaseModel):
         """ Create the `ErrorObject` from a Python exception """
         return cls(
             name=e.name,
-            title=e.title,
+            title=str(e.title),
             httpcode=e.httpcode,
-            error=e.error,
-            fixit=e.fixit,
+            error=str(e.error),
+            fixit=str(e.fixit),
             info=e.info,
             debug=None if include_debug_info else e.debug,
         )
