@@ -81,6 +81,8 @@ def convert_query_object_to_old(query_object: ModernQueryObject) -> QueryObject:
     * `join` and `joinf` are deprecated and aren't expected to be used
     """
     query_object = query_object.copy()
+
+    # Rename 'select' to 'project'
     if 'select' in query_object:
         project = query_object['project'] = query_object.pop('select')
 
@@ -91,6 +93,13 @@ def convert_query_object_to_old(query_object: ModernQueryObject) -> QueryObject:
             for value in project:
                 if isinstance(value, dict):
                     query_object['project'].update(value)
+
+        # Convert nested queries
+        project = query_object['project']
+        if isinstance(project, dict):
+            for name, value in project.items():
+                if isinstance(value, dict):
+                    project[name] = convert_query_object_to_old(value)
 
     return query_object
 

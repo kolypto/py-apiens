@@ -20,6 +20,8 @@ def test_query_object():
     assert query_object(select='{a: 1,b: 1,c: 1}', **inones) == dict(project={'a': 1, 'b': 1, 'c': 1}, **onones)
     # As mixed
     assert query_object(select='[a,b,{c: 1}]', **inones) == dict(project={'a': 1, 'b': 1, 'c': 1}, **onones)
+    # Nested
+    assert query_object(select='[{a: {select: [a,b]}}]', **inones) == dict(project={'a': dict(project=['a', 'b'])}, **onones)
 
     # === filter
     inones = dict(select=None, sort=None, skip=None, limit=None)
