@@ -20,7 +20,8 @@ class ObjectMatch:
         # Iterate our fields only. This will provide the "partial matching" behavior
         for name, value in self._fields.items():
             # will recurse into ObjectMatch.__eq__ if one is encountered
-            assert value == getattr(other, name), f'{other!r} == {self!r}'
+            other_value = getattr(other, name)
+            assert value == other_value, f'{other!r} == {self!r} because of {value!r} != {other_value}'
             # if value != getattr(other, name):
             #     return False
         return True
