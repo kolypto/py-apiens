@@ -8,6 +8,8 @@ from apiens.util import decomarker
 class fastapi_route(decomarker):
     """ Additional options for FastAPI routes
 
+    Use it to decorate @operation functions and describe HTTP parameters for FastAPI
+
     Example:
         from apiens import operation
         from apiens.via.fastapi import fastapi_route
@@ -37,6 +39,9 @@ class fastapi_route(decomarker):
 
 class fastapi_params(fastapi_route):
     """ Additional options for FastAPI class constructor (that is not a route)
+
+    Use it to decorate classes that are not operations themselves,
+    but hold parameters common to other operations
 
     Example:
         @fastapi_params(auth_token=Query(...))
