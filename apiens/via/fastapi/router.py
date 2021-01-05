@@ -279,7 +279,7 @@ def operation_parameter_info(name: str, type_: type, op: operation) -> inspect.P
         )
 
     # For `Body` parameters, make sure they have `embed=True`.
-    # That is, don't "unwrap" it and put it at the top level.
+    # That is, don't "unwrap" its properties into the top level of the body, but keep it as a named field
     if isinstance(parameter, fastapi.params.Body):
         parameter.embed = True
 
