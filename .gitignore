@@ -1,0 +1,39 @@
+# ===[ APP ]=== #
+# it's a library; no lockfile should be committed
+/poetry.lock
+
+# Hidden root files: tools, IDEs, etc
+/.*
+
+# ===[ PYTHON ]=== #
+__pycache__
+
+/build/
+/dist/
+/*.egg-info/
+/*.egg/
+
+# Tools
+/profile.*
+
+
+# ===[ COMMON ]=== #
+
+# Generated
+*.pot
+*.mo
+
+# Runtime
+*.log
+
+# Temps
+*~
+*.tmp
+*.bak
+*.swp
+*.kate-swp
+*.DS_Store
+Thumbs.db
+
+# But ...
+!.gitkeep
