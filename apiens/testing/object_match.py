@@ -11,19 +11,32 @@ class ObjectMatch:
     """
     __slots__ = ('_type', '_fields')
 
-    def __init__(self, type, **fields):
+    def __init__(self, /, type, **fields):
         self._type = type
         self._fields = fields
 
     def __eq__(self, other: object):
-        assert isinstance(other, self._type)
+        assert isinstance(other, self._type), f'{type(other)!r} is not an instance of {self._type}'
+
         # Iterate our fields only. This will provide the "partial matching" behavior
         for name, value in self._fields.items():
             # will recurse into ObjectMatch.__eq__ if one is encountered
             other_value = getattr(other, name)
-            assert value == other_value, f'{other!r} == {self!r} because of {value!r} != {other_value}'
+
+            # Compare
+            # Catch errors in case subsequent checks fail
+            try:
+                values_are_equal = value == other_value
+            except Exception as e:
+                raise
+                # raise AssertionError(f'Error comparing values of attribute {name!r}') from e  # too much nesting
+
+            # Finally, assert
+            assert values_are_equal, f'{other!r} == {self!r} because of {value!r} != {other_value}'
+
             # if value != getattr(other, name):
             #     return False
+
         return True
 
     def __repr__(self):
@@ -49,7 +62,15 @@ class DictMatch(dict):
 
 
 class Parameter:
-    """ A parameter that, when compared, grabs the value. Useful for grabbing primary keys. """
+    """ A parameter that, when compared, grabs the value. Useful for grabbing primary keys.
+
+    Example:
+        assert result == {
+            'id': (id := Parameter()),
+            'login': 'kolypto',
+        }
+        assert id.value is not None
+    """
     __slots__ = ('_grabbed_value',)
 
     def __init__(self):
@@ -57,6 +78,7 @@ class Parameter:
 
     @property
     def value(self):
+        """ Get the grabbed value """
         assert self._grabbed_value is not self.NO_VALUE, 'NO_VALUE'
         return self._grabbed_value
 
