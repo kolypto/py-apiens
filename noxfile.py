@@ -25,7 +25,7 @@ def tests(session: nox.sessions.Session, *, versions: list[str] = None):
         session.install(*versions)
 
     # Test
-    session.run('pytest', 'tests/', '--ignore=tests/test_mypy.py', '--cov=myproject')
+    session.run('pytest', 'tests/', '--ignore=tests/test_mypy.py', '--cov=apiens')
 
 
 @nox.session(python=PYTHON_VERSIONS[-1])

@@ -1,4 +1,4 @@
-[![Test](https://github.com/kolypto/py-myproject/workflows/Test/badge.svg)](/kolypto/py-myproject/actions)
+[![Test](https://github.com/kolypto/py-apiens/workflows/Test/badge.svg)](/kolypto/py-apiens/actions)
 [![Pythons](https://img.shields.io/badge/python-3.7%E2%80%933.9-blue.svg)](noxfile.py)
 
 Project template. Here's how it works:
