@@ -4,7 +4,7 @@ import nox.sessions
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = [
     'tests',
-    # 'tests_sqlalchemy',
+    'tests_sqlalchemy',
 ]
 
 # Versions
