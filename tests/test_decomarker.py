@@ -1,6 +1,6 @@
 from functools import wraps
 
-from apiens.structure.func.decomarker import decomarker
+from apiens.structure.func import decomarker
 
 
 def test_decomarkers_simple():

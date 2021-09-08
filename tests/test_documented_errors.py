@@ -1,6 +1,6 @@
 import pytest
 
-from apiens.structure.func.documented_errors import documented_errors, ErrorDoc, UndocumentedError
+from apiens.structure.func import documented_errors, ErrorDoc, UndocumentedError
 
 
 def test_documented_errors():
