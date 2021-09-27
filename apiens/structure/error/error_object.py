@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import TypedDict, Optional
 
 
+class ErrorResponse(TypedDict):
+    """ Error response, as returned by the API """
+    error: ErrorObject
+
+
 class ErrorObject(TypedDict):
     """ JSON Error: JSON representation of an application error """
     # Error name: E_* or F_*
