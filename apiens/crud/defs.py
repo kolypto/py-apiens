@@ -8,9 +8,5 @@ PrimaryKeyDict = dict[str, Any]
 InstanceDict = dict[str, Any]
 
 
-# User-supplied values for filtering objects
-UserFilterValue = Any
-
-
 # Sugar. Marks a field that will be automatically initialized.
 AUTOMATIC = None
