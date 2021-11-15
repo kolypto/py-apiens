@@ -5,7 +5,7 @@ from typing import Union
 from collections import abc
 from http import HTTPStatus
 
-from apiens.util.errors import exception_from
+from apiens.tools.errors import exception_from
 
 from .base import BaseApplicationError
 
