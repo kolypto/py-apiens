@@ -11,7 +11,6 @@ import sqlalchemy.sql.elements
 import jessiql
 
 from apiens.tools.sqlalchemy import get_history_proxy_for_instance
-from .crudsettings import CrudSettings
 from .crudparams import CrudParams
 from .defs import PrimaryKeyDict
 
@@ -22,7 +21,7 @@ SAInstanceT = TypeVar('SAInstanceT', bound=object)
 
 class ModelQueryBase(Generic[SAInstanceT]):
     # CRUD settings: the static container for all the configuration of this CRUD handler.
-    crudsettings: ClassVar[CrudSettings]
+    params: CrudParams
 
     # The database session to use
     ssn: sa.orm.Session
@@ -33,6 +32,7 @@ class ModelQueryBase(Generic[SAInstanceT]):
 
 
 class QueryApi(ModelQueryBase[SAInstanceT]):
+    # JessiQL Query Object
     query_object: jessiql.QueryObject
 
     def __init__(self,
@@ -40,13 +40,11 @@ class QueryApi(ModelQueryBase[SAInstanceT]):
                  params: CrudParams,
                  query_object: Union[jessiql.QueryObject, jessiql.QueryObjectDict] = None):
         super().__init__(ssn, params)
-
-        # Query Object
         self.query_object = jessiql.QueryObject.ensure_query_object(query_object)
 
         # Init JessiQL
-        # TODO: paginate or not?
-        self.query = jessiql.QueryPage(self.query_object, self.crudsettings.Model)
+        # TODO: paginate or not? which class to use?
+        self.query = jessiql.QueryPage(self.query_object, self.params.crudsettings.Model)
         self.query.customize_statements.append(self._query_customize_statements)
 
     def list(self) -> list[dict]:
@@ -117,7 +115,7 @@ class MutateApiBase(ModelQueryBase[SAInstanceT]):
             sa.exc.NoResultFound
             sa.exc.MultipleResultsFound
         """
-        q = self.ssn.query(self.crudsettings.Model)
+        q = self.ssn.query(self.params.crudsettings.Model)
         q = q.filter(*self.params.filter_one())
         return q.one()
 
@@ -159,7 +157,7 @@ class MutateApiBase(ModelQueryBase[SAInstanceT]):
 
         Override to customize how new instances are created
         """
-        return self.crudsettings.Model(**input_dict)
+        return self.params.crudsettings.Model(**input_dict)
 
     def _update_instance_from_input_dict(self, instance: SAInstanceT, input_dict: dict) -> SAInstanceT:
         """ Modify an existing SqlAlchemy instance using field values from `input_dict`
@@ -215,7 +213,7 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         return self._get_primary_key_dict(instance)
 
     def create_or_update(self, input_dict: dict) -> PrimaryKeyDict:
-        pk_provided = set(input_dict) >= set(self.crudsettings.primary_key)
+        pk_provided = set(input_dict) >= set(self.params.crudsettings.primary_key)
         if pk_provided:
             return self.update(input_dict)
         else:
@@ -243,7 +241,7 @@ class MutateApi(MutateApiBase[SAInstanceT]):
     def _get_primary_key_dict(self, instance: SAInstanceT) -> PrimaryKeyDict:
         return dict(
             zip(
-                self.crudsettings.primary_key,
+                self.params.crudsettings.primary_key,
                 sa.orm.base.instance_state(instance).identity,
             )
         )

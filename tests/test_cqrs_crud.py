@@ -12,6 +12,7 @@ import sqlalchemy.orm
 
 import jessiql
 import jessiql.testing
+from apiens.tools.sqlalchemy.session import db_transaction
 from jessiql.util import sacompat
 from jessiql.testing.graphql import resolves
 from jessiql.integration.fastapi import query_object, QueryObject
@@ -112,8 +113,8 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
     # CQRS
     @dataclass
     class UserCrudParams(CrudParams):
+        """ Crud Params for many Users view """
         i_am_admin: bool
-        id: Optional[int] = None
         role_filter: Optional[str] = None
         crudsettings = CrudSettings(Model=User, debug=True)
 
@@ -125,21 +126,30 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
                 (User.is_admin == (self.role_filter == 'admin')) if self.role_filter else True,
             )
 
+    @dataclass
+    class UserIdCrudParams(UserCrudParams):
+        """ Crud Params for one User view """
+        id: Optional[int] = None
+
     # TODO: find a way to merge these three classes into one? or at least share the settings?
     class UserQueryApi(QueryApi):
-        crudsettings = UserCrudParams.crudsettings
+        pass
 
     class UserMutateApi(MutateApi):
-        crudsettings = UserCrudParams.crudsettings
+        pass
 
     class UserReturningMutateApi(ReturningMutateApi):
-        crudsettings = UserCrudParams.crudsettings
+        pass
+
+    UserMutateApiCls = UserReturningMutateApi if commands_return_fields else UserMutateApi
 
     # API: FastAPI
     @app.get('/user', response_model=UserListResponse, response_model_exclude_unset=True)
     def list_users(ssn: sa.orm.Session = fastapi.Depends(ssn),
                    query_object: Optional[QueryObject] = fastapi.Depends(query_object),
                    role: str = fastapi.Query('user')):
+        # TODO: check pagination works?
+        # TODO: how to get pagination links?
         params = UserCrudParams(i_am_admin=True, role_filter=None)
         api = UserQueryApi(ssn, params, query_object)
         return {
@@ -158,11 +168,10 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
     @app.get('/user/{id}', response_model=UserGetResponse, response_model_exclude_unset=True)
     def get_user(id: int, ssn: sa.orm.Session = fastapi.Depends(ssn),
                  query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
-        params = UserCrudParams(i_am_admin=True, role_filter=None, id=id)
+        params = UserIdCrudParams(i_am_admin=True, role_filter=None, id=id)
         api = UserQueryApi(ssn, params, query_object)
         return {'user': api.get()}
 
-    UserMutateApiCls = UserReturningMutateApi if commands_return_fields else UserMutateApi
 
     @app.post('/user')
     def create_user(user: UserCreate = fastapi.Body(..., embed=True),
@@ -170,18 +179,18 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
                     query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
         params = UserCrudParams(i_am_admin=True, role_filter=None)
         api = UserMutateApiCls(ssn, params)
-        res = api.create(user.dict(exclude_unset=True))
-        ssn.commit()
+        with db_transaction(ssn):
+            res = api.create(user.dict(exclude_unset=True))
         return {'user': res} if commands_return_fields else {'user': res}
 
     @app.put('/user')
     def update_user(user: UserUpdate = fastapi.Body(..., embed=True),
                     ssn: sa.orm.Session = fastapi.Depends(ssn),
                     query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
-        params = UserCrudParams(i_am_admin=True, role_filter=None)
+        params = UserIdCrudParams(i_am_admin=True, role_filter=None)
         api = UserMutateApiCls(ssn, params)
-        res = api.update(user.dict(exclude_unset=True))
-        ssn.commit()
+        with db_transaction(ssn):
+            res = api.update(user.dict(exclude_unset=True))
         return {'user': res} if commands_return_fields else {'user': res}
 
     @app.post('/user/{id}')
@@ -189,20 +198,20 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
                        user: UserUpdate = fastapi.Body(..., embed=True),
                        ssn: sa.orm.Session = fastapi.Depends(ssn),
                        query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
-        params = UserCrudParams(i_am_admin=True, role_filter=None, id=id)
+        params = UserIdCrudParams(i_am_admin=True, role_filter=None, id=id)
         api = UserMutateApiCls(ssn, params)
-        res = api.update_id(user.dict(exclude_unset=True))
-        ssn.commit()
+        with db_transaction(ssn):
+            res = api.update_id(user.dict(exclude_unset=True))
         return {'user': res} if commands_return_fields else {'user': res}
 
     @app.delete('/user/{id}')
     def delete_user(id: int,
                     ssn: sa.orm.Session = fastapi.Depends(ssn),
                     query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
-        params = UserCrudParams(i_am_admin=True, role_filter=None, id=id)
+        params = UserIdCrudParams(i_am_admin=True, role_filter=None, id=id)
         api = UserMutateApiCls(ssn, params)
-        res = api.delete()
-        ssn.commit()
+        with db_transaction(ssn):
+            res = api.delete()
         return {'user': res} if commands_return_fields else {'user': res}
 
     # API: GraphQL

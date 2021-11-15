@@ -34,6 +34,7 @@ class CrudParams:
         """
         return ()
 
+
     def filter_one(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
         """ Filter expression for get(), update(), delete()
 
