@@ -1,3 +1,5 @@
+from collections import abc
+from typing import Any
 
 
 class ObjectMatch:
@@ -101,3 +103,12 @@ class Parameter:
         return repr(self._grabbed_value)
 
     NO_VALUE = object()
+
+
+class Test:
+    """ Test equality with a value using a callable """
+    def __init__(self, check: abc.Callable[[Any], bool]):
+        self.__check = check
+
+    def __eq__(self, other):
+        return self.__check(other)

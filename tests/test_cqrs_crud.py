@@ -12,6 +12,8 @@ import sqlalchemy.orm
 
 import jessiql
 import jessiql.testing
+from apiens.testing import Parameter
+from apiens.testing.object_match import Test
 from apiens.tools.sqlalchemy.session import db_transaction
 from jessiql.util import sacompat
 from jessiql.testing.graphql import resolves
@@ -44,7 +46,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             {'id': 1, 'login': 'kolypto', 'name': 'Mark'},
         ]
 
-        assert client.get('/user', params={**q, 'role': 'admin'}).json() == {'users': expected_results, 'next': None, 'prev': None}
+        assert client.get('/user', params=q).json() == {'users': expected_results, 'next': None, 'prev': None}
         assert gq('query { listUsers { users { id login name } next prev } }') == {'listUsers': {'users': expected_results, 'next': None, 'prev': None}}
 
         # === Test: getUser
@@ -79,10 +81,51 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         assert client.delete(f'/user/{user_id}').json() == expected_result
         assert gq('mutation ($id: Int!) { deleteUser(id: $id) }', id=user_id) == {'deleteUser': expected_result['user']['id']}
 
-        # Count
+        # === Test: countUsers
         expected_count = 0
         assert client.get('/user/count').json() == {'count': expected_count}
         assert gq('query { countUsers }') == {'countUsers': expected_count}
+
+        # === Test: list/get with customized filter
+        # Create some users
+        with sa.orm.Session(bind=engine, future=True) as ssn:
+            for i in range(1, 6):
+                ssn.add(User(is_admin=True, login=f'admin{i}', name=f'admin{i}'))
+            for i in range(1, 6):
+                ssn.add(User(is_admin=False, login=f'user{i}', name=f'user{i}'))
+            ssn.commit()
+
+        # TODO: filtering
+
+        # === Test: pagination
+        # Load: first page
+        q = {'select': json.dumps(['id', 'login']),
+             'sort': json.dumps(['id+']),
+             'limit': 2}
+        assert client.get('/user', params=q).json() == {
+            'users': [
+                {'id': 2, 'login': 'admin1'},
+                {'id': 3, 'login': 'admin2'},
+            ],
+            'next': (next_page := Parameter()),
+            'prev': None,
+        }
+        assert next_page.value.startswith('keys:')  # keyset pagination
+
+        # Load: next page
+        q['skip'] = next_page.value
+
+        assert client.get('/user', params=q).json() == {
+            'users': [
+                {'id': 4, 'login': 'admin3'},
+                {'id': 5, 'login': 'admin4'},
+            ],
+            'next': (next_page := Parameter()),
+            'prev': (prev_page := Parameter()),
+        }
+        assert next_page.value.startswith('keys:')  # keyset pagination
+        assert prev_page.value.startswith('keys:')  # keyset pagination
+
 
     # FastAPI dependencies
     def ssn() -> sa.orm.Session:
@@ -131,7 +174,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         """ Crud Params for one User view """
         id: Optional[int] = None
 
-    # TODO: find a way to merge these three classes into one? or at least share the settings?
     class UserQueryApi(QueryApi):
         pass
 
@@ -152,10 +194,12 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         # TODO: how to get pagination links?
         params = UserCrudParams(i_am_admin=True, role_filter=None)
         api = UserQueryApi(ssn, params, query_object)
+        users = api.list()
+        links = api.query.page_links()
         return {
             'users': api.list(),
-            'next': None,
-            'prev': None,
+            'next': links.next,
+            'prev': links.prev,
         }
 
     @app.get('/user/count', response_model=CountResponse, response_model_exclude_unset=True)

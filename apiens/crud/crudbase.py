@@ -43,9 +43,7 @@ class QueryApi(ModelQueryBase[SAInstanceT]):
         self.query_object = jessiql.QueryObject.ensure_query_object(query_object)
 
         # Init JessiQL
-        # TODO: paginate or not? which class to use?
-        self.query = jessiql.QueryPage(self.query_object, self.params.crudsettings.Model)
-        self.query.customize_statements.append(self._query_customize_statements)
+        self.query = self.init_query()
 
     def list(self) -> list[dict]:
         self._filter_func = self.params.filter_many
@@ -63,6 +61,12 @@ class QueryApi(ModelQueryBase[SAInstanceT]):
 
     # The filter function that we decided to use
     _filter_func: abc.Callable[[], abc.Iterable[sa.sql.elements.BinaryExpression]]
+
+    def init_query(self) -> jessiql.engine.QueryExecutor:
+        """ Initialize JessiQL query """
+        query = jessiql.QueryPage(self.query_object, self.params.crudsettings.Model)
+        query.customize_statements.append(self._query_customize_statements)
+        return query
 
     def _query_customize_statements(self, q: jessiql.Query, stmt: sa.sql.Select) -> sa.sql.Select:
         if q.query_level == 0:
