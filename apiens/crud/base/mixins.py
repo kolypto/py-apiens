@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import ContextManager
+from typing import ContextManager, TypeVar
 
 import sqlalchemy as sa
 import sqlalchemy.orm

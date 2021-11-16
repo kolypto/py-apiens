@@ -1,4 +1,4 @@
-from typing import TypeVar, Any
+from typing import Any
 
 
 # Values for an instance's Primary Key dict

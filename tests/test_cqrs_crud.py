@@ -19,9 +19,9 @@ from jessiql.testing.graphql import resolves
 from jessiql.integration.fastapi import query_object, QueryObject
 
 
-from apiens.crud.crudbase import QueryApi, MutateApi, ReturningMutateApi
-from apiens.crud.crudsettings import CrudSettings
-from apiens.crud.crudparams import CrudParams
+from apiens.crud import QueryApi, MutateApi, ReturningMutateApi
+from apiens.crud import CrudSettings
+from apiens.crud import CrudParams
 
 
 # TODO: parameterize `commands_return_fields`
