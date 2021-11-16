@@ -46,7 +46,7 @@ class QueryApi(ModelQueryBase[SAInstanceT]):
         self.query = self.init_query()
 
     def list(self) -> list[dict]:
-        self._filter_func = self.params.filter_many
+        self._filter_func = self.params.filter
         res = self.query.fetchall(self.ssn.get_bind())
         return res
 
@@ -56,7 +56,7 @@ class QueryApi(ModelQueryBase[SAInstanceT]):
         return res
 
     def count(self) -> int:
-        self._filter_func = self.params.filter_many
+        self._filter_func = self.params.filter
         return self.query.count(self.ssn.get_bind())
 
     # The filter function that we decided to use

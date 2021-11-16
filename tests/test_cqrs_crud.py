@@ -13,7 +13,6 @@ import sqlalchemy.orm
 import jessiql
 import jessiql.testing
 from apiens.testing import Parameter
-from apiens.testing.object_match import Test
 from apiens.tools.sqlalchemy.session import db_transaction
 from jessiql.util import sacompat
 from jessiql.testing.graphql import resolves
@@ -89,13 +88,41 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         # === Test: list/get with customized filter
         # Create some users
         with sa.orm.Session(bind=engine, future=True) as ssn:
-            for i in range(1, 6):
-                ssn.add(User(is_admin=True, login=f'admin{i}', name=f'admin{i}'))
-            for i in range(1, 6):
-                ssn.add(User(is_admin=False, login=f'user{i}', name=f'user{i}'))
+            for i in range(5):
+                ssn.add(User(is_admin=True, login=f'admin{i+1}', name=f'admin{i+1}'))
+            for i in range(5):
+                ssn.add(User(is_admin=False, login=f'user{i+1}', name=f'user{i+1}'))
             ssn.commit()
 
-        # TODO: filtering
+        # List only admins
+        q = {'select': json.dumps(['id', 'login']),
+             'role': 'admin'}
+        assert client.get('/user', params=q).json() == {
+            'users': [
+                {'id':  2, 'login': 'admin1'},
+                {'id':  3, 'login': 'admin2'},
+                {'id':  4, 'login': 'admin3'},
+                {'id':  5, 'login': 'admin4'},
+                {'id':  6, 'login': 'admin5'},
+            ],
+            'next': None,
+            'prev': None
+        }
+
+        # List only users
+        q = {'select': json.dumps(['id', 'login']),
+             'role': 'user'}
+        assert client.get('/user', params=q).json() == {
+            'users': [
+                {'id':  7, 'login': 'user1'},
+                {'id':  8, 'login': 'user2'},
+                {'id':  9, 'login': 'user3'},
+                {'id': 10, 'login': 'user4'},
+                {'id': 11, 'login': 'user5'},
+            ],
+            'next': None,
+            'prev': None
+        }
 
         # === Test: pagination
         # Load: first page
@@ -164,9 +191,16 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         def filter(self):
             return (
                 # Only let users list admins when they themselves are admins
-                True if self.i_am_admin else User.is_admin == False,
+                {
+                    True: True,
+                    False: User.is_admin == False,
+                }[self.i_am_admin],
                 # Role filter
-                (User.is_admin == (self.role_filter == 'admin')) if self.role_filter else True,
+                {
+                    'user': User.is_admin == False,
+                    'admin': User.is_admin == True,
+                    None: True,
+                }[self.role_filter],
             )
 
     @dataclass
@@ -189,15 +223,13 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
     @app.get('/user', response_model=UserListResponse, response_model_exclude_unset=True)
     def list_users(ssn: sa.orm.Session = fastapi.Depends(ssn),
                    query_object: Optional[QueryObject] = fastapi.Depends(query_object),
-                   role: str = fastapi.Query('user')):
-        # TODO: check pagination works?
-        # TODO: how to get pagination links?
-        params = UserCrudParams(i_am_admin=True, role_filter=None)
+                   role: Optional[str] = fastapi.Query(None)):
+        params = UserCrudParams(i_am_admin=True, role_filter=role)
         api = UserQueryApi(ssn, params, query_object)
         users = api.list()
         links = api.query.page_links()
         return {
-            'users': api.list(),
+            'users': users,
             'next': links.next,
             'prev': links.prev,
         }

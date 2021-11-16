@@ -23,7 +23,7 @@ class CrudParams:
     # These methods customize how your CRUD operations find objects to work with
     # Implement the _filter() and _filter1() methods
 
-    def filter_many(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
+    def filter(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
         """ Filter expression for all methods. Controls which rows are visible to CRUD methods
 
         Override and customize to react to user-supplied `kwargs`: like `id` coming from the request
@@ -33,7 +33,6 @@ class CrudParams:
                 For instance, these can be the arguments of your view.
         """
         return ()
-
 
     def filter_one(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
         """ Filter expression for get(), update(), delete()
@@ -48,7 +47,7 @@ class CrudParams:
         """
         # The default implementation: _filter() + primary key filter
         return (
-            *self.filter_many(),
+            *self.filter(),
             *self._filter_primary_key(),
         )
 
