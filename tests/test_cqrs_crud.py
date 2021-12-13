@@ -34,9 +34,9 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         q = {'select': json.dumps(['id', 'login', 'name'])}
 
         # === Test: createUser
-        input_user = {'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
+        input_user = {'is_admin': True, 'login': 'kolypto', 'name': 'Mark-typo'}  # 'name': typo
         if commands_return_fields:
-            expected_result = {'user': {'id': 1, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+            expected_result = {'user': {'id': 1, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark-typo'}}
         else:
             expected_result = {'user': {'id': 1}}
 
@@ -44,28 +44,57 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         # expected_result['id'] += 1  # TODO: uncomment when GraphQL is ready
         assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
 
+        with sa.orm.Session(bind=engine, future=True) as ssn:
+            users = ssn.query(User).all()
+            assert users == [
+                ObjectMatch(id=1, is_admin=True, login='kolypto', name='Mark-typo'),
+                # ObjectMatch(id=2, is_admin=True, login='kolypto', name='Mark-typo'),  # TODO: uncomment when GraphQL is ready
+            ]
+
         # === Test: updateUserId
         user_id = 1
-        input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark'}  # TODO: actually modify 'name'
+        input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark-fix-1'}
         if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark-fix-1'}}
         else:
             expected_result = {'user': {'id': user_id}}
 
         assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
         assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
 
+        with sa.orm.Session(bind=engine, future=True) as ssn:
+            users = ssn.query(User).all()
+            assert users == [
+                ObjectMatch(id=1, name='Mark-fix-1'),  # fixed
+                # ObjectMatch(id=2, name='Mark-fix-1'),  # TODO: uncomment when GraphQL is ready
+            ]
+
         # === Test: updateUser, full update (all fields are provided)
+        input_user['name'] = 'Mark-fix-2'
         assert client.put(f'/user', json={'user': input_user}).json() == expected_result
         assert gq('mutation ($user: UserUpdate!) { updateUser(user: $user) }', user=input_user) == {'updateUser': expected_result['user']['id']}
 
+        with sa.orm.Session(bind=engine, future=True) as ssn:
+            users = ssn.query(User).all()
+            assert users == [
+                ObjectMatch(id=1, name='Mark-fix-2'),  # fixed
+                # ObjectMatch(id=2, name='Mark-fix-2'),  # TODO: uncomment when GraphQL is ready
+            ]
+
         # === Test: updateUser, partial updates
         # Check: does not fail on "skippable" fields: i.e. "login" not provided, API does not fail
-        # TODO: partial updates, update only "name"
+        input_partial_user = {'id': user_id, 'name': 'Mark'}
+        assert client.post(f'/user/{user_id}', json={'user': input_partial_user}).json() == expected_result
 
-        # === Test: updateUser, no-update (fields have same values)
-        # Check: if we submit an unmodified value, back-end does not mark it as "modified"
-        # TODO: test fields having same values
+        # TODO: FIXME: partial updates with GraphQL? how?
+        # assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_partial_user) == {'updateUserId': expected_result['user']['id']}
+
+        with sa.orm.Session(bind=engine, future=True) as ssn:
+            users = ssn.query(User).all()
+            assert users == [
+                ObjectMatch(id=1, name='Mark'),  # fixed
+                # ObjectMatch(id=2, name='Mark'),  # TODO: uncomment when GraphQL is ready
+            ]
 
         # === Test: listUsers
         # Check: our `q` does not select the "extra_field" field. It must not be visible, nor shoud it fail.

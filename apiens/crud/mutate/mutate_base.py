@@ -80,6 +80,8 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
         # Done
         return instance
 
+    # TODO: create_or_update_many() from MongoSQL 2.x
+
     # endregion
 
     # region Input dict handling for create & update
@@ -99,7 +101,11 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
         """
         # TODO: pick only known kwargs, and fail on all others in testing? See `writable_field_names`
         for key, value in input_dict.items():
-            setattr(instance, key, value)  # triggers SqlAlchemy change detection logic
+            # Only update attributes that have actually changed.
+            if value != getattr(instance, key):
+                # Use setattr() to make sure that SqlAlchemy change-detection logic is triggered.
+                # This fires events & stuff
+                setattr(instance, key, value)
         return instance
 
     # endregion

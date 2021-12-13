@@ -60,7 +60,7 @@ class MutateApi(MutateApiBase[SAInstanceT]):
     def delete(self) -> PrimaryKeyDict:
         # Load, extract PK early
         instance = self._find_instance()
-        pk = self._get_primary_k/ey_dict(instance)
+        pk = self._get_primary_key_dict(instance)
 
         # Delete
         instance = self._delete_instance(instance)
