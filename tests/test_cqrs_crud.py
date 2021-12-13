@@ -17,6 +17,7 @@ import jessiql.testing
 from apiens.testing import Parameter, ObjectMatch
 from apiens.tools.pydantic.derive import derive_model
 from apiens.tools.sqlalchemy import db_transaction
+from jessiql.integration.graphql import query_object_for
 from jessiql.util import sacompat
 from jessiql.testing.graphql import resolves
 from jessiql.integration.fastapi import query_object, QueryObject
@@ -27,6 +28,8 @@ from apiens.crud import saves_custom_fields, MISSING
 from apiens.crud import CrudSettings
 from apiens.crud import CrudParams
 
+
+# TODO: break this huge test apart into smaller tests, test more thoroughly
 
 # TODO: parameterize `commands_return_fields`. Test with returning fields.
 def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False):
@@ -41,14 +44,14 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             expected_result = {'user': {'id': 1}}
 
         assert client.post('/user', json={'user': input_user}).json() == expected_result
-        # expected_result['id'] += 1  # TODO: uncomment when GraphQL is ready
+        # expected_result['id'] += 1
         assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
 
         with sa.orm.Session(bind=engine, future=True) as ssn:
             users = ssn.query(User).all()
             assert users == [
                 ObjectMatch(id=1, is_admin=True, login='kolypto', name='Mark-typo'),
-                # ObjectMatch(id=2, is_admin=True, login='kolypto', name='Mark-typo'),  # TODO: uncomment when GraphQL is ready
+                # ObjectMatch(id=2, is_admin=True, login='kolypto', name='Mark-typo'),
             ]
 
         # === Test: updateUserId
@@ -66,7 +69,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             users = ssn.query(User).all()
             assert users == [
                 ObjectMatch(id=1, name='Mark-fix-1'),  # fixed
-                # ObjectMatch(id=2, name='Mark-fix-1'),  # TODO: uncomment when GraphQL is ready
+                # ObjectMatch(id=2, name='Mark-fix-1'),
             ]
 
         # === Test: updateUser, full update (all fields are provided)
@@ -78,22 +81,20 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             users = ssn.query(User).all()
             assert users == [
                 ObjectMatch(id=1, name='Mark-fix-2'),  # fixed
-                # ObjectMatch(id=2, name='Mark-fix-2'),  # TODO: uncomment when GraphQL is ready
+                # ObjectMatch(id=2, name='Mark-fix-2'),
             ]
 
         # === Test: updateUser, partial updates
         # Check: does not fail on "skippable" fields: i.e. "login" not provided, API does not fail
         input_partial_user = {'id': user_id, 'name': 'Mark'}
         assert client.post(f'/user/{user_id}', json={'user': input_partial_user}).json() == expected_result
-
-        # TODO: FIXME: partial updates with GraphQL? how?
-        # assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_partial_user) == {'updateUserId': expected_result['user']['id']}
+        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_partial_user) == {'updateUserId': expected_result['user']['id']}
 
         with sa.orm.Session(bind=engine, future=True) as ssn:
             users = ssn.query(User).all()
             assert users == [
-                ObjectMatch(id=1, name='Mark'),  # fixed
-                # ObjectMatch(id=2, name='Mark'),  # TODO: uncomment when GraphQL is ready
+                ObjectMatch(id=1, login='kolypto', name='Mark'),  # name: fixed, login: not modified
+                # ObjectMatch(id=2, login='kolypto', name='Mark'),
             ]
 
         # === Test: listUsers
@@ -212,7 +213,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             expected_result = {'user': {'id': 12}}
 
         assert client.post('/user', json={'user': input_user}).json() == expected_result
-        # expected_result['user']['id'] += 1  # TODO: uncomment when GraphQL is ready
+        # expected_result['user']['id'] += 1
         expected_result['user']['id'] = 1
         assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
 
@@ -230,9 +231,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             expected_result = {'user': {'id': user_id}}
 
         assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
-
-        # TODO: FIXME: partial updates with GraphQL? how?
-        # assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
+        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
 
         # Test that articles were actually saved
         with sa.orm.Session(bind=engine, future=True) as ssn:
@@ -398,6 +397,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         return {'user': res} if commands_return_fields else {'user': res}
 
     # API: GraphQL
+    # TODO: provide dependencies to GraphQL via the root object / singleton getters or something
     # TODO: implement GraphQL endpoints
     gql_schema = graphql.build_schema(schema_prepare())
 
@@ -420,6 +420,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         return 0
 
     @resolves(gql_schema, 'Mutation', 'createUser')
+    @resolves(gql_schema, 'Mutation', 'createUserF')
     def resolve_create_user(root, info: graphql.GraphQLResolveInfo, user: dict):
         if commands_return_fields:
             return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
@@ -428,12 +429,15 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
 
     @resolves(gql_schema, 'Mutation', 'updateUserId')
     def resolve_update_user(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
+        print(user)
+
         if commands_return_fields:
             return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
         else:
             return id
 
     @resolves(gql_schema, 'Mutation', 'updateUser')
+    @resolves(gql_schema, 'Mutation', 'updateUserF')
     def resolve_update_user(root, info: graphql.GraphQLResolveInfo, user: dict):
         if commands_return_fields:
             return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
@@ -441,6 +445,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             return user['id']
 
     @resolves(gql_schema, 'Mutation', 'deleteUser')
+    @resolves(gql_schema, 'Mutation', 'deleteUserF')
     def resolve_delete_user(root, info: graphql.GraphQLResolveInfo, id: int):
         if commands_return_fields:
             return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
@@ -453,6 +458,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         """ Make a GraphqQL query """
         res = graphql.graphql_sync(gql_schema, query, variable_values=variable_values)
         if res.errors:
+            raise res.errors[0]  # TODO: remove
             raise ValueError(res.errors)
         return res.data
 
@@ -507,8 +513,8 @@ class UserDb(UserBase):
     extra_field: str
 
 
-class UserDbPartial(UserDb):  # TODO: user derive_optional(UserDb)
-    # TODO: implement a helper for this validator
+class UserDbPartial(UserDb):  # TODO: user derive_optional(UserDb). Also `ArticleDbPartial`
+    # TODO: implement a helper for this validator. Also `ArticleDbPartial`
     # all fields, optional, but not nullable
     # this is the return type for partially-selected models
     @pd.validator(*(name for name, field in UserDb.__fields__.items()
@@ -519,7 +525,7 @@ class UserDbPartial(UserDb):  # TODO: user derive_optional(UserDb)
         else:
             return v
 
-    # TODO: these fields ideally should be derived from an existing model by making every field Optional
+    # TODO: these fields ideally should be derived from an existing model by making every field Optional. Also `ArticleDbPartial`
     id: Optional[int]
     is_admin: Optional[bool]
     login: Optional[str]
@@ -567,7 +573,6 @@ class ArticleDbPartial(ArticleDb):
         else:
             return v
 
-    # TODO: these fields ideally should be derived from an existing model by making every field Optional
     id: Optional[int]
     user_id: Optional[int]
     slug: Optional[str]
@@ -601,7 +606,7 @@ UserDbPartial.update_forward_refs()
 
 
 # TODO: validate models against DB schema
-# TODO: strict include/exclude mode ; auto-match mode (only overlaps)
+# TODO: strict include/exclude mode ; auto-match mode (only overlaps). Implement: types, nullable required fields, nullable skippable fields
 # schemas.settings = SchemaSettings(
 #     models.User,
 #     read=schemas.UserDb,
@@ -661,8 +666,13 @@ input UserCreate {
 input UserUpdate {
     # rw fields; optional PK
     id: Int
-    login: String!
-    name: String!
+    # TODO: how to implement non-nullable skippable fields? 
+    #   a validator that's applied to a resolve function?
+    #   a directive that's applied to an Input and makes everything optional? or should it just apply a validator?
+    login: String
+    name: String
+    # login: String!
+    # name: String!
     
     new_articles: [ArticleCreateForUser]
 }
