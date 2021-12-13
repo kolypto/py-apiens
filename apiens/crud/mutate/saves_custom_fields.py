@@ -15,8 +15,8 @@ class saves_custom_fields(decomarker):
         class UserCrud(CrudBase):
             ...
             @saves_custom_fields('articles')
-            def save_articles(self, /, new: User, prev: User = None, *, articles = ABSENT):
-                if articles is not ABSENT:
+            def save_articles(self, /, new: User, prev: User = None, *, articles = MISSING):
+                if articles is not MISSING:
                     ...  # custom article-saving logic
 
     You can use it to save any attributes that require custom behavior, not just relationships.
@@ -27,7 +27,8 @@ class saves_custom_fields(decomarker):
     * prev: The unmodified versions of this instance (only during update())
     * **fields: the values of the fields that you have asked for
 
-    Note that this method is called always, even if no `**fields` have actually been provided.
+    This method is always called before flush for `create()` and `update()` methods.
+    Note that it is called even even if all fields are missing: that is, it is a post-flush handler.
     """
     # The list of fields that this method is capable of saving.
     field_names = tuple[str, ...]

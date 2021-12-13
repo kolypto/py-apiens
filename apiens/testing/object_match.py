@@ -9,17 +9,14 @@ class ObjectMatch:
     Only checks the fields from itself; any additional fields that the other object may contain are ignored.
 
     Example:
-         models.User(...) == ObjectMatch(models.User, id=Parameter(), login='kolypto', ...)
+         models.User(...) == ObjectMatch(id=Parameter(), login='kolypto', ...)
     """
-    __slots__ = ('_type', '_fields')
+    __slots__ = '_fields',
 
-    def __init__(self, /, type, **fields):
-        self._type = type
+    def __init__(self, /, **fields):
         self._fields = fields
 
     def __eq__(self, other: object):
-        assert isinstance(other, self._type), f'{type(other)!r} is not an instance of {self._type}'
-
         # Iterate our fields only. This will provide the "partial matching" behavior
         for name, value in self._fields.items():
             # will recurse into ObjectMatch.__eq__ if one is encountered
@@ -42,7 +39,7 @@ class ObjectMatch:
         return True
 
     def __repr__(self):
-        return '{type}({fields})'.format(type=self._type.__name__, fields=', '.join(f'{k}={v!r}' for k, v in self._fields.items()))
+        return '{type}({fields})'.format(type='Object', fields=', '.join(f'{k}={v!r}' for k, v in self._fields.items()))
 
 
 class DictMatch(dict):
@@ -73,7 +70,7 @@ class Parameter:
         }
         assert id.value is not None
     """
-    __slots__ = ('_grabbed_value',)
+    __slots__ = '_grabbed_value',
 
     def __init__(self):
         self._grabbed_value = self.NO_VALUE

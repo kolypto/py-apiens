@@ -89,6 +89,7 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
 
         Override to customize how new instances are created
         """
+        # TODO: pick only known kwargs, and fail on all others in testing? See `writable_field_names`
         return self.params.crudsettings.Model(**input_dict)
 
     def _update_instance_from_input_dict(self, instance: SAInstanceT, input_dict: dict) -> SAInstanceT:
@@ -96,6 +97,7 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
 
         Override to customize how instances are updated
         """
+        # TODO: pick only known kwargs, and fail on all others in testing? See `writable_field_names`
         for key, value in input_dict.items():
             setattr(instance, key, value)  # triggers SqlAlchemy change detection logic
         return instance

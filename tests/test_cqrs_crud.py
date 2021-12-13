@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -12,19 +14,21 @@ import sqlalchemy.orm
 
 import jessiql
 import jessiql.testing
-from apiens.testing import Parameter
-from apiens.tools.sqlalchemy.session import db_transaction
+from apiens.testing import Parameter, ObjectMatch
+from apiens.tools.pydantic.derive import derive_model
+from apiens.tools.sqlalchemy import db_transaction
 from jessiql.util import sacompat
 from jessiql.testing.graphql import resolves
 from jessiql.integration.fastapi import query_object, QueryObject
 
 
 from apiens.crud import QueryApi, MutateApi, ReturningMutateApi
+from apiens.crud import saves_custom_fields, MISSING
 from apiens.crud import CrudSettings
 from apiens.crud import CrudParams
 
 
-# TODO: parameterize `commands_return_fields`
+# TODO: parameterize `commands_return_fields`. Test with returning fields.
 def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False):
     def main():
         q = {'select': json.dumps(['id', 'login', 'name'])}
@@ -37,10 +41,34 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             expected_result = {'user': {'id': 1}}
 
         assert client.post('/user', json={'user': input_user}).json() == expected_result
-        # expected_result['id'] += 1  # TODO: uncomment
+        # expected_result['id'] += 1  # TODO: uncomment when GraphQL is ready
         assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
 
+        # === Test: updateUserId
+        user_id = 1
+        input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark'}  # TODO: actually modify 'name'
+        if commands_return_fields:
+            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+        else:
+            expected_result = {'user': {'id': user_id}}
+
+        assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
+        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
+
+        # === Test: updateUser, full update (all fields are provided)
+        assert client.put(f'/user', json={'user': input_user}).json() == expected_result
+        assert gq('mutation ($user: UserUpdate!) { updateUser(user: $user) }', user=input_user) == {'updateUser': expected_result['user']['id']}
+
+        # === Test: updateUser, partial updates
+        # Check: does not fail on "skippable" fields: i.e. "login" not provided, API does not fail
+        # TODO: partial updates, update only "name"
+
+        # === Test: updateUser, no-update (fields have same values)
+        # Check: if we submit an unmodified value, back-end does not mark it as "modified"
+        # TODO: test fields having same values
+
         # === Test: listUsers
+        # Check: our `q` does not select the "extra_field" field. It must not be visible, nor shoud it fail.
         expected_results = [
             {'id': 1, 'login': 'kolypto', 'name': 'Mark'},
         ]
@@ -54,21 +82,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
 
         assert client.get(f'/user/{user_id}', params=q).json() == {'user': expected_result}
         assert gq('query ($id: Int!) { getUser(id: $id) { id login name } }', id=user_id) == {'getUser': expected_result}
-
-        # === Test: updateUserId
-        user_id = 1
-        input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark'}
-        if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
-        else:
-            expected_result = {'user': {'id': user_id}}
-
-        assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
-        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
-
-        # === Test: updateUser
-        assert client.put(f'/user', json={'user': input_user}).json() == expected_result
-        assert gq('mutation ($user: UserUpdate!) { updateUser(user: $user) }', user=input_user) == {'updateUser': expected_result['user']['id']}
 
         # === Test: deleteUser
         user_id = 1
@@ -154,6 +167,52 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         assert prev_page.value.startswith('keys:')  # keyset pagination
 
 
+        # === Test: @saves_custom_fields
+
+        # === Test: create user with articles
+        # Check: must not fail because `user_id` is not provided on the Article
+        input_user = {'is_admin': True, 'login': 'kolypto', 'name': 'Mark', 'articles': [
+            {
+                'slug': 'cqrs-is-awesome',
+                'text': 'CQRS is Awesome',
+            },
+        ]}
+        if commands_return_fields:
+            expected_result = {'user': {'id': 12, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+        else:
+            expected_result = {'user': {'id': 12}}
+
+        assert client.post('/user', json={'user': input_user}).json() == expected_result
+        # expected_result['user']['id'] += 1  # TODO: uncomment when GraphQL is ready
+        expected_result['user']['id'] = 1
+        assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
+
+        # === Test: modify user with articles
+        user_id = 12
+        # TODO: remove 'login' and 'name' when partial updates are ready
+        input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark', 'new_articles': [
+            {
+                'slug': 'build-great-apis',
+                'text': 'Build Great APIs',
+            },
+        ]}
+        if commands_return_fields:
+            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+        else:
+            expected_result = {'user': {'id': user_id}}
+
+        assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
+        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
+
+        # Test that articles were actually saved
+        with sa.orm.Session(bind=engine, future=True) as ssn:
+            articles = ssn.query(Article).order_by(Article.id.asc()).all()
+            assert articles == [
+                ObjectMatch(user_id=user_id, slug='cqrs-is-awesome'),
+                ObjectMatch(user_id=user_id, slug='build-great-apis'),
+            ]
+
+
     # FastAPI dependencies
     def ssn() -> sa.orm.Session:
         """ Dependency: SqlAlchemy Session """
@@ -212,12 +271,30 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         pass
 
     class UserMutateApi(MutateApi):
-        pass
+        # Implement a method for saving articles
+        @saves_custom_fields('articles', 'new_articles')
+        def save_articles(self, /, new: User, prev: User = None, *, articles: list[dict] = MISSING, new_articles: list[dict] = MISSING):
+            if new_articles is not MISSING:
+                articles = new_articles  # same handling
+
+            if articles is not MISSING:
+                # Assume: creating a new user
+                assert prev is None
+
+                # Create articles: add
+                new.articles.extend((  # associate with the User
+                    Article(**article_dict)
+                    for article_dict in articles
+                ))
+
 
     class UserReturningMutateApi(ReturningMutateApi):
         pass
 
+
+    # Choose class: mutation returns values or not?
     UserMutateApiCls = UserReturningMutateApi if commands_return_fields else UserMutateApi
+
 
     # API: FastAPI
     @app.get('/user', response_model=UserListResponse, response_model_exclude_unset=True)
@@ -247,7 +324,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         params = UserIdCrudParams(i_am_admin=True, role_filter=None, id=id)
         api = UserQueryApi(ssn, params, query_object)
         return {'user': api.get()}
-
 
     @app.post('/user')
     def create_user(user: UserCreate = fastapi.Body(..., embed=True),
@@ -367,6 +443,7 @@ class User(Base):
 
     articles = sa.orm.relationship(lambda: Article, back_populates='user')
 
+
 class Article(Base):
     __tablename__ = 'a'
 
@@ -393,11 +470,18 @@ class UserDb(UserBase):
     id: int
     is_admin: bool
 
+    articles: list[ArticleDb]
 
-class UserDbPartial(UserDb):
+    # A field that is available but is never used (to test field exclusion)
+    extra_field: str
+
+
+class UserDbPartial(UserDb):  # TODO: user derive_optional(UserDb)
+    # TODO: implement a helper for this validator
     # all fields, optional, but not nullable
     # this is the return type for partially-selected models
-    @pd.validator(*(name for name, field in UserDb.__fields__.items() if not field.allow_none))
+    @pd.validator(*(name for name, field in UserDb.__fields__.items()
+                    if field.shape != pd.fields.SHAPE_SINGLETON or not field.allow_none))
     def validate_optional_yet_not_nullable(cls, v):
         if v is None:
             raise ValueError
@@ -409,11 +493,16 @@ class UserDbPartial(UserDb):
     is_admin: Optional[bool]
     login: Optional[str]
     name: Optional[str]
+    articles: Optional[list[ArticleDb]]
+    extra_field: Optional[str]
 
 
 class UserCreate(UserBase):
     # rw, const fields
     is_admin: bool
+
+    # NOTE: we do not use `ArticleCreate` because it requires a user_id
+    articles: list[ArticleBase] = pd.Field(None)
 
 
 class UserUpdate(UserBase):
@@ -421,6 +510,9 @@ class UserUpdate(UserBase):
     id: Optional[int]
     login: Optional[str]
     name: Optional[str]
+
+    new_articles: list[ArticleBase] = pd.Field(None)
+    # articles: list[Union[ArticleUpdate, ArticleBase]] = pd.Field(None)
 
 
 class ArticleBase(pd.BaseModel):
@@ -451,10 +543,17 @@ class ArticleDbPartial(ArticleDb):
     text: Optional[str]
 
 
-
 class ArticleCreate(ArticleBase):
     # rw, const fields
     user_id: int
+
+
+ArticleCreateForUser = derive_model(
+    ArticleCreate,
+    name='ArticleCreateForUser',
+    exclude='user_id',
+    BaseModel=ArticleCreate,
+)
 
 
 class ArticleUpdate(ArticleBase):
@@ -464,6 +563,14 @@ class ArticleUpdate(ArticleBase):
     text: Optional[str]
 
 
+
+UserCreate.update_forward_refs()
+UserUpdate.update_forward_refs()
+UserDbPartial.update_forward_refs()
+
+
+# TODO: validate models against DB schema
+# TODO: strict include/exclude mode ; auto-match mode (only overlaps)
 # schemas.settings = SchemaSettings(
 #     models.User,
 #     read=schemas.UserDb,
@@ -516,6 +623,8 @@ input UserCreate {
     is_admin: Boolean!
     login: String!
     name: String!
+    
+    articles: [ArticleCreateForUser]
 }
 
 input UserUpdate {
@@ -523,6 +632,13 @@ input UserUpdate {
     id: Int
     login: String!
     name: String!
+    
+    new_articles: [ArticleCreateForUser]
+}
+
+input ArticleCreateForUser {
+    slug: String!
+    text: String!
 }
 
 type ListUsersResponse {

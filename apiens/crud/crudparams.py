@@ -1,4 +1,5 @@
 from collections import abc
+from dataclasses import dataclass
 from typing import ClassVar
 
 import sqlalchemy as sa
@@ -6,7 +7,27 @@ import sqlalchemy as sa
 from .crudsettings import CrudSettings
 
 
+@dataclass
 class CrudParams:
+    """ Input parameters for CRUD operations (query, mutate)
+
+    Example: model settings, custom filters
+
+    When your API provides some input parameters that influence the way the API works, you pass it through params.
+    For instance, if your custom `filter()` method filters users by age, then `age` would be a CrudParams field.
+
+    Example:
+
+        @dataclass
+        class UserCrudParams(CrudParams):
+            age: int
+            crudsettings = CrudSettings(Model=User, debug=True)
+
+            def filter(self):
+                return (
+                    User.age >= self.age,
+                )
+    """
     # CRUD settings: the static container for all the configuration of this CRUD handler.
     crudsettings: ClassVar[CrudSettings]
 
@@ -27,10 +48,6 @@ class CrudParams:
         """ Filter expression for all methods. Controls which rows are visible to CRUD methods
 
         Override and customize to react to user-supplied `kwargs`: like `id` coming from the request
-
-        Args:
-            **kwargs: User-supplied input for filtering.
-                For instance, these can be the arguments of your view.
         """
         return ()
 
@@ -41,9 +58,6 @@ class CrudParams:
 
         NOTE: the default implementation already filters by the primary key and users _filter().
         You do not have to worry about those!
-
-        Args:
-            **kwargs: User-supplied input that is supposed to identify the object, e.g., by primary key
         """
         # The default implementation: _filter() + primary key filter
         return (
@@ -53,9 +67,6 @@ class CrudParams:
 
     def _filter_primary_key(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
         """ Find an instance by its primary key values
-
-        Args:
-            kwargs: User-supplied input for filtering. Must contain primary key { name => value } pairs
         """
         return (
             getattr(self.crudsettings.Model, pk_field) == getattr(self, pk_field, None)
