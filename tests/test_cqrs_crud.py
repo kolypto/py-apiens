@@ -18,6 +18,7 @@ from apiens.testing import Parameter, ObjectMatch
 from apiens.tools.pydantic.derive import derive_model
 from apiens.tools.sqlalchemy import db_transaction
 from jessiql.integration.graphql import query_object_for
+from jessiql.testing.graphql.query import graphql_query_sync
 from jessiql.util import sacompat
 from jessiql.testing.graphql import resolves
 from jessiql.integration.fastapi import query_object, QueryObject
@@ -429,8 +430,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
 
     @resolves(gql_schema, 'Mutation', 'updateUserId')
     def resolve_update_user(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
-        print(user)
-
         if commands_return_fields:
             return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
         else:
@@ -456,11 +455,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
     # Helpers
     def gq(query: str, **variable_values):
         """ Make a GraphqQL query """
-        res = graphql.graphql_sync(gql_schema, query, variable_values=variable_values)
-        if res.errors:
-            raise res.errors[0]  # TODO: remove
-            raise ValueError(res.errors)
-        return res.data
+        return graphql_query_sync(gql_schema, query, **variable_values)
 
     # Run
     with jessiql.testing.created_tables(engine, Base.metadata):
