@@ -1,4 +1,4 @@
-from typing import Union, Any
+from typing import Union, Any, Optional
 
 import graphql
 
@@ -20,3 +20,14 @@ def has_directive(directive_name: str, node: Union[graphql.InputObjectTypeDefini
         directive.name.value == directive_name
         for directive in node.directives
     )
+
+
+def get_directive(directive_name: str, node: Union[graphql.InputObjectTypeDefinitionNode, graphql.ObjectTypeDefinitionNode, Any]) -> Optional[graphql.DirectiveNode]:
+    if not node or not node.directives:
+        return None
+
+    for directive in node.directives:
+        if directive.name.value == directive_name:
+            return directive
+    else:
+        return None

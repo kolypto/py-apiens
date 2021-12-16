@@ -9,6 +9,7 @@ from jessiql.testing.graphql.query import graphql_query_sync
 def test_directive_partial():
     """ Test @partial """
     def main():
+        # language=graphql
         partialUpdateUser = 'query ($user: UserInput) { partialUpdateUser(user: $user) { id login name age } }'
 
         # === Test: send a valid partial object
@@ -74,5 +75,57 @@ def test_directive_partial():
             # Override
             **user,
         }
+
+    main()
+
+
+def test_directive_inherits():
+    def main():
+        # language=graphql
+        getUser = 'query ($user: UserLoginNameInput) { passthruUser(user: $user) { id login name } }'
+
+        # === Test: input a model that inherits
+        res = graphql_query_sync(gql_schema, getUser, user={'id': '1', 'login': 'qwerty', 'name': 'John'})
+        assert res == {'passthruUser': {'id': '1', 'login': 'qwerty', 'name': 'John'}}
+
+
+    # language=graphql
+    GQL_SCHEMA = '''
+    type Query {
+        # Note: 
+        # Input object itself has only 1 field, 2 more are inherited
+        # Same for the output object
+        # So any extra field would fail or be rejected 
+        passthruUser(user: UserLoginNameInput): UserLoginName
+    }
+    
+    type User {
+        id: ID!
+    }
+    type UserLogin @inherits(type: "User") {
+        login: String!
+    }
+    type UserLoginName @inherits(type: "UserLogin") {
+        name: String!
+    }
+    
+    input UserInput {
+        id: ID!
+    }
+    input UserLoginInput @inherits(type: "UserInput") {
+        login: String!
+    }
+    input UserLoginNameInput @inherits(type: "UserLoginInput") {
+        name: String!
+    }
+    '''
+    GQL_SCHEMA += directives.inherits.DIRECTIVE_SDL
+
+    gql_schema = graphql.build_schema(GQL_SCHEMA)
+    directives.inherits.install_directive_to_schema(gql_schema)
+
+    @resolves(gql_schema, 'Query', 'passthruUser')
+    def resolve_passhru_user(root, info: graphql.GraphQLResolveInfo, user: dict):
+        return user
 
     main()

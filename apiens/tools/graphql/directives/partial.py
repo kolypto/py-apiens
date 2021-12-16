@@ -44,7 +44,9 @@ DIRECTIVE_SDL = '''
 directive @partial on INPUT_OBJECT
 '''
 
-def install_directive(type_def: graphql.GraphQLInputObjectType):
+# Directive implementation
+
+def installto_input_object_type(schema: graphql.GraphQLSchema, type_def: graphql.GraphQLInputObjectType):
     """ Low-level: install the directive onto an object """
     assert isinstance(type_def, graphql.GraphQLInputObjectType)
     if not has_directive(DIRECTIVE_NAME, type_def.ast_node):
@@ -67,7 +69,7 @@ def install_directive(type_def: graphql.GraphQLInputObjectType):
             non_null_names.add(field_name)
 
     # Fix AST
-    if False:  # no need to fix the AST... I think.
+    if False:  # CHECKME: no need to fix the AST...
         # Unwrap NonNull from every field
         for field in type_def.ast_node.fields:
             if isinstance(field.type, graphql.NonNullTypeNode):
@@ -98,7 +100,7 @@ def install_directive_to_schema(schema: graphql.GraphQLSchema):
     # Install onto InputObject types
     for type_name, type_def in schema.type_map.items():
         if isinstance(type_def, graphql.GraphQLInputObjectType):
-            install_directive(type_def)
+            installto_input_object_type(schema, type_def)
 
 
 # Here's how to traverse the tree
