@@ -15,6 +15,7 @@ import sqlalchemy.orm
 import jessiql
 import jessiql.testing
 from apiens.testing import Parameter, ObjectMatch
+from apiens.tools.pydantic import partial
 from apiens.tools.pydantic.derive import derive_model
 from apiens.tools.sqlalchemy import db_transaction
 from jessiql.integration.graphql import query_object_for
@@ -508,25 +509,9 @@ class UserDb(UserBase):
     extra_field: str
 
 
-class UserDbPartial(UserDb):  # TODO: user derive_optional(UserDb). Also `ArticleDbPartial`
-    # TODO: implement a helper for this validator. Also `ArticleDbPartial`
-    # all fields, optional, but not nullable
-    # this is the return type for partially-selected models
-    @pd.validator(*(name for name, field in UserDb.__fields__.items()
-                    if field.shape != pd.fields.SHAPE_SINGLETON or not field.allow_none))
-    def validate_optional_yet_not_nullable(cls, v):
-        if v is None:
-            raise ValueError
-        else:
-            return v
-
-    # TODO: these fields ideally should be derived from an existing model by making every field Optional. Also `ArticleDbPartial`
-    id: Optional[int]
-    is_admin: Optional[bool]
-    login: Optional[str]
-    name: Optional[str]
-    articles: Optional[list[ArticleDb]]
-    extra_field: Optional[str]
+@partial
+class UserDbPartial(UserDb):
+    pass
 
 
 class UserCreate(UserBase):
@@ -559,19 +544,9 @@ class ArticleDb(ArticleBase):
     user_id: int
 
 
+@partial
 class ArticleDbPartial(ArticleDb):
-    # Fields are optional but not nullable
-    @pd.validator(*(name for name, field in ArticleDb.__fields__.items() if not field.allow_none))
-    def validate_optional_yet_not_nullable(cls, v):
-        if v is None:
-            raise ValueError
-        else:
-            return v
-
-    id: Optional[int]
-    user_id: Optional[int]
-    slug: Optional[str]
-    text: Optional[str]
+    pass
 
 
 class ArticleCreate(ArticleBase):
