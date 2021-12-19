@@ -39,11 +39,10 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         q = {'select': json.dumps(['id', 'login', 'name'])}
 
         # === Test: createUser
-        input_user = {'is_admin': True, 'login': 'kolypto', 'name': 'Mark-typo'}  # 'name': typo
+        input_user = {'is_admin': True, 'login': 'kolypto', 'name': 'Mark-typo'}
+        expected_result = {'user': {'id': 1}}
         if commands_return_fields:
             expected_result = {'user': {'id': 1, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark-typo'}}
-        else:
-            expected_result = {'user': {'id': 1}}
 
         assert client.post('/user', json={'user': input_user}).json() == expected_result
         # expected_result['id'] += 1
@@ -59,10 +58,9 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         # === Test: updateUserId
         user_id = 1
         input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark-fix-1'}
+        expected_result = {'user': {'id': user_id}}
         if commands_return_fields:
             expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark-fix-1'}}
-        else:
-            expected_result = {'user': {'id': user_id}}
 
         assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
         assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
@@ -117,10 +115,9 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
 
         # === Test: deleteUser
         user_id = 1
+        expected_result = {'user': {'id': user_id}}
         if commands_return_fields:
             expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
-        else:
-            expected_result = {'user': {'id': user_id}}
 
         assert client.delete(f'/user/{user_id}').json() == expected_result
         assert gq('mutation ($id: Int!) { deleteUser(id: $id) }', id=user_id) == {'deleteUser': expected_result['user']['id']}
@@ -209,10 +206,9 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
                 'text': 'CQRS is Awesome',
             },
         ]}
+        expected_result = {'user': {'id': 12}}
         if commands_return_fields:
             expected_result = {'user': {'id': 12, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
-        else:
-            expected_result = {'user': {'id': 12}}
 
         assert client.post('/user', json={'user': input_user}).json() == expected_result
         # expected_result['user']['id'] += 1
@@ -227,10 +223,9 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
                 'text': 'Build Great APIs',
             },
         ]}
+        expected_result = {'user': {'id': user_id}}
         if commands_return_fields:
             expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
-        else:
-            expected_result = {'user': {'id': user_id}}
 
         assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
         assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
@@ -401,7 +396,7 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
     # API: GraphQL
     # TODO: provide dependencies to GraphQL via the root object / singleton getters or something
     # TODO: implement GraphQL endpoints
-    gql_schema = graphql.build_schema(schema_prepare())
+    gql_schema = schema_prepare()
 
     @resolves(gql_schema, 'Query', 'listUsers')
     def resolve_list_users(root, info: graphql.GraphQLResolveInfo):
@@ -499,7 +494,7 @@ class UserBase(pd.BaseModel):
 
 
 class UserDb(UserBase):
-    # all fields: +ro and +const fields and +relations
+    # rw ; +ro, const fields, +relations
     id: int
     is_admin: bool
 
@@ -515,7 +510,7 @@ class UserDbPartial(UserDb):
 
 
 class UserCreate(UserBase):
-    # rw, const fields
+    # rw ; +const fields, +relations
     is_admin: bool
 
     # NOTE: we do not use `ArticleCreate` because it requires a user_id
@@ -523,7 +518,7 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(UserBase):
-    # rw fields, pk fields, make optional,
+    # rw ; +const fields, +relations; +skippable PK
     id: Optional[int]
     login: Optional[str]
     name: Optional[str]
@@ -616,36 +611,56 @@ type Mutation {
     deleteUserF(id: Int!): User!
 }
 
-type User {
-    # all fields
-    id: Int!
-    is_admin: Boolean!
+type UserBase {
+    # rw fields
     login: String!
     name: String!
 }
 
-input UserCreate {
-    # rw, const fields
+type User @inherits(type: "UserBase") {
+    # rw ; +ro, const fields, +relations
+    id: Int!
     is_admin: Boolean!
-    login: String!
-    name: String!
-    
+    # articles: [Article]
+}
+
+input UserCreate @inherits(type: "UserBase") {
+    # rw ; +const fields, +relations
+    is_admin: Boolean!
     articles: [ArticleCreateForUser]
 }
 
-input UserUpdate {
-    # rw fields; optional PK
-    id: Int
-    # TODO: how to implement non-nullable skippable fields? 
-    #   a validator that's applied to a resolve function?
-    #   a directive that's applied to an Input and makes everything optional? or should it just apply a validator?
-    login: String
-    name: String
-    # login: String!
-    # name: String!
-    
-    new_articles: [ArticleCreateForUser]
+input UserUpdate @partial @inherits(type: "UserBase") {
+    # rw ; +const fields, +relations; +skippable PK
+    id: Int!
+    new_articles: [ArticleCreateForUser]!
 }
+
+# type User {
+#     # all fields
+#     id: Int!
+#     is_admin: Boolean!
+#     login: String!
+#     name: String!
+# }
+# 
+# input UserCreate {
+#     # rw, const fields
+#     is_admin: Boolean!
+#     login: String!
+#     name: String!
+#     
+#     articles: [ArticleCreateForUser]
+# }
+# 
+# input UserUpdate @partial {
+#     # rw fields; skippable PK
+#     id: Int!
+#     login: String!
+#     name: String!
+#     
+#     new_articles: [ArticleCreateForUser]!
+# }
 
 input ArticleCreateForUser {
     slug: String!
@@ -667,10 +682,24 @@ type ListUsersResponse {
 def schema_prepare() -> str:
     """ Build a GraphQL schema for testing JessiQL queries """
     from jessiql.integration.graphql.schema import graphql_jessiql_schema
-    return (
-        GQL_SCHEMA +
-        # Also load QueryObject and QueryObjectInput
-        graphql_jessiql_schema
-    )
+    from apiens.tools.graphql.directives import inherits, partial
+    schema_sdl = '\n'.join((
+        GQL_SCHEMA,
+        # Directives
+        inherits.DIRECTIVE_SDL,
+        partial.DIRECTIVE_SDL,
+        # QueryObject and QueryObjectInput
+        graphql_jessiql_schema,
+    ))
+
+    # Build
+    schema = graphql.build_schema(schema_sdl)
+
+    # Register directives
+    inherits.install_directive_to_schema(schema)
+    partial.install_directive_to_schema(schema)
+
+    # Done
+    return schema
 
 # endregion

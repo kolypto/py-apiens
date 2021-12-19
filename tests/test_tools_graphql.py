@@ -82,11 +82,20 @@ def test_directive_partial():
 def test_directive_inherits():
     def main():
         # language=graphql
-        getUser = 'query ($user: UserLoginNameInput) { passthruUser(user: $user) { id login name } }'
+        getUser  = 'query ($user: UserLoginNameInput) { passthruUser(user: $user) { id login name } }'
+        getUser1 = 'query ($user: User1Input) { passthruUser1(user: $user) { id name } }'
+        getUser2 = 'query ($user: User2Input) { passthruUser2(user: $user) { id name } }'
 
         # === Test: input a model that inherits
         res = graphql_query_sync(gql_schema, getUser, user={'id': '1', 'login': 'qwerty', 'name': 'John'})
         assert res == {'passthruUser': {'id': '1', 'login': 'qwerty', 'name': 'John'}}
+
+        # === Test: user1 and user2
+        res = graphql_query_sync(gql_schema, getUser1, user={'id': '1', 'name': 'John'})
+        assert res == {'passthruUser1': {'id': '1', 'name': 'John'}}
+
+        res = graphql_query_sync(gql_schema, getUser2, user={'id': '1', 'name': 'John'})
+        assert res == {'passthruUser2': {'id': '1', 'name': 'John'}}
 
 
     # language=graphql
@@ -97,7 +106,12 @@ def test_directive_inherits():
         # Same for the output object
         # So any extra field would fail or be rejected 
         passthruUser(user: UserLoginNameInput): UserLoginName
+        
+        # Test types that inherit 1) input from type 2) type from input
+        passthruUser1(user: User1Input): User1
+        passthruUser2(user: User2Input): User2
     }
+    
     
     type User {
         id: ID!
@@ -118,6 +132,30 @@ def test_directive_inherits():
     input UserLoginNameInput @inherits(type: "UserLoginInput") {
         name: String!
     }
+    
+    
+    # inherit from `type` to `input`
+    type User1Base {
+        name: String!
+    }
+    type User1 @inherits(type: "User1Base") {
+        id: ID!
+    }
+    input User1Input @inherits(type: "User1Base") {
+        id: ID
+    }
+    
+    
+    # inherit from `input` to `type`
+    type User2Base {
+        name: String!
+    }
+    type User2 @inherits(type: "User2Base") {
+        id: ID!
+    }
+    input User2Input @inherits(type: "User2Base") {
+        id: ID
+    }
     '''
     GQL_SCHEMA += directives.inherits.DIRECTIVE_SDL
 
@@ -125,6 +163,8 @@ def test_directive_inherits():
     directives.inherits.install_directive_to_schema(gql_schema)
 
     @resolves(gql_schema, 'Query', 'passthruUser')
+    @resolves(gql_schema, 'Query', 'passthruUser1')
+    @resolves(gql_schema, 'Query', 'passthruUser2')
     def resolve_passhru_user(root, info: graphql.GraphQLResolveInfo, user: dict):
         return user
 
