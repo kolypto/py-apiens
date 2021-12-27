@@ -80,6 +80,7 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
         # Done
         return instance
 
+    # TODO: implement soft-delete
     # TODO: create_or_update_many() from MongoSQL 2.x
 
     # endregion

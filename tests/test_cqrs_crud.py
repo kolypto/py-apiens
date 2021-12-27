@@ -11,6 +11,7 @@ import fastapi
 import fastapi.testclient
 
 import pydantic as pd
+import pytest
 import sqlalchemy as sa
 import sqlalchemy.orm
 
@@ -36,7 +37,8 @@ from apiens.crud import CrudParams
 # TODO: break this huge test apart into smaller tests, test more thoroughly
 
 # TODO: Test with returning fields. Parametrize.
-def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False):
+@pytest.mark.parametrize(('commands_return_fields',), [(False,),(True,)])
+def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
     def main():
         q = {'select': json.dumps(['id', 'login', 'name'])}
 
@@ -44,11 +46,14 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         input_user = {'is_admin': True, 'login': 'kolypto', 'name': 'Mark-typo'}
         expected_result = {'user': {'id': 1}}
         if commands_return_fields:
-            expected_result = {'user': {'id': 1, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark-typo'}}
+            expected_result = {'user': {'id': 1, 'login': 'kolypto', 'name': 'Mark-typo'}}
 
-        assert client.post('/user', json={'user': input_user}).json() == expected_result
+        assert client.post('/user', params=q, json={'user': input_user}).json() == expected_result
         expected_result['user']['id'] += 1
-        assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
+        if not commands_return_fields:
+            assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
+        else:
+            assert gq('mutation ($user: UserCreate!) { createUserF(user: $user) { id login name } }', user=input_user) == {'createUserF': expected_result['user']}
 
         with db_ssn() as ssn:
             users = ssn.query(User).order_by(User.id).all()
@@ -62,13 +67,16 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark-fix-1'}
         expected_result = {'user': {'id': user_id}}
         if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark-fix-1'}}
+            expected_result = {'user': {'id': user_id, 'login': 'kolypto', 'name': 'Mark-fix-1'}}
 
-        assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
+        assert client.post(f'/user/{user_id}', params=q, json={'user': input_user}).json() == expected_result
         user_id += 1
         input_user['id'] = user_id
         expected_result['user']['id'] = user_id
-        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
+        if not commands_return_fields:
+            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
+        else:
+            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserIdF(id: $id, user: $user) { id login name } }', id=user_id, user=input_user) == {'updateUserIdF': expected_result['user']}
 
         with db_ssn() as ssn:
             users = ssn.query(User).order_by(User.id).all()
@@ -82,13 +90,16 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         input_user = {'id': user_id, 'login': 'kolypto', 'name': 'Mark-fix-2'}
         expected_result = {'user': {'id': user_id}}
         if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark-fix-1'}}
+            expected_result = {'user': {'id': user_id, 'login': 'kolypto', 'name': 'Mark-fix-2'}}
 
-        assert client.put(f'/user', json={'user': input_user}).json() == expected_result
+        assert client.put(f'/user', params=q, json={'user': input_user}).json() == expected_result
         user_id += 1
         input_user['id'] = user_id
         expected_result['user']['id'] = user_id
-        assert gq('mutation ($user: UserUpdate!) { updateUser(user: $user) }', user=input_user) == {'updateUser': expected_result['user']['id']}
+        if not commands_return_fields:
+            assert gq('mutation ($user: UserUpdate!) { updateUser(user: $user) }', user=input_user) == {'updateUser': expected_result['user']['id']}
+        else:
+            assert gq('mutation ($user: UserUpdate!) { updateUserF(user: $user) { id login name } }', user=input_user) == {'updateUserF': expected_result['user']}
 
         with db_ssn() as ssn:
             users = ssn.query(User).order_by(User.id).all()
@@ -102,14 +113,18 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         user_id = 1
         input_partial_user = {'id': user_id, 'name': 'Mark'}
         expected_result = {'user': {'id': user_id}}
+        if commands_return_fields:
+            expected_result = {'user': {'id': user_id, 'login': 'kolypto', 'name': 'Mark'}}
         
-
-        assert client.post(f'/user/{user_id}', json={'user': input_partial_user}).json() == expected_result
+        assert client.post(f'/user/{user_id}', params=q, json={'user': input_partial_user}).json() == expected_result
 
         user_id += 1
         input_partial_user['id'] = user_id
         expected_result['user']['id'] = user_id
-        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_partial_user) == {'updateUserId': expected_result['user']['id']}
+        if not commands_return_fields:
+            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_partial_user) == {'updateUserId': expected_result['user']['id']}
+        else:
+            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserIdF(id: $id, user: $user) { id login name } }', id=user_id, user=input_partial_user) == {'updateUserIdF': expected_result['user']}
 
         with db_ssn() as ssn:
             users = ssn.query(User).order_by(User.id).all()
@@ -142,12 +157,15 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         user_id = 1
         expected_result = {'user': {'id': user_id}}
         if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+            expected_result = {'user': {'id': user_id, 'login': 'kolypto', 'name': 'Mark'}}
 
-        assert client.delete(f'/user/{user_id}').json() == expected_result
+        assert client.delete(f'/user/{user_id}', params=q).json() == expected_result
         user_id += 1
         expected_result['user']['id'] = user_id
-        assert gq('mutation ($id: Int!) { deleteUser(id: $id) }', id=user_id) == {'deleteUser': expected_result['user']['id']}
+        if not commands_return_fields:
+            assert gq('mutation ($id: Int!) { deleteUser(id: $id) }', id=user_id) == {'deleteUser': expected_result['user']['id']}
+        else:
+            assert gq('mutation ($id: Int!) { deleteUserF(id: $id) { id name login } }', id=user_id) == {'deleteUserF': expected_result['user']}
 
         # === Test: countUsers
         expected_count = 0
@@ -237,11 +255,14 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         ]}
         expected_result = {'user': {'id': 13}}
         if commands_return_fields:
-            expected_result = {'user': {'id': 13, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+            expected_result = {'user': {'id': 13, 'login': 'kolypto'}}
 
-        assert client.post('/user', json={'user': input_user}).json() == expected_result
+        assert client.post('/user', params=q, json={'user': input_user}).json() == expected_result
         expected_result['user']['id'] += 1
-        assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
+        if not commands_return_fields:
+            assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
+        else:
+            assert gq('mutation ($user: UserCreate!) { createUserF(user: $user) { id login } }', user=input_user) == {'createUserF': expected_result['user']}
 
         # === Test: modify user with articles
         user_id = 13
@@ -253,13 +274,16 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
         ]}
         expected_result = {'user': {'id': user_id}}
         if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}}
+            expected_result = {'user': {'id': user_id, 'login': 'kolypto'}}
 
-        assert client.post(f'/user/{user_id}', json={'user': input_user}).json() == expected_result
+        assert client.post(f'/user/{user_id}', params=q, json={'user': input_user}).json() == expected_result
         user_id = 14
         input_user['id'] = user_id
         expected_result['user']['id'] = user_id
-        assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
+        if not commands_return_fields:
+            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
+        else:
+            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserIdF(id: $id, user: $user) { id login } }', id=user_id, user=input_user) == {'updateUserIdF': expected_result['user']}
 
         # Test that articles were actually saved
         with db_ssn() as ssn:
@@ -342,8 +366,8 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
                 articles = new_articles  # same handling
 
             if articles is not MISSING:
-                # Assume: creating a new user
-                assert prev is None
+                # Assume: not deleting
+                assert new is not None
 
                 # Create articles: add
                 new.articles.extend((  # associate with the User
@@ -353,12 +377,9 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
 
 
     class UserReturningMutateApi(ReturningMutateApi):
-        pass
-
-
-    # Choose class: mutation returns values or not?
-    UserMutateApiCls = UserReturningMutateApi if commands_return_fields else UserMutateApi
-
+        @saves_custom_fields('articles', 'new_articles')
+        def save_articles(self, /, new: User, prev: User = None, *, articles: list[dict] = MISSING, new_articles: list[dict] = MISSING):
+            UserMutateApi.save_articles(self, new, prev, articles=articles, new_articles=new_articles)
 
     # API: FastAPI
     @app.get('/user', response_model=UserListResponse, response_model_exclude_unset=True)
@@ -393,43 +414,47 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
     @app.post('/user')
     def create_user(user: UserCreate = fastapi.Body(..., embed=True),
                     ssn: sa.orm.Session = fastapi.Depends(dep_db_ssn),
-                    query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
-        params = UserCrudParams(i_am_admin=True, role_filter=None)
-        api = UserMutateApiCls(ssn, params)
+                    query_object: Optional[QueryObject] = fastapi.Depends(query_object),
+                    commands_return_fields = commands_return_fields):
+        params = UserIdCrudParams(i_am_admin=True, role_filter=None)
+        api = UserReturningMutateApi(ssn, params, query_object) if commands_return_fields else UserMutateApi(ssn, params)
         with db_transaction(ssn):
             res = api.create(user.dict(exclude_unset=True))
-        return {'user': res} if commands_return_fields else {'user': res}
+        return {'user': res}
 
     @app.put('/user')
     def update_user(user: UserUpdate = fastapi.Body(..., embed=True),
                     ssn: sa.orm.Session = fastapi.Depends(dep_db_ssn),
-                    query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
+                    query_object: Optional[QueryObject] = fastapi.Depends(query_object),
+                    commands_return_fields = commands_return_fields):
         params = UserIdCrudParams(i_am_admin=True, role_filter=None)
-        api = UserMutateApiCls(ssn, params)
+        api = UserReturningMutateApi(ssn, params, query_object) if commands_return_fields else UserMutateApi(ssn, params)
         with db_transaction(ssn):
             res = api.update(user.dict(exclude_unset=True))
-        return {'user': res} if commands_return_fields else {'user': res}
+        return {'user': res}
 
     @app.post('/user/{id}')
     def update_user_id(id: int,
                        user: UserUpdate = fastapi.Body(..., embed=True),
                        ssn: sa.orm.Session = fastapi.Depends(dep_db_ssn),
-                       query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
+                       query_object: Optional[QueryObject] = fastapi.Depends(query_object),
+                       commands_return_fields = commands_return_fields):
         params = UserIdCrudParams(i_am_admin=True, role_filter=None, id=id)
-        api = UserMutateApiCls(ssn, params)
+        api = UserReturningMutateApi(ssn, params, query_object) if commands_return_fields else UserMutateApi(ssn, params)
         with db_transaction(ssn):
             res = api.update_id(user.dict(exclude_unset=True))
-        return {'user': res} if commands_return_fields else {'user': res}
+        return {'user': res}
 
     @app.delete('/user/{id}')
     def delete_user(id: int,
                     ssn: sa.orm.Session = fastapi.Depends(dep_db_ssn),
-                    query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
+                    query_object: Optional[QueryObject] = fastapi.Depends(query_object),
+                    commands_return_fields = commands_return_fields):
         params = UserIdCrudParams(i_am_admin=True, role_filter=None, id=id)
-        api = UserMutateApiCls(ssn, params)
+        api = UserReturningMutateApi(ssn, params, query_object) if commands_return_fields else UserMutateApi(ssn, params)
         with db_transaction(ssn):
             res = api.delete()
-        return {'user': res} if commands_return_fields else {'user': res}
+        return {'user': res}
 
     # API: GraphQL
     gql_schema = schema_prepare()
@@ -454,32 +479,48 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool = False
             return count_users(ssn, query_object)['count']
 
     @resolves(gql_schema, 'Mutation', 'createUser')
+    def resolve_create_user(root, info: graphql.GraphQLResolveInfo, user: dict):
+        with db_ssn() as ssn:
+            return create_user(UserCreate.parse_obj(user), ssn, None)['user']['id']
+
     @resolves(gql_schema, 'Mutation', 'createUserF')
     def resolve_create_user(root, info: graphql.GraphQLResolveInfo, user: dict):
-        query_object = None
+        query_object = query_object_for(info, has_query_argument=False)
         with db_ssn() as ssn:
-            return create_user(UserCreate.parse_obj(user), ssn, query_object)['user']['id']
+            return create_user(UserCreate.parse_obj(user), ssn, query_object, commands_return_fields=True)['user']
 
     @resolves(gql_schema, 'Mutation', 'updateUserId')
     def resolve_update_user(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
-        query_object = None
         with db_ssn() as ssn:
-            return update_user_id(id, UserUpdate.parse_obj(user), ssn, query_object)['user']['id']
+            return update_user_id(id, UserUpdate.parse_obj(user), ssn, None)['user']['id']
+
+    @resolves(gql_schema, 'Mutation', 'updateUserIdF')
+    def resolve_update_user(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
+        query_object = query_object_for(info, has_query_argument=False)
+        with db_ssn() as ssn:
+            return update_user_id(id, UserUpdate.parse_obj(user), ssn, query_object, commands_return_fields=True)['user']
 
     @resolves(gql_schema, 'Mutation', 'updateUser')
+    def resolve_update_user(root, info: graphql.GraphQLResolveInfo, user: dict):
+        with db_ssn() as ssn:
+            return update_user(UserUpdate.parse_obj(user), ssn, None)['user']['id']
+
     @resolves(gql_schema, 'Mutation', 'updateUserF')
     def resolve_update_user(root, info: graphql.GraphQLResolveInfo, user: dict):
-        query_object = None
+        query_object = query_object_for(info, has_query_argument=False)
         with db_ssn() as ssn:
-            return update_user(UserUpdate.parse_obj(user), ssn, query_object)['user']['id']
+            return update_user(UserUpdate.parse_obj(user), ssn, query_object, commands_return_fields=True)['user']
 
     @resolves(gql_schema, 'Mutation', 'deleteUser')
+    def resolve_delete_user(root, info: graphql.GraphQLResolveInfo, id: int):
+        with db_ssn() as ssn:
+            return delete_user(id, ssn, None)['user']['id']
+
     @resolves(gql_schema, 'Mutation', 'deleteUserF')
     def resolve_delete_user(root, info: graphql.GraphQLResolveInfo, id: int):
-        query_object = None
+        query_object = query_object_for(info, has_query_argument=False)
         with db_ssn() as ssn:
-            return delete_user(id, ssn, query_object)['user']['id']
-
+            return delete_user(id, ssn, query_object, commands_return_fields=True)['user']
 
     # Helpers
     def gq(query: str, **variable_values):

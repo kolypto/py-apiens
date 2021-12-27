@@ -32,14 +32,27 @@ class CrudParams:
     crudsettings: ClassVar[CrudSettings]
 
     def from_input_dict(self, input_dict: dict):
-        """ Get some values from the input dict.
+        """ Populate values from a dict received from the user. Used with update()
 
-        Used with the update() method to extract the primary key.
+        This method will populate `self.<pk-field-name>` from an instance dictionary.
+
+        Used with the update() method to extract the primary key and pass it to update_id().
         """
         # The default implementation covers the majority of use cases:
+        self.from_primary_key_dict(input_dict)
+
+    def from_primary_key_dict(self, pk_dict: dict):
+        """ Populate values from an instance dict where only primary keys are set.
+
+        This method will populate `self.<pk-field-name>` from an instance dictionary.
+
+        Used when:
+        * A returning mutation needs to load an object (e.g. create())
+        * Through from_input_dict()
+        """
         # Pick primary key values by name
         for pk_field in self.crudsettings.primary_key:
-            setattr(self, pk_field, input_dict[pk_field])
+            setattr(self, pk_field, pk_dict[pk_field])
 
     # These methods customize how your CRUD operations find objects to work with
     # Implement the _filter() and _filter1() methods
@@ -66,8 +79,9 @@ class CrudParams:
         )
 
     def _filter_primary_key(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
-        """ Find an instance by its primary key values
-        """
+        """ Find an instance by its primary key values """
+        # Primary key names: from `self.crudsettings`
+        # Primary key values: from `self.*`
         return (
             getattr(self.crudsettings.Model, pk_field) == getattr(self, pk_field, None)
             for pk_field in self.crudsettings.primary_key

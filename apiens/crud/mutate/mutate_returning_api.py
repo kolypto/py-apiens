@@ -1,24 +1,25 @@
+import sqlalchemy as sa
+import sqlalchemy.orm
+import jessiql
+from typing import Union
+
 from .mutate_api import MutateApi
+from ..defs import PrimaryKeyDict
+from ..base import SAInstanceT
+from ..crudparams import CrudParams
 from ..query.query_api import QueryApi
 
 
 class ReturningMutateApi(MutateApi, QueryApi):
-    def create(self, user: dict) -> dict:
-        id = super().create(user)
-        # TODO: implement!
-        return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
+    def __init__(self,
+                 ssn: sa.orm.Session,
+                 params: CrudParams,
+                 query_object: Union[jessiql.QueryObject, jessiql.QueryObjectDict] = None):
+        #MutateApi.__init__(self, ssn, params)  # not needed because QueryApi does just the same
+        QueryApi.__init__(self, ssn, params, query_object)
+        # TODO: perhaps, get `QueryApi` as the input parameter?
 
-    def update(self, user: dict) -> dict:
-        id = super().update(user)
-        # TODO: implement!
-        return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark', **user}
-
-    def update_id(self, id: int, user: dict) -> dict:
-        id = super().update_id(id, user)
-        # TODO: implement!
-        return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark', **user}
-
-    def delete(self, id: int) -> dict:
-        id = super().delete(id)
-        # TODO: implement!
-        return {'id': id, 'is_admin': True, 'login': 'kolypto', 'name': 'Mark'}
+    def _format_result_dict(self, instance: SAInstanceT) -> PrimaryKeyDict:
+        primary_key_dict = super()._format_result_dict(instance)
+        self.params.from_primary_key_dict(primary_key_dict)
+        return self.get()
