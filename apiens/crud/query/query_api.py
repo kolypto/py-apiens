@@ -13,6 +13,10 @@ from ..crudparams import CrudParams
 
 
 class QueryApi(ModelOperationBase[SAInstanceT]):
+    """ CRUD API implementation: queries
+
+    Implements read methods for CRUD: list, get, count
+    """
     # JessiQL Query Object
     query_object: jessiql.QueryObject
 

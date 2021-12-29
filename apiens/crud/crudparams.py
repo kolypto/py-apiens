@@ -1,3 +1,4 @@
+import dataclasses
 from collections import abc
 from dataclasses import dataclass
 from typing import ClassVar
@@ -50,6 +51,9 @@ class CrudParams:
         * A returning mutation needs to load an object (e.g. create())
         * Through from_input_dict()
         """
+        # Refuse to set attributes if they're not defined as @dataclass fields
+        self._assert_primary_key_attributes_defined()
+
         # Pick primary key values by name
         for pk_field in self.crudsettings.primary_key:
             setattr(self, pk_field, pk_dict[pk_field])
@@ -80,9 +84,21 @@ class CrudParams:
 
     def _filter_primary_key(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
         """ Find an instance by its primary key values """
+        # Refuse to get attributes if they're not defined as @dataclass fields
+        self._assert_primary_key_attributes_defined()
+
         # Primary key names: from `self.crudsettings`
         # Primary key values: from `self.*`
         return (
             getattr(self.crudsettings.Model, pk_field) == getattr(self, pk_field, None)
             for pk_field in self.crudsettings.primary_key
         )
+
+    def _assert_primary_key_attributes_defined(self):
+        """ Check that primary key attributes are defined. Once. """
+        # TODO: CHECKME: remove the @dataclass requirement and simply check defined fields?
+        missing_fields = set(self.crudsettings.primary_key) - set(field.name for field in dataclasses.fields(self))
+        assert not missing_fields, f'Primary key not represented in {type(self)}. Missing fields: {missing_fields}'
+
+        # Once. Replace this method with a dummy
+        self._assert_primary_key_attributes_defined = lambda: None

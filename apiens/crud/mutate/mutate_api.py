@@ -12,9 +12,13 @@ from ..defs import PrimaryKeyDict
 
 
 class MutateApi(MutateApiBase[SAInstanceT]):
+    """ CRUD API implementation: mutations
+
+    Implements write methods: create, update, delete. They only return the primary key
+    """
     # TODO: mutation signals?
 
-    # TODO: catch SqlAlchemy errors and rethrow them as Apiens errors?
+    # TODO: catch SqlAlchemy errors and rethrow them as Apiens errors? or optionally do it with a decorator?
 
     def create(self, input_dict: dict) -> PrimaryKeyDict:
         """ CRUD method: create a new object """
@@ -22,6 +26,8 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         custom_fields = saves_custom_fields.pluck_custom_fields(self, input_dict)
 
         # Create
+        # TODO: (tag:custom-pk) pluck PK fields, unless "natural pk" chosen. Or should the external API worry about it?
+        # TODO: also pluck ro fields
         # NOTE: the instance object is created and discarded. If you need it, override the `_create_instance()` method.
         instance = self._create_instance(input_dict)
         instance = self._session_create_instance_impl(instance)
@@ -37,7 +43,7 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         pk_provided = set(input_dict) >= set(self.params.crudsettings.primary_key)
 
         # Yes? Update.
-        # TODO: handle natural primary keys here
+        # TODO: handle natural primary keys here. If PK provided, but entry does not exist, that's "create"
         if pk_provided:
             return self.update(input_dict)
         # No? Create.
@@ -59,6 +65,8 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         instance = self._find_instance()
 
         # Update
+        # TODO: (tag:custom-pk) pluck PK fields, unless "natural PK" chosen. Optional: perhaps, the outer API should worry about it?
+        # TODO: also pluck ro and const fields
         instance = self._update_instance(instance, input_dict)
         instance = self._session_update_instance_impl(instance)
 

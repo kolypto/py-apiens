@@ -11,6 +11,10 @@ from ..query.query_api import QueryApi
 
 
 class ReturningMutateApi(MutateApi, QueryApi):
+    """ CRUD API implementation: mutations, returning objects
+
+    Implements mutations that also make a query after they succeed
+    """
     def __init__(self,
                  ssn: sa.orm.Session,
                  params: CrudParams,
