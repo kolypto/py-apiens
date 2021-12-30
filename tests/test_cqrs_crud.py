@@ -23,6 +23,8 @@ from apiens.testing import Parameter, ObjectMatch
 from apiens.tools.pydantic import partial
 from apiens.tools.pydantic.derive import derive_model
 from apiens.tools.sqlalchemy import db_transaction
+
+from jessiql.query_object import query_object_param as qop
 from jessiql.integration.graphql import query_object_for
 from jessiql.testing import insert
 from jessiql.testing.graphql.query import graphql_query_sync
@@ -122,7 +124,7 @@ def test_crud_create_api():
         db_cleanup()
 
         # === Test: create, returning
-        q = {'select': json.dumps(['id', 'login', 'name'])}
+        q = qop({'select': ['id', 'login', 'name']})
         input_user = {'is_admin': True, 'login': 'john2', 'name': 'John'}
 
         expected_result = {'user': {'id': 1, 'login': 'john2', 'name': 'John'}}
@@ -195,7 +197,7 @@ def test_crud_create_api():
             return create_user(UserCreate.parse_obj(user), ssn)['user']['id']
 
     @resolves(gql_schema, 'Mutation', 'createUserF')
-    def resolve_create_user(root, info: graphql.GraphQLResolveInfo, user: dict):
+    def resolve_create_userF(root, info: graphql.GraphQLResolveInfo, user: dict):
         """ Create user CRUD, returning full object with JessiQL support """
         query_object = query_object_for(info, has_query_argument=False)
         with Session() as ssn:
@@ -212,8 +214,7 @@ def test_crud_update():
         # Test: update(), update_id()
         with Session() as ssn:
             # Create a user
-            insert(ssn, User,
-                   dict(id=1, is_admin=False))
+            insert(ssn, User, dict(id=1, is_admin=False))
 
             # === Test: update_id
             api = MutateApi(ssn, UserIdCrudParams(id=1))
@@ -250,7 +251,15 @@ def test_crud_update():
 
         # Test: update, returning
         with Session() as ssn:
-            pass  # TODO: test
+            # Create a user
+            insert(ssn, User, dict(id=1, is_admin=False))
+
+            # === Test: update
+            q = {'select': ['id', 'name', 'login']}
+            api = ReturningMutateApi(ssn, UserIdCrudParams(id=1), q)
+            input_user = {'login': 'john', 'name': 'John'}
+            res = api.update_id(input_user)
+            assert res == {'id': 1, 'login': 'john', 'name': 'John'}
 
         # Test: create_or_update()
         with Session() as ssn:
@@ -338,7 +347,7 @@ def test_crud_update_api():
         ]
 
         # === Test: update, returning
-        q = {'select': json.dumps(['id', 'login', 'name'])}
+        q = qop({'select': ['id', 'login', 'name']})
         input_user = {'id': 1, 'login': 'john3', 'name': 'John'}
 
         expected_result = {'user': {'id': 1, 'login': 'john3', 'name': 'John'}}
@@ -444,18 +453,18 @@ def test_crud_update_api():
             return update_user(UserUpdate.parse_obj(user), ssn)['user']['id']
 
     @resolves(gql_schema, 'Mutation', 'updateUserId')
-    def resolve_update_user(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
+    def resolve_update_user_id(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
         with Session() as ssn:
             return update_user_id(id, UserUpdate.parse_obj(user), ssn)['user']['id']
 
     @resolves(gql_schema, 'Mutation', 'updateUserF')
-    def resolve_update_user(root, info: graphql.GraphQLResolveInfo, user: dict):
+    def resolve_update_userF(root, info: graphql.GraphQLResolveInfo, user: dict):
         query_object = query_object_for(info, has_query_argument=False)
         with Session() as ssn:
             return update_userF(UserUpdate.parse_obj(user), ssn, query_object)['user']
 
     @resolves(gql_schema, 'Mutation', 'updateUserIdF')
-    def resolve_update_user(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
+    def resolve_update_userF_id(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
         query_object = query_object_for(info, has_query_argument=False)
         with Session() as ssn:
             return update_userF_id(id, UserUpdate.parse_obj(user), ssn, query_object)['user']
@@ -476,13 +485,13 @@ def test_crud_delete():
 
             # === Test: delete
             api = MutateApi(ssn, UserIdCrudParams(id=1))
-            res = api.delete()
+            res = api.delete_id()
             assert res == {'id': 1}
 
             # === Test: delete returning
             q = {'select': ['id', 'name', 'login']}
             api = ReturningMutateApi(ssn, UserIdCrudParams(id=2), q)
-            res = api.delete()
+            res = api.delete_id()
             assert res == {'id': 2, 'login': None, 'name': None}
 
             # Really removed
@@ -502,15 +511,31 @@ def test_crud_delete():
 def test_crud_delete_api():
     """ Test CRUD API: mutation: delete """
     def main():
-        # === Test: update
-        input_user = {}
+        with Session() as ssn:
+            insert(ssn, User,
+                   dict(id=1, is_admin=False, login=None, name=None),
+                   dict(id=2, is_admin=False, login=None, name=None),
+                   dict(id=3, is_admin=False, login='john3', name='John'),
+                   dict(id=4, is_admin=False, login='john4', name='John'),
+                   )
+            ssn.commit()
 
-        expected_result = {}
-        # assert client.post('/user', json={'user': input_user}).json() == expected_result
+        # === Test: delete
+        expected_result = {'user': {'id': 1}}
+        assert client.delete('/user/1').json() == expected_result
 
-        expected_result = {}
-        # assert gql_schema.q('', user=input_user) == expected_result
+        expected_result = {'deleteUser': 2}
+        assert gql_schema.q('mutation ($id: Int!) { deleteUser(id: $id) }', id=2) == expected_result
 
+        # === Test: delete, returning
+        q = qop({'select': ['id', 'login', 'name']})
+        expected_result = {'user': {'id': 3, 'login': 'john3', 'name': 'John'}}
+        assert client.delete('/userF/3', params=q).json() == expected_result
+
+        expected_result = {'deleteUserF': {'id': 4, 'login': 'john4', 'name': 'John'}}
+        assert gql_schema.q('mutation ($id: Int!) { deleteUserF(id: $id) { id login name } }', id=4) == expected_result
+
+        # Actually deleted
         assert all_users() == []
         db_cleanup()
 
@@ -521,15 +546,46 @@ def test_crud_delete_api():
         id: Optional[int] = None
 
     # Response models
-    class UserUpdateResponse(pd.BaseModel):
+    class UserDeleteResponse(pd.BaseModel):
         user: UserDbPartial
 
     # FastAPI
     app = fastapi.FastAPI()
     client = fastapi.testclient.TestClient(app=app)
 
+    @app.delete('/user/{id}')
+    def delete_user(id: int,
+                    ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
+                    ):
+        params = UserIdCrudParams(id=id)
+        api = MutateApi(ssn, params)
+        with db_transaction(ssn):
+            res = api.delete_id()
+        return {'user': res}
+
+    @app.delete('/userF/{id}')
+    def delete_userF(id: int,
+                     ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
+                     query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
+        params = UserIdCrudParams(id=id)
+        api = ReturningMutateApi(ssn, params, query_object)
+        with db_transaction(ssn):
+            res = api.delete_id()
+        return {'user': res}
+
     # GraphQL
     gql_schema = schema_prepare()
+
+    @resolves(gql_schema, 'Mutation', 'deleteUser')
+    def resolve_delete_user(root, info: graphql.GraphQLResolveInfo, id: int):
+        with Session() as ssn:
+            return delete_user(id, ssn)['user']['id']
+
+    @resolves(gql_schema, 'Mutation', 'deleteUserF')
+    def resolve_delete_userF(root, info: graphql.GraphQLResolveInfo, id: int):
+        query_object = query_object_for(info, has_query_argument=False)
+        with Session() as ssn:
+            return delete_userF(id, ssn, query_object)['user']
 
     # Run
     with db_create():
@@ -593,9 +649,78 @@ def test_crud_delete_api():
 #         main()
 
 
+def test_mutation_saves_custom_fields():
+    """ Test CRUD: @saves_relations with create() and update() """
+    def main():
+        # Define a class
+        class UserMutateApi(MutateApi):
+            # Implement a method for saving articles
+            @saves_custom_fields('articles', 'new_articles')
+            def save_articles(self, /, new: User, prev: User = None, *, articles: list[dict] = MISSING, new_articles: list[dict] = MISSING):
+                if new_articles is not MISSING:
+                    # Always add articles, do not replace.
+                    # This is to simplify the implementation for the sake of tests
+                    articles = new_articles
 
+                if articles is not MISSING:
+                    # Assume: not deleting
+                    assert new is not None
 
-# TODO: test @saves_relations
+                    # Create articles: add
+                    new.articles.extend((  # associate with the User
+                        Article(**article_dict)
+                        for article_dict in articles
+                    ))
+
+        with Session() as ssn:
+            # === Test: create a user with articles
+            input_user = {
+                'id': 1, 'is_admin': False, 'login': 'john',
+                'articles': [
+                    {'slug': 'article-1', 'text': 'First article'},
+                ]
+            }
+            expected_result = {'id': 1}
+            api = UserMutateApi(ssn, UserCrudParams())
+            assert api.create(input_user) == expected_result
+            ssn.flush()
+
+            # Check created
+            user = ssn.query(User).get(1)
+            assert user == ObjectMatch(id=1, login='john')
+            assert user.articles == [
+                ObjectMatch(user_id=1, slug='article-1'),  # Article created, user assigned
+            ]
+
+            # === Test: update a user with articles
+            input_user = {
+                'id': 1,
+                'new_articles': [
+                    {'slug': 'article-2', 'text': 'Second article'},
+                ]
+            }
+            api = UserMutateApi(ssn, UserIdCrudParams(id=None))
+            assert api.update(input_user) == expected_result
+            ssn.flush()
+            ssn.refresh(user)
+
+            assert sorted(user.articles, key=lambda a: a.id) == [
+                ObjectMatch(user_id=1, slug='article-1'),
+                ObjectMatch(user_id=1, slug='article-2'),  # added another one
+            ]
+
+    # CRUD params
+    @dataclass
+    class UserCrudParams(CrudParams):
+        crudsettings = CrudSettings(Model=User, debug=True)
+
+    @dataclass
+    class UserIdCrudParams(UserCrudParams):
+        id: Optional[int] = None
+
+    # Run
+    with db_create():
+        main()
 
 
 def test_crud_query():
@@ -659,7 +784,7 @@ def test_crud_query_api():
 @pytest.mark.parametrize(('commands_return_fields',), [(False,),(True,)])
 def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
     def main():
-        q = {'select': json.dumps(['id', 'login', 'name'])}
+        q = qop({'select': ['id', 'login', 'name']})
 
         # === Test: listUsers
         # Check: our `q` does not select the "extra_field" field. It must not be visible, nor shoud it fail.
@@ -681,19 +806,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
         expected_result['id'] = user_id
         assert gq('query ($id: Int!) { getUser(id: $id) { id login name } }', id=user_id) == {'getUser': expected_result}
 
-        # === Test: deleteUser
-        user_id = 1
-        expected_result = {'user': {'id': user_id}}
-        if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'login': 'kolypto', 'name': 'Mark'}}
-
-        assert client.delete(f'/user/{user_id}', params=q).json() == expected_result
-        user_id += 1
-        expected_result['user']['id'] = user_id
-        if not commands_return_fields:
-            assert gq('mutation ($id: Int!) { deleteUser(id: $id) }', id=user_id) == {'deleteUser': expected_result['user']['id']}
-        else:
-            assert gq('mutation ($id: Int!) { deleteUserF(id: $id) { id name login } }', id=user_id) == {'deleteUserF': expected_result['user']}
 
         # === Test: countUsers
         expected_count = 0
@@ -712,8 +824,10 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
             ssn.commit()
 
         # List only admins
-        q = {'select': json.dumps(['id', 'login']),
-             'role': 'admin'}
+        q = {
+            **qop({'select': ['id', 'login']}),
+            'role': 'admin',
+        }
         assert client.get('/user', params=q).json() == {
             'users': [
                 {'id':  3, 'login': 'admin1'},
@@ -771,57 +885,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
         assert prev_page.value.startswith('keys:')  # keyset pagination
 
 
-        # === Test: @saves_custom_fields
-
-        # === Test: create user with articles
-        # Check: must not fail because `user_id` is not provided on the Article
-        input_user = {'is_admin': True, 'login': 'kolypto', 'name': 'Mark', 'articles': [
-            {
-                'slug': 'cqrs-is-awesome',
-                'text': 'CQRS is Awesome',
-            },
-        ]}
-        expected_result = {'user': {'id': 13}}
-        if commands_return_fields:
-            expected_result = {'user': {'id': 13, 'login': 'kolypto'}}
-
-        assert client.post('/user', params=q, json={'user': input_user}).json() == expected_result
-        expected_result['user']['id'] += 1
-        if not commands_return_fields:
-            assert gq('mutation ($user: UserCreate!) { createUser(user: $user) }', user=input_user) == {'createUser': expected_result['user']['id']}
-        else:
-            assert gq('mutation ($user: UserCreate!) { createUserF(user: $user) { id login } }', user=input_user) == {'createUserF': expected_result['user']}
-
-        # === Test: modify user with articles
-        user_id = 13
-        input_user = {'id': user_id, 'new_articles': [
-            {
-                'slug': 'build-great-apis',
-                'text': 'Build Great APIs',
-            },
-        ]}
-        expected_result = {'user': {'id': user_id}}
-        if commands_return_fields:
-            expected_result = {'user': {'id': user_id, 'login': 'kolypto'}}
-
-        assert client.post(f'/user/{user_id}', params=q, json={'user': input_user}).json() == expected_result
-        user_id = 14
-        input_user['id'] = user_id
-        expected_result['user']['id'] = user_id
-        if not commands_return_fields:
-            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserId(id: $id, user: $user) }', id=user_id, user=input_user) == {'updateUserId': expected_result['user']['id']}
-        else:
-            assert gq('mutation ($id: Int!, $user: UserUpdate!) { updateUserIdF(id: $id, user: $user) { id login } }', id=user_id, user=input_user) == {'updateUserIdF': expected_result['user']}
-
-        # Test that articles were actually saved
-        with Session() as ssn:
-            articles = ssn.query(Article).order_by(Article.id.asc()).all()
-            assert articles == [
-                ObjectMatch(user_id=13, slug='cqrs-is-awesome'),
-                ObjectMatch(user_id=14, slug='cqrs-is-awesome'),
-                ObjectMatch(user_id=13, slug='build-great-apis'),
-                ObjectMatch(user_id=14, slug='build-great-apis'),
-            ]
 
 
     # FastAPI app
@@ -871,29 +934,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
     class UserQueryApi(QueryApi):
         pass
 
-    class UserMutateApi(MutateApi):
-        # Implement a method for saving articles
-        @saves_custom_fields('articles', 'new_articles')
-        def save_articles(self, /, new: User, prev: User = None, *, articles: list[dict] = MISSING, new_articles: list[dict] = MISSING):
-            if new_articles is not MISSING:
-                articles = new_articles  # same handling
-
-            if articles is not MISSING:
-                # Assume: not deleting
-                assert new is not None
-
-                # Create articles: add
-                new.articles.extend((  # associate with the User
-                    Article(**article_dict)
-                    for article_dict in articles
-                ))
-
-
-    class UserReturningMutateApi(ReturningMutateApi):
-        @saves_custom_fields('articles', 'new_articles')
-        def save_articles(self, /, new: User, prev: User = None, *, articles: list[dict] = MISSING, new_articles: list[dict] = MISSING):
-            UserMutateApi.save_articles(self, new, prev, articles=articles, new_articles=new_articles)
-
     # API: FastAPI
     @app.get('/user', response_model=UserListResponse, response_model_exclude_unset=True)
     def list_users(ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
@@ -924,18 +964,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
         api = UserQueryApi(ssn, params, query_object)
         return {'user': api.get()}
 
-
-    @app.delete('/user/{id}')
-    def delete_user(id: int,
-                    ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
-                    query_object: Optional[QueryObject] = fastapi.Depends(query_object),
-                    commands_return_fields = commands_return_fields):
-        params = UserIdCrudParams(i_am_admin=True, role_filter=None, id=id)
-        api = UserReturningMutateApi(ssn, params, query_object) if commands_return_fields else UserMutateApi(ssn, params)
-        with db_transaction(ssn):
-            res = api.delete()
-        return {'user': res}
-
     # API: GraphQL
     gql_schema = schema_prepare()
     # TODO: implement an object that serves context into GraphQL resolvers -- with getters, perhaps
@@ -958,16 +986,6 @@ def test_crud_api(engine: sa.engine.Engine, commands_return_fields: bool):
         with Session() as ssn:
             return count_users(ssn, query_object)['count']
 
-    @resolves(gql_schema, 'Mutation', 'deleteUser')
-    def resolve_delete_user(root, info: graphql.GraphQLResolveInfo, id: int):
-        with Session() as ssn:
-            return delete_user(id, ssn, None)['user']['id']
-
-    @resolves(gql_schema, 'Mutation', 'deleteUserF')
-    def resolve_delete_user(root, info: graphql.GraphQLResolveInfo, id: int):
-        query_object = query_object_for(info, has_query_argument=False)
-        with Session() as ssn:
-            return delete_user(id, ssn, query_object, commands_return_fields=True)['user']
 
     # Helpers
     def gq(query: str, **variable_values):
@@ -1248,5 +1266,8 @@ def all_users(ssn: sa.orm.Session = None) -> list[User]:
 
     with stack:
         return ssn.query(User).order_by(User.id.asc()).all()
+
+def all_articles(ssn: sa.orm.Session) -> list[Article]:
+    return ssn.query(Article).order_by(Article.id.asc()).all()
 
 # endregion
