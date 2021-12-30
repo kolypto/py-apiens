@@ -51,12 +51,12 @@ class MutateApi(MutateApiBase[SAInstanceT]):
             return self.create(input_dict)
 
     def update(self, input_dict: dict) -> PrimaryKeyDict:
-        """ CRUD method: update, modify an existing object, finding it by its primary key fields' """
+        """ CRUD method: update, modify an existing object, find by primary key fields' """
         self.params.from_input_dict(input_dict)
         return self.update_id(input_dict)
 
     def update_id(self, input_dict: dict) -> PrimaryKeyDict:
-        """ CRUD method: update, modify an existing object, by id """
+        """ CRUD method: update, modify an existing object, by params id """
         # Prepare
         custom_fields = saves_custom_fields.pluck_custom_fields(self, input_dict)
 
@@ -76,8 +76,13 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         res = self._format_result_dict(instance)
         return res
 
-    def delete(self) -> PrimaryKeyDict:
-        """ CRUD method: delete, remove an object from the database """
+    def delete(self, input_dict: dict) -> PrimaryKeyDict:
+        """ CRUD method: delete, find by primary key fields """
+        self.params.from_input_dict(input_dict)
+        return self.delete_id()
+
+    def delete_id(self) -> PrimaryKeyDict:
+        """ CRUD method: delete, remove an object from the database, by params id"""
         # Load, extract PK early, before the instance is removed
         instance = self._find_instance()
         res = self._format_result_dict(instance)
@@ -89,6 +94,8 @@ class MutateApi(MutateApiBase[SAInstanceT]):
 
         # Finish
         return res
+
+    # TODO: implement soft-delete
 
     def _format_result_dict(self, instance: SAInstanceT) -> PrimaryKeyDict:
         """ Format the result that create()/update()/delete() methods produce
