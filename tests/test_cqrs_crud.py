@@ -166,7 +166,7 @@ def test_crud_create_api():
     app = fastapi.FastAPI()
     client = fastapi.testclient.TestClient(app=app)
 
-    @app.post('/user', response_model=UserGetResponse)
+    @app.post('/user', response_model=UserGetResponse, response_model_exclude_unset=True)
     def create_user(user: UserCreate = fastapi.Body(..., embed=True),
                     ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn)):
         """ Create user CRUD, returning PK """
@@ -176,7 +176,7 @@ def test_crud_create_api():
             res = api.create(user.dict(exclude_unset=True))
         return {'user': res}
 
-    @app.post('/userF', response_model=UserGetResponse)
+    @app.post('/userF', response_model=UserGetResponse, response_model_exclude_unset=True)
     def create_userF(user: UserCreate = fastapi.Body(..., embed=True),
                      ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
                      query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
@@ -243,7 +243,7 @@ def test_crud_update():
 
             # === Test: update 404
             # sqlalchemy.exc.NoResultFound: No row was found when one was required
-            with pytest.raises(sa.exc.NoResultFound):  # TODO: (tag:wrap-sa-errors) wrap sqlalchemy errors?
+            with pytest.raises(sa.exc.NoResultFound):  # TODO: (tag:wrap-sa-errors) wrap sqlalchemy errors? or just return None?
                 api.update({'id': 777})
             ssn.rollback()
 
@@ -400,7 +400,7 @@ def test_crud_update_api():
     app = fastapi.FastAPI()
     client = fastapi.testclient.TestClient(app=app)
 
-    @app.post('/user', response_model=UserUpdateResponse)
+    @app.post('/user', response_model=UserUpdateResponse, response_model_exclude_unset=True)
     def update_user(user: UserUpdate = fastapi.Body(..., embed=True),
                     ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn)):
         """ Update user CRUD, id embedded into the object, returning PK """
@@ -410,7 +410,7 @@ def test_crud_update_api():
             res = api.update(user.dict(exclude_unset=True))
         return {'user': res}
 
-    @app.post('/user/{id}', response_model=UserUpdateResponse)
+    @app.post('/user/{id}', response_model=UserUpdateResponse, response_model_exclude_unset=True)
     def update_user_id(id: int,
                        user: UserUpdate = fastapi.Body(..., embed=True),
                        ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn)):
@@ -421,7 +421,7 @@ def test_crud_update_api():
             res = api.update_id(user.dict(exclude_unset=True))
         return {'user': res}
 
-    @app.post('/userF', response_model=UserUpdateResponse)
+    @app.post('/userF', response_model=UserUpdateResponse, response_model_exclude_unset=True)
     def update_userF(user: UserUpdate = fastapi.Body(..., embed=True),
                      ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
                      query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
@@ -432,7 +432,7 @@ def test_crud_update_api():
             res = api.update(user.dict(exclude_unset=True))
         return {'user': res}
 
-    @app.post('/userF/{id}', response_model=UserUpdateResponse)
+    @app.post('/userF/{id}', response_model=UserUpdateResponse, response_model_exclude_unset=True)
     def update_userF_id(id: int,
                         user: UserUpdate = fastapi.Body(..., embed=True),
                         ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
@@ -553,7 +553,7 @@ def test_crud_delete_api():
     app = fastapi.FastAPI()
     client = fastapi.testclient.TestClient(app=app)
 
-    @app.delete('/user/{id}')
+    @app.delete('/user/{id}', response_model=UserDeleteResponse, response_model_exclude_unset=True)
     def delete_user(id: int,
                     ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
                     ):
@@ -563,7 +563,7 @@ def test_crud_delete_api():
             res = api.delete_id()
         return {'user': res}
 
-    @app.delete('/userF/{id}')
+    @app.delete('/userF/{id}', response_model=UserDeleteResponse, response_model_exclude_unset=True)
     def delete_userF(id: int,
                      ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
                      query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
@@ -726,10 +726,98 @@ def test_mutation_saves_custom_fields():
 def test_crud_query():
     """ Test CRUD: query: list() get() count() """
     def main():
+        # === Test: basic query
         with Session() as ssn:
-            api = QueryApi(ssn, UserIdCrudParams, query_object=None)
+            # Create some users
+            insert(ssn, User,
+                   dict(id=1, is_admin=False, login='one'),
+                   dict(id=2, is_admin=False, login='two'),
+                   )
 
-            # === Test: update
+            # === Test: list, get
+            q = dict(select=['id', 'login'])
+            api = QueryApi(ssn, UserCrudParams(), query_object=q)
+
+            assert api.list() == [
+                {'id': 1, 'login': 'one'},
+                {'id': 2, 'login': 'two'},
+            ]
+
+            # === Test: get()
+            api = QueryApi(ssn, UserIdCrudParams(id=1), query_object=q)
+            assert api.get() == {'id': 1, 'login': 'one'}
+
+            # === Test: get() 404
+            api = QueryApi(ssn, UserIdCrudParams(id=999), query_object=q)
+            assert api.get() is None
+
+            # === Test: count()
+            assert api.count() == 2
+
+        # === Test: filtering
+        with Session() as ssn:
+            insert(ssn, User,
+                   dict(id=1, is_admin=True, login='root'),
+                   dict(id=2, is_admin=True, login='admin'),
+                   dict(id=3, is_admin=False, login='john'),
+                   dict(id=4, is_admin=False, login='jack'),
+                   )
+
+            # === Test: list() with filter
+            api_admin = QueryApi(ssn, SecureUserParams(show_admins=True),  {'sort': ['id+']})
+            api_user = QueryApi(ssn,  SecureUserParams(show_admins=False), {'sort': ['id+']})
+
+            assert api_admin.list() == [{'id': 1}, {'id': 2}, {'id': 3}, {'id': 4}]
+            assert api_user.list() == [{'id': 3}, {'id': 4}]
+
+            # === Test: count() with filter
+            assert api_admin.count() == 4
+            assert api_user.count() == 2
+
+            # === Test: update() also gets filtering
+            api = MutateApi(ssn, SecureUserIdParams(show_admins=False, id=None))
+
+            # Non-admin user: found ok
+            expected_result = {'id': 3}  # ok
+            assert api.update({'id': 3, 'login': 'new-john'}) == expected_result
+
+            # Admin user: excluded, not found
+            with pytest.raises(sa.exc.NoResultFound):
+                api.update({'id': 1})
+
+        # === Test: pagination
+        with Session() as ssn:
+            insert(ssn, User, *[
+                dict(is_admin=False)
+                for i in range(5)
+            ])
+
+            # === Test: list() pagination
+            # First page
+            api = QueryApi(ssn, UserCrudParams(), {'select': ['id'], 'limit': 2, 'sort': ['id+']})
+
+            expected_result = [{'id': 1}, {'id': 2}]
+            assert api.list() == expected_result
+
+            links = api.query.page_links()
+            assert links.prev is None
+            assert links.next.startswith('keys:')  # "keyset" cursor!
+
+            # Second page
+            api = QueryApi(ssn, UserCrudParams(), {'select': ['id'], 'skip': links.next, 'limit': 2, 'sort': ['id+']})
+
+            expected_result = [{'id': 3}, {'id': 4}]
+            assert api.list() == expected_result
+            links = api.query.page_links()
+            assert links.next.startswith('keys:')  # "keyset" cursor!
+
+            # Third page
+            api = QueryApi(ssn, UserCrudParams(), {'select': ['id'], 'skip': links.next, 'limit': 2, 'sort': ['id+']})
+
+            expected_result = [{'id': 5}]
+            assert api.list() == expected_result
+
+
 
     # CRUD params
     @dataclass
@@ -739,6 +827,21 @@ def test_crud_query():
     @dataclass
     class UserIdCrudParams(UserCrudParams):
         id: Optional[int] = None
+
+    # Filtering CRUD params
+    @dataclass
+    class SecureUserParams(UserCrudParams):
+        show_admins: bool
+
+        def filter(self) -> abc.Iterable[sa.sql.elements.BinaryExpression]:
+            return (
+                True if self.show_admins else User.is_admin == False,
+                *super().filter(),
+            )
+
+    @dataclass
+    class SecureUserIdParams(SecureUserParams):
+        id: int
 
     # Run
     with db_create():
@@ -748,7 +851,60 @@ def test_crud_query():
 def test_crud_query_api():
     """ Test CRUD: query: list() get() count() """
     def main():
-        pass
+        with Session() as ssn:
+            insert(ssn, User,
+                   dict(id=1, is_admin=False),
+                   dict(id=2, is_admin=False),
+                   dict(id=3, is_admin=False),
+                   )
+            ssn.commit()
+
+        # === Test: list
+        q = qop({'select': ['id'], 'sort': ['id+']})
+        expected_result = {
+            'users': [{'id': 1}, {'id': 2}, {'id': 3}],
+            'next': None,
+            'prev': None,
+        }
+        assert client.get('/user/', params=q).json() == expected_result
+
+        expected_result = {
+            'listUsers': {
+                'users': [{'id': 1}, {'id': 2}, {'id': 3}],
+                'next': None,
+                'prev': None,
+            }
+        }
+        assert gql_schema.q('query { listUsers { users { id } next prev } }') == expected_result
+
+        # === Test: count
+        expected_result = {'count': 3}
+        assert client.get('/user/count').json() == expected_result
+
+        # === Test: get
+        expected_result = {'user': {'id': 1}}
+        assert client.get('/user/1').json() == expected_result
+
+        # === Test: list, pagination
+        # First page
+        q = qop({'select': ['id'], 'sort': ['id+'], 'limit': 2})
+        expected_result = {
+            'users': [{'id': 1}, {'id': 2}],
+            'prev': None,
+            'next': (next := Parameter())
+        }
+        assert client.get('/user/', params=q).json() == expected_result
+        assert next.value.startswith('keys:')  # keyset pagination!
+
+        # Next page
+        q = qop({'select': ['id'], 'sort': ['id+'], 'limit': 2, 'skip': next.value})
+        expected_result = {
+            'users': [{'id': 3}],
+            'prev': Parameter(),
+            'next': (next := Parameter())
+        }
+        assert client.get('/user/', params=q).json() == expected_result
+
 
     # CRUD params
     @dataclass
@@ -759,13 +915,69 @@ def test_crud_query_api():
     class UserIdCrudParams(UserCrudParams):
         id: Optional[int] = None
 
+    # Response Models
+    class UserListResponse(pd.BaseModel):
+        users: list[UserDbPartial]
+
+    class UserPageListResponse(pd.BaseModel):
+        users: list[UserDbPartial]
+        prev: Optional[str]
+        next: Optional[str]
+
+    class UserGetResponse(pd.BaseModel):
+        user: UserDbPartial
+
+    class CountResponse(pd.BaseModel):
+        count: int
 
     # FastAPI
     app = fastapi.FastAPI()
     client = fastapi.testclient.TestClient(app=app)
 
+    @app.get('/user', response_model=UserPageListResponse, response_model_exclude_unset=True)
+    def list_users(ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
+                   query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
+        api = QueryApi(ssn, UserCrudParams(), query_object)
+        users = api.list()
+        links = api.query.page_links()
+        return {
+            'users': users,
+            'next': links.next,
+            'prev': links.prev,
+        }
+
+    @app.get('/user/count', response_model=CountResponse, response_model_exclude_unset=True)
+    def count_users(ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
+                    query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
+        api = QueryApi(ssn, UserCrudParams(), query_object)
+        return {'count': api.count()}
+
+    @app.get('/user/{id}', response_model=UserGetResponse, response_model_exclude_unset=True)
+    def get_user(id: int, ssn: sa.orm.Session = fastapi.Depends(dep.db_ssn),
+                 query_object: Optional[QueryObject] = fastapi.Depends(query_object)):
+        api = QueryApi(ssn, UserIdCrudParams(id=id), query_object)
+        return {'user': api.get()}
+
     # GraphQL
     gql_schema = schema_prepare()
+
+    @resolves(gql_schema, 'Query', 'listUsers')
+    def resolve_list_users(root, info: graphql.GraphQLResolveInfo):
+        query_object = query_object_for(info, nested_path=('users',))
+        with Session() as ssn:
+            return list_users(ssn, query_object)  # reuse
+
+    @resolves(gql_schema, 'Query', 'getUser')
+    def resolve_get_user(root, info: graphql.GraphQLResolveInfo, id: int):
+        query_object = query_object_for(info, nested_path=())
+        with Session() as ssn:
+            return get_user(id, ssn, query_object)['user']  # reuse
+
+    @resolves(gql_schema, 'Query', 'countUsers')
+    def resolve_count_users(root, info: graphql.GraphQLResolveInfo):
+        query_object = query_object_for(info, nested_path=())
+        with Session() as ssn:
+            return count_users(ssn, query_object)['count']  # reuse
 
     # Run
     with db_create():
@@ -1132,7 +1344,7 @@ UserDbPartial.update_forward_refs()
 GQL_SCHEMA = '''
 type Query {
     getUser(id: Int!, query: QueryObjectInput): User!
-    listUsers(query: QueryObjectInput, role: String): ListUsersResponse!
+    listUsers(query: QueryObjectInput): ListUsersResponse!
     countUsers(query: QueryObjectInput): Int!
 }
 

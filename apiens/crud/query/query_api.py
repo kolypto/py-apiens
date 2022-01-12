@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import abc
-from typing import Optional, Union
+from typing import Optional, Union, TypeVar
 
 import sqlalchemy as sa
 import sqlalchemy.orm
@@ -12,6 +12,9 @@ from ..base import ModelOperationBase, SAInstanceT
 from ..crudparams import CrudParams
 
 
+T = TypeVar('T', bound=jessiql.QueryObject)
+
+
 class QueryApi(ModelOperationBase[SAInstanceT]):
     """ CRUD API implementation: queries
 
@@ -19,6 +22,9 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
     """
     # JessiQL Query Object
     query_object: jessiql.QueryObject
+
+    # JessiQL Query
+    query: jessiql.QueryPage
 
     def __init__(self,
                  ssn: sa.orm.Session,
@@ -48,11 +54,14 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
         return self.query.count(self.ssn.connection())
 
     # The filter function that we decided to use
-    _filter_func: abc.Callable[[], abc.Iterable[sa.sql.elements.BinaryExpression]]  # TODO: implement some switch that toggles between self.params.filter/filter1. Perhaps, inside CrudParams: store the current API method?
+    _filter_func: abc.Callable[[], abc.Iterable[sa.sql.elements.BinaryExpression]]
 
-    def init_query(self) -> jessiql.engine.QueryExecutor:
+    # Which JessiQL Query class to use: Query, QueryPage, etc
+    QUERY_CLS: type[T] = jessiql.QueryPage
+
+    def init_query(self) -> jessiql.QueryPage:
         """ Initialize JessiQL query """
-        query = jessiql.QueryPage(self.query_object, self.params.crudsettings.Model)  # TODO: customize which class to use
+        query = self.QUERY_CLS(self.query_object, self.params.crudsettings.Model)
         query.customize_statements.append(self._query_customize_statements)
         return query
 
@@ -63,5 +72,5 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
             return stmt
         else:
             return stmt
-            # TODO: insert security hooks for deeper levels
+            # TODO: insert security hooks for deeper levels. Perhaps, use a mapping of `q.path` chains? Involve CrudParams with a callback? provide multiple ways with mixins/decorators?
             raise NotImplementedError
