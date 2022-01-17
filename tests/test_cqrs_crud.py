@@ -5,7 +5,6 @@ from contextlib import contextmanager, ExitStack
 from dataclasses import dataclass
 from typing import Optional
 
-import json
 import graphql
 import fastapi
 import fastapi.testclient
@@ -32,7 +31,8 @@ from jessiql.util import sacompat
 from jessiql.testing.graphql import resolves
 from jessiql.integration.fastapi import query_object, QueryObject
 
-
+import apiens
+import apiens.exc
 from apiens.crud import QueryApi, MutateApi, ReturningMutateApi
 from apiens.crud import saves_custom_fields, MISSING
 from apiens.crud import CrudSettings
@@ -80,14 +80,16 @@ def test_crud_create():
             # === Test: unique violation
             insert(ssn, User, dict(id=1, is_admin=False))
             # sqlalchemy.exc.IntegrityError: (psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint "u_pkey"
-            with pytest.raises(sa.exc.IntegrityError):  # TODO: (tag:wrap-sa-errors) wrap sqlalchemy errors?
+            with pytest.raises(apiens.exc.ValueConflict) as e:
                 api.create({'id': 1, 'is_admin': False})
+            assert e.value.column_names == []  # NOTE: cannot find the key because it does not have an explicit name in the table
             ssn.rollback()
 
             # === Test: non-null column violation
             # sqlalchemy.exc.IntegrityError: (psycopg2.errors.NotNullViolation) null value in column "is_admin" of relation "u" violates not-null constraint
-            with pytest.raises(sa.exc.IntegrityError):  # TODO: (tag:wrap-sa-errors) wrap sqlalchemy errors?
+            with pytest.raises(sa.exc.IntegrityError) as e:
                 api.create({})
+            #assert e.value.column_names == ['id_admin]
             ssn.rollback()  # reset a messed-up transaction
 
             # === Test: PK provided
@@ -244,7 +246,7 @@ def test_crud_update():
 
             # === Test: update 404
             # sqlalchemy.exc.NoResultFound: No row was found when one was required
-            with pytest.raises(sa.exc.NoResultFound):  # TODO: (tag:wrap-sa-errors) wrap sqlalchemy errors? or just return None?
+            with pytest.raises(apiens.exc.NoResultFound):
                 api.update({'id': 777})
             ssn.rollback()
 
@@ -286,7 +288,7 @@ def test_crud_update():
 
             # Try to modify it
             api = MutateApi(ssn, UserIdCrudParams())  # non-admin
-            with pytest.raises(sa.exc.NoResultFound):  # TODO: (tag:wrap-sa-errors) wrap sqlalchemy errors?
+            with pytest.raises(apiens.exc.NoResultFound):
                 api.update({'id': 1, 'login': 'jack'})
 
             # Become an admin and modify it
@@ -783,7 +785,7 @@ def test_crud_query():
             assert api.update({'id': 3, 'login': 'new-john'}) == expected_result
 
             # Admin user: excluded, not found
-            with pytest.raises(sa.exc.NoResultFound):
+            with pytest.raises(apiens.exc.NoResultFound):
                 api.update({'id': 1})
 
         # === Test: pagination

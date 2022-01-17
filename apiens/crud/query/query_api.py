@@ -10,6 +10,7 @@ import sqlalchemy.sql.elements
 import jessiql
 from ..base import ModelOperationBase, SAInstanceT
 from ..crudparams import CrudParams
+from .. import exc
 
 
 T = TypeVar('T', bound=jessiql.QueryObject)
@@ -45,7 +46,10 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
     def get(self) -> Optional[dict]:
         """ CRUD method: get, load one object by primary key """
         self._filter_func = self.params.filter_one
-        res = self.query.fetchone(self.ssn.connection())
+
+        with exc.converting_sa_erorrs(Model=self.query.Model):
+            res = self.query.fetchone(self.ssn.connection())
+
         return res
 
     def count(self) -> int:

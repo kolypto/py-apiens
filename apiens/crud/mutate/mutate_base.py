@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from typing import Optional
 
+import sqlalchemy as sa
+import sqlalchemy.orm
+import sqlalchemy.exc
+
 from apiens.tools.sqlalchemy import get_history_proxy_for_instance
 from ..base import ModelOperationBase, SAInstanceT
+from .. import exc
 
 
 class MutateApiBase(ModelOperationBase[SAInstanceT]):
@@ -49,7 +54,9 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
         """
         q = self.ssn.query(self.params.crudsettings.Model)
         q = q.filter(*self.params.filter_one())
-        return q.one()
+
+        with exc.converting_sa_erorrs(Model=self.params.crudsettings.Model):
+            return q.one()
 
     def _create_instance(self, input_dict: dict) -> SAInstanceT:
         """ Create an SqlAlchemy instance """
@@ -116,12 +123,17 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
     def _session_create_instance_impl(self, instance: SAInstanceT) -> SAInstanceT:
         """ Session support for create() instance """
         self.ssn.add(instance)
-        self.ssn.flush()
+
+        with exc.converting_sa_erorrs(Model=self.params.crudsettings.Model):
+            self.ssn.flush()
+
         return instance
 
     def _session_update_instance_impl(self, instance: SAInstanceT) -> SAInstanceT:
         """ Session support for update() instance """
-        self.ssn.flush()
+        with exc.converting_sa_erorrs(Model=self.params.crudsettings.Model):
+            self.ssn.flush()
+
         return instance
 
     def _session_delete_instance_impl(self, instance: SAInstanceT) -> SAInstanceT:

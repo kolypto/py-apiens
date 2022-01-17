@@ -4,7 +4,9 @@ from apiens.structure.error.error_object import ErrorObject
 
 
 class BaseApplicationError(Exception):
-    """ Base Exception class for your application's exceptions
+    """ Base Exception class for your application's API exceptions
+
+    These exceptions are meant to be displayed to the end-user and are therefore expected API behaviors.
 
     Features:
     * Message for both user and developer.

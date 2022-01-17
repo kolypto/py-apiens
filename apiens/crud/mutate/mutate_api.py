@@ -18,8 +18,6 @@ class MutateApi(MutateApiBase[SAInstanceT]):
     """
     # TODO: mutation signals?
 
-    # TODO: catch SqlAlchemy errors and rethrow them as Apiens errors? or optionally do it with a decorator?
-
     def create(self, input_dict: dict) -> PrimaryKeyDict:
         """ CRUD method: create a new object """
         # Prepare
@@ -111,9 +109,11 @@ def get_primary_key_dict(crudsettings: CrudSettings, instance: SAInstanceT) -> P
 
     This is used by mutation methods to return a minimally informative object: primary key dict
     """
+    identity = sa.orm.base.instance_state(instance).identity
+
+    if not identity:
+        raise ValueError('The provided instance has no identity. Is it saved?')
+
     return dict(
-        zip(
-            crudsettings.primary_key,
-            sa.orm.base.instance_state(instance).identity,
-        )
+        zip(crudsettings.primary_key, identity)
     )
