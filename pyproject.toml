@@ -21,8 +21,8 @@ mypy = "^0.910"
 docstring-parser = "^0.10"
 requests = "^2.26.0"
 
-# jessiql = "^0.0.1"
-jessiql = { path = "../py-jessiql/", develop = true }  # TODO: remove!
+jessiql = "^0.0.1"
+# jessiql = { path = "../py-jessiql/", develop = true }  # TODO: remove!
 
 pydantic = ">=1.6.0"
 fastapi = ">=0.51.0"
