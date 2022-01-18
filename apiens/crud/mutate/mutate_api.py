@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 import sqlalchemy.orm
 import sqlalchemy.orm.base
+from collections import abc
 
 from apiens.tools.sqlalchemy import get_history_proxy_for_instance
 from apiens.crud.crudsettings import CrudSettings
@@ -24,8 +25,9 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         custom_fields = saves_custom_fields.pluck_custom_fields(self, input_dict)
 
         # Create
-        # TODO: (tag:custom-pk) pluck PK fields, unless "natural pk" chosen. Or should the external API worry about it?
-        # TODO: also pluck ro fields
+        if not self.params.crudsettings.natural_primary_key:
+            drop_pk_fields(input_dict, self.params.crudsettings.primary_key)
+        # TODO: pluck ro fields
         # NOTE: the instance object is created and discarded. If you need it, override the `_create_instance()` method.
         instance = self._create_instance(input_dict)
         instance = self._session_create_instance_impl(instance)
@@ -63,8 +65,9 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         instance = self._find_instance()
 
         # Update
-        # TODO: (tag:custom-pk) pluck PK fields, unless "natural PK" chosen. Optional: perhaps, the outer API should worry about it?
-        # TODO: also pluck ro and const fields
+        if not self.params.crudsettings.natural_primary_key:
+            drop_pk_fields(input_dict, self.params.crudsettings.primary_key)
+        # TODO: pluck ro and const fields
         instance = self._update_instance(instance, input_dict)
         instance = self._session_update_instance_impl(instance)
 
@@ -117,3 +120,8 @@ def get_primary_key_dict(crudsettings: CrudSettings, instance: SAInstanceT) -> P
     return dict(
         zip(crudsettings.primary_key, identity)
     )
+
+
+def drop_pk_fields(input: dict, pk_fields: abc.Itera) -> dict:
+    for key in pk_fields:
+        input.pop(key, None)

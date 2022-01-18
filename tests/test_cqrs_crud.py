@@ -77,14 +77,6 @@ def test_crud_create():
             with pytest.raises(TypeError):
                 api.create({'UNKNOWN': 'INVALID'})
 
-            # === Test: unique violation
-            insert(ssn, User, dict(id=1, is_admin=False))
-            # sqlalchemy.exc.IntegrityError: (psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint "u_pkey"
-            with pytest.raises(apiens.exc.ValueConflict) as e:
-                api.create({'id': 1, 'is_admin': False})
-            assert e.value.column_names == []  # NOTE: cannot find the key because it does not have an explicit name in the table
-            ssn.rollback()
-
             # === Test: non-null column violation
             # sqlalchemy.exc.IntegrityError: (psycopg2.errors.NotNullViolation) null value in column "is_admin" of relation "u" violates not-null constraint
             with pytest.raises(sa.exc.IntegrityError) as e:
@@ -94,7 +86,20 @@ def test_crud_create():
 
             # === Test: PK provided
             res = api.create({'id': 999, 'is_admin': False})
-            assert res == {'id': 999}  # TODO: (tag:custom-pk) allow changing PK?
+            assert res == {'id': 5}  # Cannot customize: the "id" is removed
+
+            # === Test: unique violation
+            class NaturalPkUser(CrudParams):
+                crudsettings = CrudSettings(Model=User, natural_primary_key=True)
+
+            api = MutateApi(ssn, NaturalPkUser())
+
+            insert(ssn, User, dict(id=1, is_admin=False))
+            # sqlalchemy.exc.IntegrityError: (psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint "u_pkey"
+            with pytest.raises(apiens.exc.ValueConflict) as e:
+                api.create({'id': 1, 'is_admin': False})
+            assert e.value.column_names == []  # NOTE: cannot find the key because it does not have an explicit name in the table
+            ssn.rollback()
 
 
     # CRUD params
@@ -237,11 +242,11 @@ def test_crud_update():
 
             # === Test: attempt update PK
             api.params.id = 1
-            res = api.update_id({'id': 999})  # TODO: (tag:custom-pk) allow changing PK?
-            assert res == {'id': 999}
+            res = api.update_id({'id': 999})
+            assert res == {'id': 1}
 
             assert all_users(ssn) == [
-                ObjectMatch(id=999, login='john2'),
+                ObjectMatch(id=1, login='john2'),
             ]
 
             # === Test: update 404
