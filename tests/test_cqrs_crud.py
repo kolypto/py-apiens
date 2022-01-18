@@ -482,6 +482,56 @@ def test_crud_update_api():
         main()
 
 
+def test_crud_create_or_update():
+    def main():
+        # === Test: create_or_update()
+        with Session() as ssn:
+            api = MutateApi(ssn, UserCrudParams())
+
+            # Create
+            res = api.create_or_update({'login': 'john', 'is_admin': False})
+            assert res == {'id': 1}
+
+            # Update
+            res = api.create_or_update({'id': 1, 'login': 'jack'})
+            assert res == {'id': 1}
+
+            # Check?
+            user = ssn.query(User).one()
+            assert user.login == 'jack'  # updated
+
+        # === Test: create_or_update(), with natural_primary_key
+        with Session() as ssn:
+            api = MutateApi(ssn, UserNaturalPkCrudParams())
+
+            # Create
+            res = api.create_or_update({'id': 999, 'login': 'john', 'is_admin': False})
+            assert res == {'id': 999}
+
+            # Update
+            res = api.create_or_update({'id': 999, 'login': 'jack'})
+            assert res == {'id': 999}
+
+            # Check
+            user = ssn.query(User).one()
+            assert user.login == 'jack'
+
+    # CRUD params
+    @dataclass
+    class UserCrudParams(CrudParams):
+        crudsettings = CrudSettings(Model=User, debug=True)
+        id: Optional[int] = None
+
+    @dataclass
+    class UserNaturalPkCrudParams(CrudParams):
+        crudsettings = CrudSettings(Model=User, debug=True, natural_primary_key=True)
+        id: Optional[int] = None
+
+    # Run
+    with db_create():
+        main()
+
+
 def test_crud_delete():
     """ Test CRUD: mutation: delete() """
     def main():

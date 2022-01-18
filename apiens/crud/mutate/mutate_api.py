@@ -9,6 +9,7 @@ from apiens.tools.sqlalchemy import get_history_proxy_for_instance
 from apiens.crud.crudsettings import CrudSettings
 from .mutate_base import MutateApiBase, SAInstanceT
 from .saves_custom_fields import saves_custom_fields
+from .. import exc
 from ..defs import PrimaryKeyDict
 
 
@@ -42,11 +43,13 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         # Is the primary key provided?
         pk_provided = set(input_dict) >= set(self.params.crudsettings.primary_key)
 
-        # Yes? Update.
-        # TODO: handle natural primary keys here. If PK provided, but entry does not exist, that's "create"
+        # PK provided? try update(), or create() if not exists
         if pk_provided:
-            return self.update(input_dict)
-        # No? Create.
+            try:
+                return self.update(input_dict)
+            except exc.NoResultFound:
+                return self.create(input_dict)
+        # PK not provided? create
         else:
             return self.create(input_dict)
 
