@@ -2,6 +2,7 @@ from collections import abc
 
 from jessiql import sainfo
 from .defs import AUTOMATIC
+from .crudfields import CrudFields
 
 
 class CrudSettings:
@@ -18,9 +19,6 @@ class CrudSettings:
     # Is the class using natural primary keys?
     natural_primary_key: bool = False
 
-    # List of field names that are writable
-    writable_field_names: frozenset[str]
-
     def __init__(self,
                  Model: type, *,
                  natural_primary_key: bool = False,
@@ -36,9 +34,12 @@ class CrudSettings:
         self.Model = Model
         self.natural_primary_key = natural_primary_key
         self.primary_key = sainfo.primary_key.primary_key_names(self.Model)
-        # self.writable_field_names = frozenset([
-        #     *sainfo.columns
-        # ])
+
+        self.crudfields = CrudFields(
+            primary_key=self.primary_key,
+            natural_primary_key=natural_primary_key,
+            debug=debug,
+        )
 
     # Methods to further refine the settings
 
@@ -57,4 +58,33 @@ class CrudSettings:
         """
         self.primary_key = tuple(primary_key)
         self.natural_primary_key = natural_primary_key
+        return self
+
+    def exclude(self, *,
+                exclude: abc.Sequence[str] = None,
+                exclude_on_create: abc.Sequence[str] = (),
+                exclude_on_update: abc.Sequence[str] = (),
+                ):
+        """ Exclude fields from the input object """
+        self.crudfields.exclude(
+            exclude=exclude,
+            exclude_on_create=exclude_on_create,
+            exclude_on_update=exclude_on_update)
+        return self
+
+    def fields(self,
+               ro_fields: abc.Iterable[str] = (),
+               ro_relations: abc.Iterable[str] = (),
+               const_fields: abc.Iterable[str] = (),
+               rw_fields: abc.Iterable[str] = (),
+               rw_relations: abc.Iterable[str] = (),
+               ):
+        """ Configure fields: readonly, writable, constant fields """
+        self.crudfields.fields(
+            ro_fields=ro_fields,
+            ro_relations=ro_relations,
+            const_fields=const_fields,
+            rw_fields=rw_fields,
+            rw_relations=rw_relations,
+        )
         return self

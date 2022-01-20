@@ -14,7 +14,6 @@ import pytest
 import sqlalchemy as sa
 import sqlalchemy.orm
 import sqlalchemy.exc
-from sqlalchemy.dialects import postgresql as pg
 
 import jessiql
 import jessiql.testing

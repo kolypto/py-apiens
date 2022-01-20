@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-import sqlalchemy as sa
-import sqlalchemy.orm
-import sqlalchemy.exc
-
 from apiens.tools.sqlalchemy import get_history_proxy_for_instance
 from ..base import ModelOperationBase, SAInstanceT
 from .. import exc
@@ -99,7 +95,6 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
 
         Override to customize how new instances are created
         """
-        # TODO: pick only known kwargs, and fail on all others in testing? See `writable_field_names`
         return self.params.crudsettings.Model(**input_dict)
 
     def _update_instance_from_input_dict(self, instance: SAInstanceT, input_dict: dict) -> SAInstanceT:
@@ -107,7 +102,6 @@ class MutateApiBase(ModelOperationBase[SAInstanceT]):
 
         Override to customize how instances are updated
         """
-        # TODO: pick only known kwargs, and fail on all others in testing? See `writable_field_names`
         for key, value in input_dict.items():
             # Only update attributes that have actually changed.
             if value != getattr(instance, key):

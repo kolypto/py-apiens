@@ -23,12 +23,10 @@ class MutateApi(MutateApiBase[SAInstanceT]):
     def create(self, input_dict: dict) -> PrimaryKeyDict:
         """ CRUD method: create a new object """
         # Prepare
+        self.params.crudsettings.crudfields.prepare_input_for_create(input_dict, allow_extra_keys=False)
         custom_fields = saves_custom_fields.pluck_custom_fields(self, input_dict)
 
         # Create
-        if not self.params.crudsettings.natural_primary_key:
-            drop_pk_fields(input_dict, self.params.crudsettings.primary_key)
-        # TODO: pluck ro fields
         # NOTE: the instance object is created and discarded. If you need it, override the `_create_instance()` method.
         instance = self._create_instance(input_dict)
         instance = self._session_create_instance_impl(instance)
@@ -61,6 +59,7 @@ class MutateApi(MutateApiBase[SAInstanceT]):
     def update_id(self, input_dict: dict) -> PrimaryKeyDict:
         """ CRUD method: update, modify an existing object, by params id """
         # Prepare
+        self.params.crudsettings.crudfields.prepare_input_dict_for_update(input_dict, allow_extra_keys=False)
         custom_fields = saves_custom_fields.pluck_custom_fields(self, input_dict)
 
         # Load
@@ -68,9 +67,6 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         instance = self._find_instance()
 
         # Update
-        if not self.params.crudsettings.natural_primary_key:
-            drop_pk_fields(input_dict, self.params.crudsettings.primary_key)
-        # TODO: pluck ro and const fields
         instance = self._update_instance(instance, input_dict)
         instance = self._session_update_instance_impl(instance)
 
@@ -123,8 +119,3 @@ def get_primary_key_dict(crudsettings: CrudSettings, instance: SAInstanceT) -> P
     return dict(
         zip(crudsettings.primary_key, identity)
     )
-
-
-def drop_pk_fields(input: dict, pk_fields: abc.Itera) -> dict:
-    for key in pk_fields:
-        input.pop(key, None)

@@ -1,7 +1,7 @@
 """ Helpers for SqlAlchemy CRUD APIs """
 
 from .query import QueryApi
-from .mutate import MutateApi, ReturningMutateApi
+from .mutate import MutateApiBase, MutateApi, ReturningMutateApi
 from .mutate import saves_custom_fields
 from .crudsettings import CrudSettings
 from .crudparams import CrudParams

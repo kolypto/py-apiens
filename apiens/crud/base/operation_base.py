@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, TYPE_CHECKING
 
 import sqlalchemy as sa
 import sqlalchemy.orm
 
-from ..crudparams import CrudParams
+if TYPE_CHECKING:
+    from ..crudparams import CrudParams
 
 
 # SqlAlchemy instance object
