@@ -159,7 +159,6 @@ class api_route(decomarker):
     """ Decorate API methods on a class-based view
 
     NOTE: these routes will be added *after* other routes in the class-based view.
-    TODO: override flag?
 
     Example:
         @class_based_view(router)
@@ -345,4 +344,3 @@ def patch_method_fastapi_compatible(Cls: type, method: MethodT) -> MethodT:
     # Let's declare it as such: `self = Depends(ViewCls)`.
     patched_method = set_parameter_default(method, 'self', Depends(Cls))
     return patched_method
-

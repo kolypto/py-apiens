@@ -96,7 +96,6 @@ class CrudParams:
 
     def _assert_primary_key_attributes_defined(self):
         """ Check that primary key attributes are defined. Once. """
-        # TODO: CHECKME: remove the @dataclass requirement and simply check defined fields?
         missing_fields = set(self.crudsettings.primary_key) - set(field.name for field in dataclasses.fields(self))
         assert not missing_fields, f'Primary key not represented in {type(self)}. Missing fields: {missing_fields}'
 

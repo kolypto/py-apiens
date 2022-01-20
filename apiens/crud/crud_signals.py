@@ -4,7 +4,6 @@ import blinker
 
 
 # NOTE: this signalling functionality is defined, but not included into the CRUD handlers.
-# TODO: implement signals? or shall we? or make optional?
 
 
 # An instance has been prepared for saving

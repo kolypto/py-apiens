@@ -95,8 +95,6 @@ class MutateApi(MutateApiBase[SAInstanceT]):
         # Finish
         return res
 
-    # TODO: implement soft-delete
-
     def _format_result_dict(self, instance: SAInstanceT) -> PrimaryKeyDict:
         """ Format the result that create()/update()/delete() methods produce
 
