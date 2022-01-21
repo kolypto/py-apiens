@@ -1,41 +1,39 @@
 from __future__ import annotations
 
-from collections import abc
-from contextlib import contextmanager, ExitStack
-from dataclasses import dataclass
-from typing import Optional
-
+import pytest
 import graphql
 import fastapi
 import fastapi.testclient
-
 import pydantic as pd
-import pytest
+from typing import Optional
+from collections import abc
+from contextlib import contextmanager, ExitStack
+from dataclasses import dataclass
+
 import sqlalchemy as sa
 import sqlalchemy.orm
 import sqlalchemy.exc
 
 import jessiql
 import jessiql.testing
+from jessiql.integration.fastapi import query_object, QueryObject
+from jessiql.integration.graphql import query_object_for
+from jessiql.query_object import query_object_param as qop
+from jessiql.testing import insert
+from jessiql.testing.graphql import resolves
+from jessiql.testing.graphql.query import graphql_query_sync
+from jessiql.util import sacompat
+
+import apiens
+import apiens.exc
+from apiens.crud import CrudParams
+from apiens.crud import CrudSettings
+from apiens.crud import QueryApi, MutateApi, ReturningMutateApi
+from apiens.crud import saves_custom_fields, MISSING
 from apiens.testing import Parameter, ObjectMatch
 from apiens.tools.pydantic import partial
 from apiens.tools.pydantic.derive import derive_model
 from apiens.tools.sqlalchemy import db_transaction
-
-from jessiql.query_object import query_object_param as qop
-from jessiql.integration.graphql import query_object_for
-from jessiql.testing import insert
-from jessiql.testing.graphql.query import graphql_query_sync
-from jessiql.util import sacompat
-from jessiql.testing.graphql import resolves
-from jessiql.integration.fastapi import query_object, QueryObject
-
-import apiens
-import apiens.exc
-from apiens.crud import QueryApi, MutateApi, ReturningMutateApi
-from apiens.crud import saves_custom_fields, MISSING
-from apiens.crud import CrudSettings
-from apiens.crud import CrudParams
 from tests.conftest import DATABASE_URL
 
 
