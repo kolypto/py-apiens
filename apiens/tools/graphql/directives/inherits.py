@@ -9,6 +9,9 @@ Example:
     type UserLogin @inherits(type: "User") {
         login: String!
     }
+
+Note that this directive works exclusively on the server: it modifies types in such a way that clients see the result,
+but clients do not see the directive.
 """
 from copy import copy
 from typing import TypedDict, Union
@@ -16,9 +19,6 @@ from typing import TypedDict, Union
 import graphql
 
 from apiens.tools.graphql.ast import has_directive
-
-
-# TODO: implement high-level bindings to Ariadne. Perhaps, rename the function like Ariadne's statis methods
 
 
 # Directive name

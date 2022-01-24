@@ -10,7 +10,7 @@ class ErrorResponse(TypedDict):
 
 class ErrorObject(TypedDict):
     """ JSON Error: JSON representation of an application error """
-    # Error name: E_* or F_*
+    # Error name: `E_*` for user errors, `F_*` for server faults
     name: str
 
     # Generic error title. Comes from the error class

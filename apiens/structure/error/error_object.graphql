@@ -1,0 +1,22 @@
+type ErrorObject {
+    # Error name: `E_*` for user errors, `F_*` for server faults
+    name: String!
+
+    # Generic error title. Comes from the error class
+    title: String!
+
+    # HTTP code for the error
+    httpcode: Int
+
+    # Error description: what went wrong
+    error: String!
+
+    # Error suggestion: what can you do to fix it
+    fixit: String!
+
+    # Additional data
+    info: Object
+
+    # Debug data. Not available in production.
+    debug: Object
+}

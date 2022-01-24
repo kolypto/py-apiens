@@ -22,6 +22,9 @@ Now you can submit the following objects:
 but you cannot submit
 
     {'login': None}
+
+Note that this directive works exclusively on the server: it modifies types in such a way that clients see the result,
+but clients do not see the directive.
 """
 from typing import Any
 
@@ -29,10 +32,6 @@ import graphql
 
 from apiens.tools.graphql.ast import has_directive
 from apiens.tools.graphql.input_types import wraps_input_object_out_type
-
-
-
-# TODO: implement high-level bindings to Ariadne. Perhaps, rename the function like Ariadne's statis methods
 
 
 # Directive name
@@ -101,14 +100,3 @@ def install_directive_to_schema(schema: graphql.GraphQLSchema):
     for type_name, type_def in schema.type_map.items():
         if isinstance(type_def, graphql.GraphQLInputObjectType):
             installto_input_object_type(schema, type_def)
-
-
-# Here's how to traverse the tree
-# class DirectiveInstaller(graphql.Visitor):
-#     def enter(self, node: graphql.Node, key: Optional[Union[str, int]], parent: Optional[graphql.Node],
-#               path: list[Union[str, int]], ancestors: list[graphql.Node]):
-#         when the type has directives, invoke directive installers
-#
-# for type_name, type_def in gql_schema.type_map.items():
-#     graphql.visit(type_def.ast_node, DirectiveInstaller())
-# visit the rest of the AST as well

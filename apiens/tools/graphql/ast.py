@@ -23,6 +23,7 @@ def has_directive(directive_name: str, node: Union[graphql.InputObjectTypeDefini
 
 
 def get_directive(directive_name: str, node: Union[graphql.InputObjectTypeDefinitionNode, graphql.ObjectTypeDefinitionNode, Any]) -> Optional[graphql.DirectiveNode]:
+    """ Get a directive from a field by name """
     if not node or not node.directives:
         return None
 

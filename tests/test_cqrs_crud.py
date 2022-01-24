@@ -14,12 +14,10 @@ import sqlalchemy as sa
 import sqlalchemy.orm
 import sqlalchemy.exc
 
-import jessiql
-import jessiql.testing
 from jessiql.integration.fastapi import query_object, QueryObject
 from jessiql.integration.graphql import query_object_for
 from jessiql.query_object import query_object_param as qop
-from jessiql.testing import insert
+from jessiql.testing import insert, created_tables, truncate_db_tables
 from jessiql.testing.graphql import resolves
 from jessiql.testing.graphql.query import graphql_query_sync
 from jessiql.util import sacompat
@@ -1278,6 +1276,7 @@ def schema_prepare() -> graphql.GraphQLSchema:
 # region: DB tools
 
 # DB Engine
+
 engine = sa.engine.create_engine(DATABASE_URL)
 
 
@@ -1301,12 +1300,12 @@ class dep:
 
 @contextmanager
 def db_create():
-    with jessiql.testing.created_tables(engine, Base.metadata):
+    with created_tables(engine, Base.metadata):
         yield
 
 
 def db_cleanup(ssn: sa.orm.Session = None):
-    jessiql.testing.truncate_db_tables(ssn.connection() if ssn else engine, Base.metadata)
+    truncate_db_tables(ssn.connection() if ssn else engine, Base.metadata)
 
 
 def all_users(ssn: sa.orm.Session = None) -> list[User]:
@@ -1317,6 +1316,7 @@ def all_users(ssn: sa.orm.Session = None) -> list[User]:
 
     with stack:
         return ssn.query(User).order_by(User.id.asc()).all()
+
 
 def all_articles(ssn: sa.orm.Session) -> list[Article]:
     return ssn.query(Article).order_by(Article.id.asc()).all()
