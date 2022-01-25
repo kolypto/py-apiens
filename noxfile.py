@@ -5,13 +5,23 @@ nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = [
     'tests',
     'tests_sqlalchemy',
+    'tests_fastapi',
+    'tests_ariadne',
 ]
 
 # Versions
-PYTHON_VERSIONS = ['3.9']
+PYTHON_VERSIONS = ['3.9', '3.10']
 SQLALCHEMY_VERSIONS = [
     # Selective
-    '1.3.24', '1.4.23',
+    '1.3.24', '1.4.23', '1.4.31',
+]
+FASTAPI_VERSIONS = [
+    # Selective
+    '0.59.0', '0.69.0', '0.73.0',
+]
+ARIADNE_VERSIONS = [
+    # Selective
+    '0.12.0', '0.13.0', '0.14.0',
 ]
 
 
@@ -30,6 +40,8 @@ def tests(session: nox.sessions.Session, *, overrides: dict[str, str] = {}):
 
     # Test
     args = ['-k', 'not extra']
+    if not overrides:
+        args.append('--cov=jessiql')
 
     session.run('pytest', 'tests/', *args)
 
@@ -40,6 +52,19 @@ def tests_sqlalchemy(session: nox.sessions.Session, sqlalchemy):
     """ Test against a specific SqlAlchemy version """
     tests(session, overrides={'sqlalchemy': sqlalchemy})
 
+
+@nox.session(python=PYTHON_VERSIONS[-1])
+@nox.parametrize('fastapi', FASTAPI_VERSIONS)
+def tests_fastapi(session: nox.sessions.Session, fastapi):
+    """ Test against a specific FastAPI version """
+    tests(session, overrides={'fastapi': fastapi})
+
+
+@nox.session(python=PYTHON_VERSIONS[-1])
+@nox.parametrize('ariadne', ARIADNE_VERSIONS)
+def tests_ariadne(session: nox.sessions.Session, ariadne):
+    """ Test against a specific Ariadne version """
+    tests(session, overrides={'ariadne': ariadne})
 
 
 # Get requirements.txt from external poetry
