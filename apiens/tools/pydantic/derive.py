@@ -102,7 +102,7 @@ def empty_model_subclass(Model: type[pd.BaseModel], name: str) -> type[pd.BaseMo
         (Model,),
         # Reset the list of fields.
         # This is necessary so as not to inherit any fields from the base model
-        {'__fields__': ()},
+        {'__fields__': {}},
     )
 
 

@@ -21,6 +21,7 @@ from jessiql.testing import insert, created_tables, truncate_db_tables
 from jessiql.testing.graphql import resolves
 from jessiql.testing.graphql.query import graphql_query_sync
 from jessiql.util import sacompat
+from jessiql.sainfo.version import SA_13, SA_14
 
 import apiens
 import apiens.exc
@@ -1283,7 +1284,12 @@ engine = sa.engine.create_engine(DATABASE_URL)
 @contextmanager
 def Session() -> sa.orm.Session:
     """ DB Session as a context manager """
-    ssn = sa.orm.Session(bind=engine, autoflush=True, future=True)
+    if SA_13:
+        ssn = sa.orm.Session(bind=engine, autoflush=True)
+    elif SA_14:
+        ssn = sa.orm.Session(bind=engine, autoflush=True, future=True)
+    else:
+        raise NotImplementedError
 
     try:
         yield ssn

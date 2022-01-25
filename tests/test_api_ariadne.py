@@ -1,4 +1,3 @@
-from collections import abc
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -17,9 +16,7 @@ import jessiql
 import jessiql.integration.graphql
 from apiens.tools.sqlalchemy import db_transaction
 from jessiql.util import sacompat
-from jessiql.testing import created_tables, truncate_db_tables, insert
-
-from tests.conftest import DATABASE_URL
+from jessiql.testing import created_tables, truncate_db_tables
 
 
 def test_ariadne():
@@ -168,18 +165,7 @@ class User(Base):
 
 
 # DB Engine
-engine = sa.engine.create_engine(DATABASE_URL)
-
-
-@contextmanager
-def Session() -> sa.orm.Session:
-    """ DB Session as a context manager """
-    ssn = sa.orm.Session(bind=engine, autoflush=True, future=True)
-
-    try:
-        yield ssn
-    finally:
-        ssn.close()
+from .test_cqrs_crud import engine, Session  # reuse DB connection
 
 
 @contextmanager

@@ -8,6 +8,7 @@ import sqlalchemy.orm
 import sqlalchemy.sql.elements
 
 import jessiql
+from jessiql.sainfo.version import SA_13, SA_14
 from ..base import ModelOperationBase, SAInstanceT
 from ..crudparams import CrudParams
 from .. import exc
@@ -72,7 +73,13 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
     def _query_customize_statements(self, q: jessiql.Query, stmt: sa.sql.Select) -> sa.sql.Select:
         """ JessiQL query filter """
         if q.query_level == 0:
-            stmt = stmt.filter(*self._filter_func())
+            if SA_13:
+                stmt = stmt.where(sa.and_(*self._filter_func()))
+            elif SA_14:
+                stmt = stmt.filter(*self._filter_func())
+            else:
+                raise NotImplementedError
+
             return stmt
         else:
             return stmt

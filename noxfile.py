@@ -7,21 +7,33 @@ nox.options.sessions = [
     'tests_sqlalchemy',
     'tests_fastapi',
     'tests_ariadne',
+    'tests_pydantic',
 ]
 
 # Versions
 PYTHON_VERSIONS = ['3.9', '3.10']
 SQLALCHEMY_VERSIONS = [
     # Selective
-    '1.3.24', '1.4.23', '1.4.31',
+    '1.3.11', '1.3.24',
+    '1.4.23', '1.4.31',
 ]
 FASTAPI_VERSIONS = [
-    # Selective
+    # Selective: one latest version from 0.5x, 0.6x, 0.7x and so on
     '0.59.0', '0.69.0', '0.73.0',
 ]
 ARIADNE_VERSIONS = [
     # Selective
-    '0.12.0', '0.13.0', '0.14.0',
+    '0.13.0', '0.14.0',
+]
+GRAPHQL_CORE_VERSIONS = [
+    '3.1.0', '3.1.1', '3.1.2', '3.1.3', '3.1.4', '3.1.5', '3.1.6', '3.1.7',
+    # '3.2.0',  # <-- currently breaks Ariadne
+]
+PYDANTIC_VERSIONS = [
+    # Selective
+    '1.7.4',  # latest 1.7.x
+    '1.8', '1.8.1', '1.8.2',
+    '1.9.0',
 ]
 
 
@@ -65,6 +77,20 @@ def tests_fastapi(session: nox.sessions.Session, fastapi):
 def tests_ariadne(session: nox.sessions.Session, ariadne):
     """ Test against a specific Ariadne version """
     tests(session, overrides={'ariadne': ariadne})
+
+
+@nox.session(python=PYTHON_VERSIONS[-1])
+@nox.parametrize('graphql_core', GRAPHQL_CORE_VERSIONS)
+def tests_graphql(session: nox.sessions.Session, graphql_core):
+    """ Test against a specific GraphQL version """
+    tests(session, overrides={'graphql-core': graphql_core})
+
+
+@nox.session(python=PYTHON_VERSIONS[-1])
+@nox.parametrize('pydantic', PYDANTIC_VERSIONS)
+def tests_pydantic(session: nox.sessions.Session, pydantic):
+    """ Test against a specific Pydantic version """
+    tests(session, overrides={'pydantic': pydantic})
 
 
 # Get requirements.txt from external poetry
