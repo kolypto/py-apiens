@@ -30,8 +30,6 @@ def tests(session: nox.sessions.Session, *, overrides: dict[str, str] = {}):
 
     # Test
     args = ['-k', 'not extra']
-    if not overrides:
-        args.append('--cov=apiens')
 
     session.run('pytest', 'tests/', *args)
 
