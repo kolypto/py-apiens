@@ -56,6 +56,8 @@ def before_commit(ssn: Session, before_commit: callable, *args, **kwargs):
     """ Exec a callable before the session commits and persists the changes to the database
 
     At this point, it's very likely that everything will be saved successfully.
+
+    NOTE: if flush() is not called explicitly, then `before_commit` goes in front of `before_flush`!
     """
     schedule_once_on_session_event(ssn, 'before_commit', partial(before_commit, *args, **kwargs))
 
