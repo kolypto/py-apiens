@@ -3,9 +3,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 import sqlalchemy.orm
 import sqlalchemy.orm.base
-from collections import abc
 
-from apiens.tools.sqlalchemy import get_history_proxy_for_instance
+from apiens.tools.sqlalchemy.instance_history_proxy import get_history_proxy_for_instance
 from apiens.crud.crudsettings import CrudSettings
 from .mutate_base import MutateApiBase, SAInstanceT
 from .saves_custom_fields import saves_custom_fields

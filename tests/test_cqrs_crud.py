@@ -32,7 +32,7 @@ from apiens.crud import saves_custom_fields, MISSING
 from apiens.testing import Parameter, ObjectMatch
 from apiens.tools.pydantic import partial
 from apiens.tools.pydantic.derive import derive_model
-from apiens.tools.sqlalchemy import db_transaction
+from apiens.tools.sqlalchemy.session import db_transaction
 from tests.conftest import DATABASE_URL
 
 

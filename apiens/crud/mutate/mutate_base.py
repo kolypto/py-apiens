@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from apiens.tools.sqlalchemy import get_history_proxy_for_instance
+from apiens.tools.sqlalchemy.instance_history_proxy import get_history_proxy_for_instance
 from ..base import ModelOperationBase, SAInstanceT
 from .. import exc
 

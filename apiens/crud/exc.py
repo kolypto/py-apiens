@@ -8,7 +8,7 @@ import sqlalchemy.exc
 import sqlalchemy.orm
 import psycopg2
 
-from apiens.tools.sqlalchemy import extract_postgres_unique_violation_column_names
+from apiens.tools.sqlalchemy.pg_integrity_error import extract_postgres_unique_violation_column_names
 
 
 class BaseCrudError(Exception):

@@ -4,7 +4,7 @@ from jessiql.testing import created_tables
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import load_only
 
-from apiens.tools.sqlalchemy import InstanceHistoryProxy
+from apiens.tools.sqlalchemy.instance_history_proxy import InstanceHistoryProxy
 from jessiql.testing.query_logger import ExpectedQueryCounter
 
 

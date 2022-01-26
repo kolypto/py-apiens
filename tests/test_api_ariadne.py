@@ -14,7 +14,7 @@ from apiens.integration.ariadne.testing.query import graphql_query_sync
 
 import jessiql
 import jessiql.integration.graphql
-from apiens.tools.sqlalchemy import db_transaction
+from apiens.tools.sqlalchemy.session import db_transaction
 from jessiql.util import sacompat
 from jessiql.testing import created_tables, truncate_db_tables
 
