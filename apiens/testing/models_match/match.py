@@ -1,7 +1,13 @@
 from collections import abc
 import dataclasses
 from typing import TypedDict, Any, Union
-from typing import get_args, get_origin, get_type_hints, is_typeddict
+from typing import get_args, get_origin, get_type_hints
+
+try:
+    from typing import is_typeddict
+except ImportError:
+    def is_typeddict(t):  # TODO: remove them Python 3.10 is the minimal version for apiens
+        return isinstance(t, type) and issubclass(t, dict) and hasattr(t, '__total__')
 
 from .model_info import ModelInfo, FieldInfo
 from .predicates import filter_by_predicate
