@@ -100,6 +100,7 @@ class _ActiveObjectsRegistry(Generic[T]):
         tb_skip = 3  # how many traceback records to skip
 
         # Format the traceback
+        # TODO: use traceback.format_stack()?
         created_at = '\n'.join(
             f'\t#{i} {frame[1]}:{frame[2]}'
             for i, frame in enumerate(reversed(list(inspect.stack(0))[tb_skip:]))
