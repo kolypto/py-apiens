@@ -8,15 +8,15 @@ import ariadne.asgi
 import sqlalchemy as sa
 import sqlalchemy.orm
 
-import apiens.crud
-import apiens.integration.ariadne.directives
-from apiens.integration.ariadne.testing.query import graphql_query_sync
-
 import jessiql
 import jessiql.integration.graphql
-from apiens.tools.sqlalchemy.session import db_transaction
 from jessiql.util import sacompat
 from jessiql.testing import created_tables, truncate_db_tables
+
+import apiens.crud
+import apiens.tools.ariadne.directives
+from apiens.tools.ariadne.testing.query import graphql_query_sync
+from apiens.tools.sqlalchemy.session import db_transaction
 
 
 def test_ariadne():
@@ -79,7 +79,7 @@ def test_ariadne():
         query, mutation,
         ariadne.snake_case_fallback_resolvers,
         directives={
-            **apiens.integration.ariadne.directives.directives_map,
+            **apiens.tools.ariadne.directives.directives_map,
         }
     )
     # app = ariadne.asgi.GraphQL(schema, debug=True)
