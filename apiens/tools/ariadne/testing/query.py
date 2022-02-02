@@ -18,7 +18,7 @@ def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value:
         root_value=None,
         debug=True,
         logger=__name__,
-        error_formatter=debug_format_error,
+        error_formatter=debug_format_error,  # type: ignore[arg-type]
     )
 
     if 'errors' in res:
@@ -35,6 +35,7 @@ def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value:
 def debug_format_error(error: graphql.GraphQLError, debug: bool = False) -> Union[dict, graphql.GraphQLError]:
     """ Error formatter for unit-tests """
     # Just return the very same error object
+    # This goes against GraphQL protocol, but is ok for unit-tests: we'll get the error object embedded into json response!
     if debug:
         return error
     else:

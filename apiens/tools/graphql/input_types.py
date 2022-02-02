@@ -31,4 +31,4 @@ def wrap_input_object_out_type(type_def: graphql.GraphQLInputObjectType, out_typ
             return out_type_func(original_out_type(value))
 
     # Replace it
-    type_def.out_type = new_out_type
+    type_def.out_type = new_out_type  # type: ignore[assignment]

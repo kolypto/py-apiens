@@ -2,7 +2,7 @@ import secrets
 from typing import Optional
 
 import pydantic as pd
-from urllib3.util import parse_url
+from urllib3.util import parse_url  # type: ignore[import]
 
 from .defs import Env
 
@@ -93,7 +93,7 @@ class SecretMixin(pd.BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
 
 
-class Settings(pd.BaseSettings, EnvMixin, LocaleMixin, DomainMixin, CorsMixin, SecretMixin):
+class Settings(pd.BaseSettings, EnvMixin, LocaleMixin, DomainMixin, CorsMixin, SecretMixin):  # type: ignore[misc]
     # Human-readable name of this project
     # Used in titles & emails & stuff
     PROJECT_NAME: str

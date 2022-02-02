@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette import status
 from starlette.exceptions import HTTPException
 
-from apiens.structure.error.error_object import ErrorResponse
+from apiens.structure.error.schema import ErrorResponse
 from apiens.structure.error import exc
 
 from .route_suggestions import suggest_api_endpoint
@@ -71,7 +71,7 @@ async def unexpected_exception_handler(request: Request, e: Exception, **info) -
     # Tell the user we have failed
     return await application_exception_handler(
         request,
-        exc.E_UNEXPECTED_ERROR.from_exception(e, **info)
+        exc.F_UNEXPECTED_ERROR.from_exception(e, **info)
     )
 
 

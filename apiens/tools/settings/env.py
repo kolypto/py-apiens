@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os.path
-import dotenv
+import dotenv  # type: ignore[import]
 
 from .defs import Env
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import abc
-from typing import Optional, Union, TypeVar
+from typing import Optional, Union, TypeVar, Generic
 
 import sqlalchemy as sa
 import sqlalchemy.orm
@@ -14,10 +14,10 @@ from ..crudparams import CrudParams
 from .. import exc
 
 
-T = TypeVar('T', bound=jessiql.QueryObject)
+QueryT = TypeVar('QueryT', bound=jessiql.Query)
 
 
-class QueryApi(ModelOperationBase[SAInstanceT]):
+class QueryApi(ModelOperationBase[SAInstanceT], Generic[SAInstanceT, QueryT]):
     """ CRUD API implementation: queries
 
     Implements read methods for CRUD: list, get, count
@@ -26,7 +26,7 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
     query_object: jessiql.QueryObject
 
     # JessiQL Query
-    query: jessiql.QueryPage
+    query: QueryT
 
     def __init__(self,
                  ssn: sa.orm.Session,
@@ -40,13 +40,13 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
 
     def list(self) -> list[dict]:
         """ CRUD method: list, load a list of objects """
-        self._filter_func = self.params.filter
+        self._filter_func = self.params.filter  # type: ignore[assignment,misc]
         res = self.query.fetchall(self.ssn.connection())
         return res
 
     def get(self) -> Optional[dict]:
         """ CRUD method: get, load one object by primary key """
-        self._filter_func = self.params.filter_one
+        self._filter_func = self.params.filter_one  # type: ignore[assignment,misc]
 
         with exc.converting_sa_erorrs(Model=self.query.Model):
             res = self.query.fetchone(self.ssn.connection())
@@ -55,28 +55,28 @@ class QueryApi(ModelOperationBase[SAInstanceT]):
 
     def count(self) -> int:
         """ CRUD method: count the number of matching objects """
-        self._filter_func = self.params.filter
+        self._filter_func = self.params.filter  # type: ignore[assignment,misc]
         return self.query.count(self.ssn.connection())
 
     # The filter function that we decided to use
     _filter_func: abc.Callable[[], abc.Iterable[sa.sql.elements.BinaryExpression]]
 
     # Which JessiQL Query class to use: Query, QueryPage, etc
-    QUERY_CLS: type[T] = jessiql.QueryPage
+    QUERY_CLS: type[QueryT] = jessiql.QueryPage  # type: ignore[assignment]
 
-    def init_query(self) -> jessiql.QueryPage:
+    def init_query(self) -> QueryT:
         """ Initialize JessiQL query """
         query = self.QUERY_CLS(self.query_object, self.params.crudsettings.Model)
-        query.customize_statements.append(self._query_customize_statements)
+        query.customize_statements.append(self._query_customize_statements)  # type: ignore[arg-type]
         return query
 
     def _query_customize_statements(self, q: jessiql.Query, stmt: sa.sql.Select) -> sa.sql.Select:
         """ JessiQL query filter """
         if q.query_level == 0:
             if SA_13:
-                stmt = stmt.where(sa.and_(*self._filter_func()))
+                stmt = stmt.where(sa.and_(*self._filter_func()))  # type: ignore[misc]
             elif SA_14:
-                stmt = stmt.filter(*self._filter_func())
+                stmt = stmt.filter(*self._filter_func())  # type: ignore[misc]
             else:
                 raise NotImplementedError
 

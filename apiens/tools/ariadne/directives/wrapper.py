@@ -18,7 +18,7 @@ class WrapperDirective(SchemaDirectiveVisitor):
 
     # The original resolver found on the field.
     # Call it from your resolve()
-    original_resolver: Optional[abc.Callable]
+    original_resolver: abc.Callable
 
     def resolve(self, root, info: GraphQLResolveInfo, /, **kwargs):
         """ Wrapper for the original resolve() function defined on the field.
@@ -39,7 +39,7 @@ class WrapperDirective(SchemaDirectiveVisitor):
         assert field.resolve is not None
 
         # Remember the original resolve function
-        self.original_resolver = field.resolve
+        self.original_resolver = field.resolve  # type: ignore[assignment]
 
         # Use our self.resolve() instead
         field.resolve = self.resolve

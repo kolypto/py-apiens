@@ -102,7 +102,11 @@ class InternetGagError(RuntimeError):
 
 # Unmocked methods
 import urllib.request
-import aiohttp.client
-
 original_urllib_urlopen = urllib.request.urlopen
-original_aiohttp_request = aiohttp.client.ClientSession._request
+
+try:
+    import aiohttp.client  # type: ignore[import]
+except ImportError:
+    original_aiohttp_request = None
+else:
+    original_aiohttp_request = aiohttp.client.ClientSession._request

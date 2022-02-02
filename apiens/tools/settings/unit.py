@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import pint
+import pint  # type: ignore[import]
 from typing import Optional
 
 
@@ -50,5 +50,8 @@ class unit:
         Example:
             1 * unit('min') >> unit('s')
         """
+        assert self.quantity is not None
+        assert self.input_type is not None
+
         converted_quantity = self.quantity.to(convert_into.units)
         return self.input_type(converted_quantity.magnitude)  # use the same type

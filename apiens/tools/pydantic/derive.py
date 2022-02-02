@@ -30,7 +30,7 @@ def derive_model(model: type[pd.BaseModel],
     assert bool(include) != bool(exclude), 'Provide `include` or `exclude` but not both'
 
     # Prepare include list
-    include_fields = set(include) if include else (set(model.__fields__) - set(exclude))
+    include_fields = set(include) if include else (set(model.__fields__) - set(exclude or ()))
 
     # Fields
     fields = prepare_fields_for_create_model(
@@ -47,7 +47,7 @@ def derive_model(model: type[pd.BaseModel],
         BaseModel = empty_model_subclass(model, f'{model.__name__}Derived')
 
     # Derive a model
-    return pd.create_model(
+    return pd.create_model(  # type: ignore[call-overload]
         name or model.__name__,
         __module__=module or model.__module__,  # will this work?
         __base__=BaseModel,
@@ -85,7 +85,7 @@ def merge_models(name: str,
     fields.update(extra_fields or {})
 
     # Create a model
-    return pd.create_model(
+    return pd.create_model(  # type: ignore[call-overload]
         name,
         __module__=module or models[0].__module__,  # same module by default
         __config__=Config,

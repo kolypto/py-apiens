@@ -116,7 +116,8 @@ class E_CLIENT_VALIDATION(BaseApplicationError):
             error,
             fixit,
             model=pydantic_exception.model.__name__,
-            errors=pydantic_exception.errors(),  # [ {loc: Tuple[str], msg: str, type; str} ]
+            # [ {loc: Tuple[str], msg: str, type: str} ]
+            errors=pydantic_exception.errors(),  # type: ignore[arg-type]
             **info
         )
         return exception_from(e, pydantic_exception)

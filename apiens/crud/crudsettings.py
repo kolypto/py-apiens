@@ -1,5 +1,6 @@
 from collections import abc
 
+from typing import Optional
 from jessiql import sainfo
 from .defs import AUTOMATIC
 from .crudfields import CrudFields
@@ -14,7 +15,7 @@ class CrudSettings:
     Model: type
 
     # Primary key columns for the model.
-    primary_key: tuple[str] = AUTOMATIC
+    primary_key: tuple[str, ...] = AUTOMATIC  # type: ignore[assignment]
 
     # Is the class using natural primary keys?
     natural_primary_key: bool = False

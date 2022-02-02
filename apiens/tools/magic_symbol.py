@@ -18,8 +18,8 @@ class MagicSymbol:
             f'Please make sure that your code supports `{self!r}` by using the `is` comparison: the only operator it supports.'
         )
 
-    __lt__ = __le__ = __eq__ = __ne__ = __ge__ = __gt__ = useless
-    __bool__ = __str__ = __int__ = useless
+    __lt__ = __le__ = __eq__ = __ne__ = __ge__ = __gt__ = useless  # type: ignore[assignment]
+    __bool__ = __str__ = __int__ = useless  # type: ignore[assignment]
     __add__ = __sub__ = __mul__ = useless
     __and__ = __or__ = __rand__ = __ror__ = useless
 

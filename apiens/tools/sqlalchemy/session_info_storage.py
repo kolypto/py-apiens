@@ -13,7 +13,7 @@
   won't overwrite each other.
 """
 
-from typing import Hashable, Any, Generic, TypeVar, Callable, Optional, Mapping
+from typing import Hashable, Any, Generic, TypeVar, Callable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -48,7 +48,7 @@ class SessionInfoStorage(Generic[T]):
             default: The default value factory that initializes the session info key
         """
         self.key = key
-        self.default_factory = self.DEFAULT_FACTORY
+        self.default_factory = self.DEFAULT_FACTORY  # type: ignore[misc]
 
     def storage(self, session: Session) -> T:
         """ Get the Session storage or initialize it """
@@ -80,10 +80,10 @@ DT = TypeVar('DT')
 NOTHING = object()
 
 
-class SessionInfoDictStorage(SessionInfoStorage[Mapping[Hashable, DT]], Generic[DT]):
+class SessionInfoDictStorage(SessionInfoStorage[dict[Hashable, DT]], Generic[DT]):
     """ Helper for storing things in a dict within sessions' Session.info """
 
-    DEFAULT_FACTORY: Callable[[], DT] = dict
+    DEFAULT_FACTORY: Callable[[], DT] = dict  # type: ignore[assignment]
 
     def exists(self, session: Session, key: Hashable) -> bool:
         """ Check if a key exists within the Session's info storage """

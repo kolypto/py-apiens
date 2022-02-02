@@ -97,10 +97,11 @@ class InstanceHistoryProxy:
 
         That is, if a relationship is loaded, it's loaded into `self.__dict` instead of the original instance's dict
         """
+        # Return a fake object
         state = InstanceStateCopy(self.__state)
-        state.dict = self.__dict
-        state.committed_state = {}
-        return state  # noqa
+        state.dict = self.__dict  # type: ignore[attr-defined]
+        state.committed_state = {}  # type: ignore[attr-defined]
+        return state  # type: ignore[return-value]
 
 
 def get_history_proxy_for_instance(instance: SAInstanceT, copy: bool = False) -> SAInstanceT:
@@ -134,4 +135,4 @@ try:
 except ImportError:
     is_property = None
 else:
-    from jessiql.sainfo.properties import is_property
+    from jessiql.sainfo.properties import is_property  # type: ignore[misc]

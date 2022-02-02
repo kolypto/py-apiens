@@ -6,7 +6,7 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Optional
 
-from .predicates import filter_by_predicate
+from .predicates import filter_by_predicate, PredicateFn
 
 
 # Model info
@@ -29,14 +29,14 @@ class ModelInfo:
             for name, field in self.fields.items()
         })
 
-    def required(self, required: Optional[bool], filter: callable = None):
+    def required(self, required: Optional[bool], filter: PredicateFn = None):
         """ Get a copy of self, with every matching field's `required` value changed """
         model = copy(self)
         for field in applicable_fields(self, filter):
             field.required = required
         return model
 
-    def nullable(self, nullable: Optional[bool], filter: callable = None):
+    def nullable(self, nullable: Optional[bool], filter: PredicateFn = None):
         """ Get a copy of self, with every matching field's `nullable` value changed """
         model = copy(self)
         for field in applicable_fields(self, filter):
@@ -48,7 +48,7 @@ class ModelInfo:
 
 
 
-def applicable_fields(model: ModelInfo, filter: callable = None) -> abc.Iterable[FieldInfo]:
+def applicable_fields(model: ModelInfo, filter: PredicateFn = None) -> abc.Iterable[FieldInfo]:
     """ Iterate over model fields filtered by `filder` """
     for name, field in model.fields.items():
         if filter_by_predicate(name, filter):
@@ -125,8 +125,9 @@ class FieldInfo:
         labels = ' '.join(sorted(self.labels))
         return f'{self.name}: {labels}'
 
-    def __eq__(self, other: FieldInfo):
-        assert isinstance(other, FieldInfo)
+    def __eq__(self, other):
+        if not isinstance(other, FieldInfo):
+            return NotImplemented
         return (
                 # At least one name in common
                 ({self.name, *self.aliases} & {other.name, *other.aliases} ) and

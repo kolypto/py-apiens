@@ -20,5 +20,5 @@ class StrEnum(sa.Enum):
 
         # Make sure every such field is "long enough"
         # Otherwise, new, longer enum values may get truncated
-        assert self.length <= 64  # not too long
-        self.length = 64  # make it sufficiently
+        assert self.length <= 64  # type: ignore[operator]
+        self.length = 64  # make it sufficiently long

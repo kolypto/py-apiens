@@ -14,7 +14,7 @@ class CrudFields:
     """ Crud fields: describes how to handle fields when doing CRUD """
 
     # Primary key field names
-    primary_key: tuple[str]
+    primary_key: tuple[str, ...]
 
     # Are we using natural primary keys? I.e. when the user can specify which primary key will the object have
     natural_primary_key: bool = False
@@ -65,8 +65,8 @@ class CrudFields:
             exclude_on_create: Fields to exclude when doing create()
             exclude_on_update: Fields to exclude when doing update()
         """
-        self.extra_exclude_on_create |= frozenset(exclude_on_create) | frozenset(exclude)
-        self.extra_exclude_on_update |= frozenset(exclude_on_update) | frozenset(exclude)
+        self.extra_exclude_on_create |= frozenset(exclude_on_create) | frozenset(exclude or ())
+        self.extra_exclude_on_update |= frozenset(exclude_on_update) | frozenset(exclude or ())
         return self
 
     def fields(self,
@@ -85,8 +85,8 @@ class CrudFields:
         """
         # Make sure that `exclude_on_update` did not cache anything yet.
         # Caching is done by putting the cached value inside the object's __dict__
-        assert type(self).exclude_on_update.attrname not in self.__dict__
-        assert type(self).exclude_on_create.attrname not in self.__dict__
+        assert type(self).exclude_on_update.attrname not in self.__dict__  # type: ignore[attr-defined]
+        assert type(self).exclude_on_create.attrname not in self.__dict__  # type: ignore[attr-defined]
 
         # Store
         self.ro_fields = frozenset(ro_fields) | frozenset(ro_relations)
@@ -101,12 +101,12 @@ class CrudFields:
     @cached_property
     def exclude_on_create(self) -> frozenset[str]:
         """ Get the list of fields to exclude when create()ing an instance """
-        exclude = set()
+        exclude: set[str] = set()
         exclude |= self.extra_exclude_on_create
 
         # ro/rw fields configured?
         if self.field_names_fully_configured:
-            exclude |= self.ro_fields
+            exclude |= self.ro_fields or set()
         # if not, only exclude the PK
         else:
             exclude |= set() if self.natural_primary_key else set(self.primary_key)
@@ -118,23 +118,23 @@ class CrudFields:
         """ Get the list of fields to include when create()ing an instance """
         assert self.field_names_fully_configured  # include mode is only available when fields are fully configured
 
-        include = set()
-        include |= self.const_fields
-        include |= self.rw_fields
+        include: set[str] = set()
+        include |= self.const_fields or set()
+        include |= self.rw_fields or set()
 
         return frozenset(include)
 
     @cached_property
     def exclude_on_update(self) -> frozenset[str]:
         """ Get the list of fields to exclude when update()ing an instance """
-        exclude = set()
+        exclude: set[str] = set()
 
         # Exclude fields that create() would exclude
         exclude |= self.exclude_on_create
 
         # ro/rw fields configured?
         if self.field_names_fully_configured:
-            exclude |= self.const_fields
+            exclude |= self.const_fields or set()
         # if not, there's nothing to add: exclude_on_create() has already done everything
         else:
             pass
@@ -146,8 +146,8 @@ class CrudFields:
         """ Get the list of fields to include when update()ing an instance """
         assert self.field_names_fully_configured  # include mode is only available when fields are fully configured
 
-        include = set()
-        include |= self.rw_fields
+        include: set[str] = set()
+        include |= self.rw_fields or set()
 
         return frozenset(include)
 
@@ -196,7 +196,10 @@ class CrudFields:
 # region Validation
 
 
-def validate_multiple(crudfields: CrudFields, MutateApiCls: type['MutateApiBase'], validators: abc.Iterable[callable]):
+ValidatorFn = abc.Callable[[CrudFields, type['MutateApiBase']], None]
+
+
+def validate_multiple(crudfields: CrudFields, MutateApiCls: type['MutateApiBase'], validators: abc.Iterable[ValidatorFn]):
     """ Run multiple validators and raise all results together
 
     This is convenient when multiple validation errors are present. If they were raised immediately,
@@ -227,15 +230,15 @@ def validate_all_field_names_are_known_to_model(crudfields: CrudFields, MutateAp
     You may think you have excluded a field, but made a typo.
     """
     # Mentioned fields
-    mentioned_fields = set()
+    mentioned_fields: set[str] = set()
     mentioned_fields |= set(crudfields.primary_key)
     mentioned_fields |= set(crudfields.extra_exclude_on_create)
     mentioned_fields |= set(crudfields.extra_exclude_on_update)
 
     if crudfields.field_names_fully_configured:
-        mentioned_fields |= set(crudfields.ro_fields)
-        mentioned_fields |= set(crudfields.rw_fields)
-        mentioned_fields |= set(crudfields.const_fields)
+        mentioned_fields |= set(crudfields.ro_fields)  # type: ignore[arg-type]
+        mentioned_fields |= set(crudfields.rw_fields)  # type: ignore[arg-type]
+        mentioned_fields |= set(crudfields.const_fields)  # type: ignore[arg-type]
 
     # Known fields
     known_fields = set(dir(MutateApiCls.params.crudsettings.Model))  # just any name will do
@@ -254,8 +257,8 @@ def validate_field_names_valid(crudfields: CrudFields, MutateApiCls: type['Mutat
         return
 
     # Field names
-    all_input_fields = ... # TODO: get all field names from.. what? API model? DB model? Comparison model?
-    all_ro_rw_fields = {
+    all_input_fields: set[str] = set()  # TODO: get all field names from.. what? API model? DB model? Comparison model?
+    all_ro_rw_fields = {  # type: ignore[misc]
         *crudfields.ro_fields,
         *crudfields.rw_fields,
         *crudfields.const_fields,
@@ -284,7 +287,7 @@ def validate_saves_custom_fields_names_valid(crudfields: CrudFields, MutateApiCl
     """ Validate: @saves_custom_fields() is properly configured """
     from .mutate.saves_custom_fields import saves_custom_fields
 
-    known_input_fields = ...  # TODO: get from the API
+    known_input_fields: set[str] = set()  # TODO: get from the API
     custom_field_names = saves_custom_fields.all_field_names_from(MutateApiCls)
     unknown_fields = custom_field_names - known_input_fields
     assert not unknown_fields, (
@@ -297,7 +300,7 @@ def validate_saves_custom_fields_handles_every_relationship(crudfields: CrudFiel
     """ Validate: every writable relationship is covered by @saves_custom_fields()  """
     from .mutate.saves_custom_fields import saves_custom_fields
 
-    input_relationship_names = ...
+    input_relationship_names: set[str] = set()
 
     # Mentioned relationships
     handled_relationship_names = set(saves_custom_fields.all_field_names_from(MutateApiCls))
@@ -339,7 +342,7 @@ def validate_primary_key_is_not_writable(crudfields: CrudFields, MutateApiCls: t
 
 
 class MultipleAssertionErrors(AssertionError):
-    errors: tuple[AssertionError]
+    errors: tuple[AssertionError, ...]
 
     def __init__(self, *errors: AssertionError):
         self.errors = errors

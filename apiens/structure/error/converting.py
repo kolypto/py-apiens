@@ -11,7 +11,7 @@ import sqlalchemy as sa
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
 
-from apiens.tools.sqlalchemy import extract_postgres_unique_violation_column_names
+from apiens.tools.sqlalchemy.pg_integrity_error import extract_postgres_unique_violation_column_names
 from . import exc
 from .base import BaseApplicationError
 from apiens.tools.errors import exception_from
@@ -75,7 +75,7 @@ def converting_unexpected_errors(*, exc=exc):
         raise convert_unexpected_error(e, exc=exc)
 
 
-def convert_unexpected_error(error: Union[Exception, exc.BaseApplicationError], *, exc=exc) -> Optional[exc.BaseApplicationError]:
+def convert_unexpected_error(error: Union[Exception, exc.BaseApplicationError], *, exc=exc) -> exc.BaseApplicationError:
     """ Given an exception, convert it into a `F_UNEXPECTED_ERROR` if it's not a BaseApplicationError already """
     # `exc.BaseApplicationError` remain as they are
     if isinstance(error, exc.BaseApplicationError):
@@ -105,7 +105,7 @@ def converting_sa_errors(*, Model: type, exc=exc, _=exc._):
     try:
         yield
     except sa.exc.SQLAlchemyError as e:
-        new_error = convert_sa_error(Model, e, exc=exc, _=_)
+        new_error = convert_sa_error(e, Model=Model, exc=exc, _=_)
         raise new_error or e
 
 
@@ -132,7 +132,7 @@ def convert_sa_error(error: Exception, *, Model: type, exc=exc, _=exc._) -> Opti
     if isinstance(error, sa.exc.IntegrityError):
         # Check: unique violation errors
         if isinstance(error.orig, psycopg2.errors.UniqueViolation):
-            failed_column_names = extract_postgres_unique_violation_column_names(error, Model.metadata)
+            failed_column_names = extract_postgres_unique_violation_column_names(error, Model.metadata)  # type: ignore[attr-defined]
             e = exc.E_CONFLICT_DUPLICATE(
                 _('Conflicting object found for {failed_columns}').format(failed_columns=', '.join(failed_column_names)),
                 _('Provide a unique value for {failed_columns}'),
@@ -142,6 +142,9 @@ def convert_sa_error(error: Exception, *, Model: type, exc=exc, _=exc._) -> Opti
         # Reraise as a server error
         else:
             raise convert_unexpected_error(error, exc=exc)
+
+    # Otherwise
+    return None
 
 
 @contextmanager  # and a decorator

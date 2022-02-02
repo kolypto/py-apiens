@@ -13,7 +13,7 @@ class JSONBKeyedBy(sa.TypeDecorator):
         super().__init__()
         self._EnumType = EnumType
 
-    def process_bind_param(self, value: dict[Enum, Any], dialect) -> dict[str, Any]:
+    def process_bind_param(self, value: dict[Enum, Any], dialect) -> dict[str, Any]:  # type: ignore[override]
         if value is None:
             value = {}
 
@@ -22,7 +22,7 @@ class JSONBKeyedBy(sa.TypeDecorator):
             for k, v in value.items()
         }
 
-    def process_result_value(self, value: dict[str, Any], dialect) -> dict[Enum, Any]:
+    def process_result_value(self, value: dict[str, Any], dialect) -> dict[Enum, Any]:  # type: ignore[override]
         if value is None:
             value = {}
 

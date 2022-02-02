@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from typing import Optional
+from collections import abc
+
+
+# Predicate type
+PredicateFn = abc.Callable[[str], bool]
 
 
 class exclude:
@@ -26,7 +31,7 @@ class include_only:
 #   without considering their typing information. May come in handy with SqlAlchemy
 
 
-def filter_by_predicate(field_name: str, predicate: Optional[callable]) -> bool:
+def filter_by_predicate(field_name: str, predicate: Optional[abc.Callable]) -> bool:
     if not predicate:
         return True
     return predicate(field_name)

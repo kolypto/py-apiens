@@ -57,7 +57,7 @@ def partial(*fields):
         def dict_excludes_unset(*args, exclude_unset: bool = None, **kwargs):
             exclude_unset = True
             return dict_orig(*args, **kwargs, exclude_unset=exclude_unset)
-        Model.dict = dict_excludes_unset
+        Model.dict = dict_excludes_unset  # type: ignore[assignment]
 
         # Done
         return Model

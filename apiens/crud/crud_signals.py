@@ -1,6 +1,6 @@
 """ CRUD signals """
 
-import blinker
+import blinker  # type: ignore[import]
 
 
 # NOTE: this signalling functionality is defined, but not included into the CRUD handlers.

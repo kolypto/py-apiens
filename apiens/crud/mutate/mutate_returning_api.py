@@ -1,7 +1,7 @@
 import sqlalchemy as sa
 import sqlalchemy.orm
 import jessiql
-from typing import Union
+from typing import Union, Optional
 
 from .mutate_api import MutateApi
 from ..defs import PrimaryKeyDict
@@ -26,4 +26,6 @@ class ReturningMutateApi(MutateApi, QueryApi):
     def _format_result_dict(self, instance: SAInstanceT) -> PrimaryKeyDict:
         primary_key_dict = super()._format_result_dict(instance)
         self.params.from_primary_key_dict(primary_key_dict)
-        return self.get()
+        res = self.get()
+        assert res is not None, 'Object not found'
+        return res

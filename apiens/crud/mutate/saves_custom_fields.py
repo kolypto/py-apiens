@@ -31,7 +31,7 @@ class saves_custom_fields(decomarker):
     Note that it is called even even if all fields are missing: that is, it is a post-flush handler.
     """
     # The list of fields that this method is capable of saving.
-    field_names = tuple[str, ...]
+    field_names: tuple[str, ...]
 
     def __init__(self, *field_names: str):
         """ Decorate a method that can save custom fields
@@ -45,7 +45,7 @@ class saves_custom_fields(decomarker):
     @classmethod
     def save(cls, crud: object, plucked_data: dict[saves_custom_fields, dict], new: object, prev: object = None):
         for handler, kwargs in plucked_data.items():
-            handler.func(crud, new, prev, **kwargs)
+            handler.func(crud, new, prev, **kwargs)  # type: ignore[misc]
 
     @classmethod
     def pluck_custom_fields(cls, crud: object, input_dict: dict) -> dict[saves_custom_fields, dict]:
@@ -63,18 +63,18 @@ class saves_custom_fields(decomarker):
         remove_fields = set()
 
         # Go through every handler
-        for handler in cls.all_decorated_from(type(crud)):
+        for handler in cls.all_decorated_from(type(crud)):  # type: ignore[arg-type]
             # For every handler, collect arguments from the dict
             ret[handler] = {
                 # NOTE: if an argument has not been provided, use `ABSENT`
                 # We don't use `None` to differentiate from a `None` provided by the user
                 field_name: input_dict.get(field_name)
-                for field_name in handler.field_names
+                for field_name in handler.field_names  # type: ignore[attr-defined]
                 if field_name in input_dict
             }
 
             # Remember the fields to remove
-            remove_fields.update(handler.field_names)
+            remove_fields.update(handler.field_names)  # type: ignore[attr-defined]
 
         # Remove the fields from the dict
         for remove_field in remove_fields:
@@ -82,12 +82,12 @@ class saves_custom_fields(decomarker):
                 del input_dict[remove_field]
 
         # Done
-        return ret
+        return ret  # type: ignore[return-value]
 
     @classmethod
     def all_field_names_from(cls, CrudClass: type) -> set[str]:
         """ Get the names of all custom fields """
-        return set().union(*(
-            handler.field_names
+        return set().union(*(  # type: ignore[return-value]
+            handler.field_names  # type: ignore[attr-defined]
             for handler in cls.all_decorated_from(CrudClass)
         ))

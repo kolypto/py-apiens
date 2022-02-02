@@ -8,8 +8,8 @@ import sqlalchemy as sa
 import sqlalchemy.orm
 
 
-@contextmanager
-def db_transaction(session: sa.orm.Session) -> ContextManager[sa.orm.Session]:
+@contextmanager  # type: ignore[arg-type]
+def db_transaction(session: sa.orm.Session) -> ContextManager[sa.orm.Session]:  # type: ignore[var-annotated,misc]
     """ Transactional context manager: commit things if everything goes fine, rollback if it doesn't """
     try:
         # session.begin()  # is started automatically
@@ -77,7 +77,7 @@ def session_disable_commit(ssn: sa.orm.Session):
             "commit() is disabled: you can only use flush(). "
             "If you still want to commit(), use session_flush_instead_of_commit(), but then clean-up after yourself!"
         )
-    ssn.commit = commit_fail
+    ssn.commit = commit_fail  # type: ignore[assignment]
 
 
 def session_flush_instead_of_commit(ssn: sa.orm.Session):
@@ -89,13 +89,13 @@ def session_flush_instead_of_commit(ssn: sa.orm.Session):
         ssn.flush()  # flush() instead
         ssn.dispatch.after_commit(ssn)
 
-    ssn.commit = commit_flush
+    ssn.commit = commit_flush  # type: ignore[assignment]
 
 
 def session_enable_commit(ssn: sa.orm.Session):
     """ Enable commit() on a Session """
     # Restore the original function
-    ssn.commit = type(ssn).commit
+    ssn.commit = type(ssn).commit  # type: ignore[assignment]
 
 
 def session_safe_commit(session: sa.orm.Session):
@@ -156,7 +156,7 @@ def _refresh_multiple_instance_states(session: sa.orm.Session, mapper: sa.orm.ma
 
 def _group_instances_by_mapper(instances: abc.Iterable[object]) -> dict[sa.orm.Mapper, list[sa.orm.state.InstanceState]]:
     """ Walk the list of instances and group them by Mapper """
-    mappers_and_states = {}
+    mappers_and_states: dict[sa.orm.Mapper, list[sa.orm.state.InstanceState]] = {}
 
     for instance in instances:
         # Get state, mapper

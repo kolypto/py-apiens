@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import inspect
 import weakref
+from collections.abc import MutableMapping
 from functools import wraps
 from typing import Generic, TypeVar, ClassVar
 
@@ -84,6 +85,7 @@ T = TypeVar('T')
 
 class _ActiveObjectsRegistry(Generic[T]):
     """ A registry for objects that must be properly closed """
+    active_objects: MutableMapping[T, str]
 
     def __init__(self, weak: bool):
         """
@@ -159,5 +161,5 @@ class _ActiveObjectsRegistry(Generic[T]):
 class _ActiveSessionRegistry(_ActiveObjectsRegistry[sa.orm.Session]):
     """ Implementation for SqlAlchemy sessions """
 
-    def add_and_decorate(self, ssn: sa.orm.Session):
+    def add_and_decorate(self, ssn: sa.orm.Session):  # type: ignore[override]
         return super().add_and_decorate(ssn, 'close')  # must be properly close()d

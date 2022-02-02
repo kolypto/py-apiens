@@ -54,10 +54,10 @@ def _installto_type_or_input(schema: graphql.GraphQLSchema, type_def: Union[grap
 
     # Directive
     directive_def = schema.get_directive(DIRECTIVE_NAME)
-    args: DirectiveArgs = graphql.get_directive_values(directive_def, type_def.ast_node, variable_values={})
+    args: DirectiveArgs = graphql.get_directive_values(directive_def, type_def.ast_node, variable_values={})  # type: ignore[arg-type,assignment]
 
     # Parent type
-    parent_type: Union[graphql.GraphQLObjectType, graphql.GraphQLInputObjectType] = schema.get_type(args['type'])
+    parent_type: Union[graphql.GraphQLObjectType, graphql.GraphQLInputObjectType] = schema.get_type(args['type'])  # type: ignore[assignment]
     if not parent_type:
         raise ValueError(f"Unknown type: {args['type']}")
 
@@ -122,7 +122,7 @@ def _inherit_field__copy(field):
 
 def _inherit_field__type_to_input(field: graphql.GraphQLField) -> graphql.GraphQLInputField:
     return graphql.GraphQLInputField(
-        type_=field.type,
+        type_=field.type,  # type: ignore[arg-type]
         # default_value=graphql.Undefined,  # the default
         description=field.description,
         deprecation_reason=field.deprecation_reason,
@@ -133,13 +133,13 @@ def _inherit_field__type_to_input(field: graphql.GraphQLField) -> graphql.GraphQ
             type=field.ast_node.type,
             directives=field.ast_node.directives,
             default_value=None,
-        ),
+        ) if field.ast_node else None,
     )
 
 
 def _inherit_field__input_to_type(field: graphql.GraphQLInputField) -> graphql.GraphQLField:
     return graphql.GraphQLField(
-        type_=field.type,
+        type_=field.type,  # type: ignore[arg-type]
         # default_value=graphql.Undefined,  # the default
         description=field.description,
         deprecation_reason=field.deprecation_reason,
@@ -150,7 +150,7 @@ def _inherit_field__input_to_type(field: graphql.GraphQLInputField) -> graphql.G
             type=field.ast_node.type,
             directives=field.ast_node.directives,
             arguments=[],
-        ),
+        ) if field.ast_node else None,
     )
 
 

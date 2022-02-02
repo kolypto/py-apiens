@@ -23,7 +23,7 @@ def suggest_api_endpoint(app: FastAPI, method: Optional[str], path: str) -> abc.
     """
     from difflib import get_close_matches
 
-    input_route = ' '.join([method, path])
+    input_route = ' '.join([method or '-', path])
     valid_routes = [
         f'{method} {path}'
         for method, path in _all_application_routes(app)
@@ -33,7 +33,7 @@ def suggest_api_endpoint(app: FastAPI, method: Optional[str], path: str) -> abc.
 
 
 @cache
-def _all_application_routes(app: FastAPI) -> abc.Collection[tuple]:
+def _all_application_routes(app: FastAPI) -> abc.Iterator[tuple[str, str]]:
     # Get all routes that make sense
     routes = [
         route
@@ -45,5 +45,5 @@ def _all_application_routes(app: FastAPI) -> abc.Collection[tuple]:
     return (
         (method, route.path)
         for route in routes
-        for method in route.methods
+        for method in (route.methods or ())
     )

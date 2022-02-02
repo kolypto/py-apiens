@@ -121,7 +121,7 @@ class decomarker(metaclass=decomarker_meta):
 
     @classmethod
     @cache
-    def all_decorated_from(cls: type[T], class_: type, *, inherited: bool = False) -> abc.Sequence[T]:
+    def all_decorated_from(cls: type[T], class_: type, *, inherited: bool = False) -> tuple[T, ...]:
         """ Get all decorated methods from a class.
 
         This method can be used when decorated methods provide some sort of group behavior.

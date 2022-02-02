@@ -6,27 +6,28 @@ from typing import get_args, get_origin, get_type_hints
 try:
     from typing import is_typeddict
 except ImportError:
-    def is_typeddict(t):  # TODO: remove them Python 3.10 is the minimal version for apiens
+    # TODO: remove them Python 3.10 is the minimal version for apiens
+    def is_typeddict(t):  # type: ignore[misc]
         return isinstance(t, type) and issubclass(t, dict) and hasattr(t, '__total__')
 
 from .model_info import ModelInfo, FieldInfo
-from .predicates import filter_by_predicate
+from .predicates import filter_by_predicate, PredicateFn
 from .singledispatch_lambda import singledispatch_lambda
 
 
 @singledispatch_lambda().decorator
-def match(model: Union[type, Any], filter: callable = None) -> ModelInfo:
+def match(model: Union[type, Any], filter: PredicateFn = None) -> ModelInfo:
     raise NotImplementedError(f'Object of type {model} is not supported')
 
 
 @match.register(is_typeddict)
-def match_typed_dict(model: type[TypedDict], filter: callable = None) -> ModelInfo:
+def match_typed_dict(model: type[dict], filter: PredicateFn = None) -> ModelInfo:
     """ Match: TypedDict """
     return ModelInfo(fields={
         name: FieldInfo(
             name=name,
             type=None, #str(type??),  # not implemented yet
-            required=name in model.__required_keys__,
+            required=name in model.__required_keys__,  # type: ignore[attr-defined]
             nullable=_is_typing_optional(type),
         )
         for name, type in get_type_hints(model).items()
@@ -35,14 +36,14 @@ def match_typed_dict(model: type[TypedDict], filter: callable = None) -> ModelIn
 
 
 @match.register(dataclasses.is_dataclass)
-def match_dataclass(model: type, filter: callable = None) -> ModelInfo:
+def match_dataclass(model: type, filter: PredicateFn = None) -> ModelInfo:
     """ Match: @dataclass """
     field: dataclasses.Field
     return ModelInfo(fields={
         field.name: FieldInfo(
             name=field.name,
             type=None,  # not implemented yet
-            required=field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING,
+            required=field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING,  # type: ignore[misc]
             nullable=_is_typing_optional(field.type),
         )
         for field in dataclasses.fields(model)
@@ -56,14 +57,14 @@ except ImportError:
     pass
 else:
     @match.register(lambda v: isinstance(v, type) and issubclass(v, pd.BaseModel))
-    def match_pydantic_model(model: pd.BaseModel, filter: callable = None) -> ModelInfo:
+    def match_pydantic_model(model: pd.BaseModel, filter: PredicateFn = None) -> ModelInfo:
         """ Match: Pydantic model """
         field: pd.fields.ModelField
         return ModelInfo(fields={
             field.name: FieldInfo(
                 name=field.name,
                 type=None,  # not implemented
-                required=None if field.required is pd.fields.Undefined else field.required,
+                required=None if field.required is pd.fields.Undefined else field.required,  # type: ignore[arg-type]
                 nullable=field.allow_none,
                 aliases={field.alias} if field.alt_alias else set(),
             )
@@ -79,7 +80,7 @@ except ImportError:
     pass
 else:
     @match.register(lambda v: sa.orm.base.manager_of_class(v) is not None)
-    def match_sqlalchemy_model(model: type, filter: callable = None, *, props: bool = False, rels: bool = False) -> ModelInfo:
+    def match_sqlalchemy_model(model: type, filter: PredicateFn = None, *, props: bool = False, rels: bool = False) -> ModelInfo:
         """ Match: SqlAlchemy model """
         mapper: sa.orm.Mapper = sa.orm.class_mapper(model)
 
@@ -100,7 +101,7 @@ else:
                     default = default.arg
 
                 # SqlAlchemy supports defaults that are: callable, SQL expressions
-                if isinstance(default, (abc.Callable, sa.sql.ColumnElement, sa.sql.Selectable)):
+                if isinstance(default, (abc.Callable, sa.sql.ColumnElement, sa.sql.Selectable)):  # type: ignore[arg-type]
                     default_provided = True
                 # ignore `None` for non-nullable columns
                 elif default is None and not attr.expression.nullable:
@@ -142,7 +143,7 @@ except ImportError:
     pass
 else:
     @match.register(lambda v: isinstance(v, graphql.GraphQLObjectType))
-    def match_graphql_type(model: graphql.GraphQLObjectType, filter: callable = None, *, snakes: bool = False) -> ModelInfo:
+    def match_graphql_type(model: graphql.GraphQLObjectType, filter: PredicateFn = None) -> ModelInfo:
         """ Match: GraphQL Object type """
         return ModelInfo(fields={
             name: FieldInfo(
@@ -157,7 +158,7 @@ else:
 
 
     @match.register(lambda v: isinstance(v, graphql.GraphQLInputObjectType))
-    def match_graphql_input_type(model: graphql.GraphQLInputObjectType, filter: callable = None, *, snakes: bool = False) -> ModelInfo:
+    def match_graphql_input_type(model: graphql.GraphQLInputObjectType, filter: PredicateFn = None) -> ModelInfo:
         """ Match: GraphQL Input type """
         return ModelInfo(fields={
             name: FieldInfo(

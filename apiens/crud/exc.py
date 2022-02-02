@@ -7,6 +7,7 @@ import sqlalchemy as sa
 import sqlalchemy.exc
 import sqlalchemy.orm
 import psycopg2
+from jessiql.typing import SAModelOrAlias
 
 from apiens.tools.sqlalchemy.pg_integrity_error import extract_postgres_unique_violation_column_names
 
@@ -57,7 +58,7 @@ class ValueConflict(BaseFieldValueError):
 
 
 @contextmanager  # and a decorator
-def converting_sa_erorrs(*, Model: type):
+def converting_sa_erorrs(*, Model: SAModelOrAlias):
     try:
         yield
     except sa.orm.exc.NoResultFound as e:
@@ -66,7 +67,7 @@ def converting_sa_erorrs(*, Model: type):
         raise MultipleResultsFound('Too many results found') from e
     except sa.exc.IntegrityError as e:
         if isinstance(e.orig, psycopg2.errors.UniqueViolation):
-            failed_column_names = extract_postgres_unique_violation_column_names(e, Model.metadata)
+            failed_column_names = extract_postgres_unique_violation_column_names(e, Model.metadata)  # type: ignore[union-attr]
             raise ValueConflict(column_names=failed_column_names) from e
         #elif isinstance(e.orig, psycopg2.errors.NotNullViolation):
         #    breakpoint()  # TODO: NotNull errors? contraint errors?

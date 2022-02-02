@@ -25,13 +25,13 @@ class unsorted:
         }
     """
 
-    def __init__(self, sequence: abc.Sequence[abc.Hashable]):
+    def __init__(self, sequence: abc.Iterable):
         # Don't use `set()` because otherwise duplicate items would be collapsed.
         self.__seq = sorted(sequence)
 
     __slots__ = '__seq',
 
-    def __eq__(self, other: abc.Iterable[abc.Hashable]):  # type: ignore[override]
+    def __eq__(self, other: abc.Iterable):  # type: ignore[override]
         return self.__seq == sorted(other)
 
     def __repr__(self):

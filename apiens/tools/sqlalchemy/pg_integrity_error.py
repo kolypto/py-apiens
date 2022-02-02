@@ -24,10 +24,10 @@ import psycopg2.extensions
 def extract_postgres_unique_violation_column_names(err: sa.exc.IntegrityError, metadata: sa.MetaData) -> frozenset[str]:
     """ Having an IntegrityError with a unique index violation, extract the list of offending column names """
     columns = extract_postgres_unique_violation_columns(err, metadata)
-    return frozenset(col.key for col in columns)
+    return frozenset(col.key for col in columns if col.key is not None)
 
 
-def extract_postgres_unique_violation_columns(err: sa.exc.IntegrityError, metadata: sa.MetaData) -> tuple[sa.Column]:
+def extract_postgres_unique_violation_columns(err: sa.exc.IntegrityError, metadata: sa.MetaData) -> tuple[sa.Column, ...]:
     """ Having an IntegrityError with a unique index violation, extract the list of offending columns
 
     Postgres errors are unreadable to users: they report the index name, but the user wants to know

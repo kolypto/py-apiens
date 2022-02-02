@@ -9,9 +9,10 @@ Example:
 If you're wondering: all callbacks are executed in sequence, because they're stored as an ordered list.
 """
 
+from collections import abc
 from collections import defaultdict
 from functools import partial
-from typing import List
+from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.orm import Session
@@ -20,7 +21,10 @@ from sqlalchemy.util import symbol
 from .session_info_storage import SessionInfoDictStorage
 
 
-def before_flush(ssn: Session, before_flush: callable, *args, **kwargs):
+UserCallback = abc.Callable[..., Any]
+
+
+def before_flush(ssn: Session, before_flush: UserCallback, *args, **kwargs):
     """ Exec a callable before the saved objects are flushed to the database
 
     You can iter(ssn), or analyze ssn.new, ssn.dirty, ssn.deleted to find out which objects will be flushed.
@@ -30,7 +34,7 @@ def before_flush(ssn: Session, before_flush: callable, *args, **kwargs):
     schedule_once_on_session_event(ssn, 'before_flush', partial(before_flush, *args, **kwargs))
 
 
-def after_flush(ssn: Session, after_flush: callable, *args, **kwargs):
+def after_flush(ssn: Session, after_flush: UserCallback, *args, **kwargs):
     """ Exec a callable after the saved objects are flushed to the database
 
     You can still inspect the session at this point: it's still in pre-flush state.
@@ -42,7 +46,7 @@ def after_flush(ssn: Session, after_flush: callable, *args, **kwargs):
     schedule_once_on_session_event(ssn, 'after_flush', partial(after_flush, *args, **kwargs))
 
 
-def after_flush_postexec(ssn: Session, after_flush_postexec: callable, *args, **kwargs):
+def after_flush_postexec(ssn: Session, after_flush_postexec: UserCallback, *args, **kwargs):
     """ Exec a callable after the saved objects are flushed to the database
 
     Unlike `after_flush`, it's a safe place to make additional ORM operations.
@@ -52,7 +56,7 @@ def after_flush_postexec(ssn: Session, after_flush_postexec: callable, *args, **
     schedule_once_on_session_event(ssn, 'after_flush_postexec', partial(after_flush_postexec, *args, **kwargs))
 
 
-def before_commit(ssn: Session, before_commit: callable, *args, **kwargs):
+def before_commit(ssn: Session, before_commit: UserCallback, *args, **kwargs):
     """ Exec a callable before the session commits and persists the changes to the database
 
     At this point, it's very likely that everything will be saved successfully.
@@ -62,7 +66,7 @@ def before_commit(ssn: Session, before_commit: callable, *args, **kwargs):
     schedule_once_on_session_event(ssn, 'before_commit', partial(before_commit, *args, **kwargs))
 
 
-def after_commit(ssn: Session, after_commit: callable, *args, **kwargs):
+def after_commit(ssn: Session, after_commit: UserCallback, *args, **kwargs):
     """ Exec a callable after the session has committed the changes to the database
 
     Note: the session is not active anymore; you can't make queries.
@@ -71,7 +75,7 @@ def after_commit(ssn: Session, after_commit: callable, *args, **kwargs):
     schedule_once_on_session_event(ssn, 'after_commit', partial(after_commit, *args, **kwargs))
 
 
-def after_rollback(ssn: Session, after_rollback: callable, *args, **kwargs):
+def after_rollback(ssn: Session, after_rollback: UserCallback, *args, **kwargs):
     """ Exec a callable after the session's outermost transaction is rolled back.
 
     Note: the session is not active; it's invalid!
@@ -79,7 +83,7 @@ def after_rollback(ssn: Session, after_rollback: callable, *args, **kwargs):
     schedule_once_on_session_event(ssn, 'after_rollback', partial(after_rollback, *args, **kwargs))
 
 
-def after_soft_rollback(ssn: Session, after_soft_rollback: callable, *args, **kwargs):
+def after_soft_rollback(ssn: Session, after_soft_rollback: UserCallback, *args, **kwargs):
     """ Exec a callable after the session's ourtermost transaction is rolled back.
 
     Note: the session is still active; you can make queries
@@ -87,7 +91,7 @@ def after_soft_rollback(ssn: Session, after_soft_rollback: callable, *args, **kw
     schedule_once_on_session_event(ssn, 'after_soft_rollback', partial(after_soft_rollback, *args, **kwargs))
 
 
-def schedule_once_on_session_event(ssn: Session, event_name: str, callback: callable, *args, **kwargs):
+def schedule_once_on_session_event(ssn: Session, event_name: str, callback: UserCallback, *args, **kwargs):
     """ A low-level API to schedule an event to be fired once on a Session event """
     assert isinstance(ssn, Session)
     _storage.append_callback(ssn, event_name, callback)
@@ -103,8 +107,8 @@ def reset(ssn: Session, event_name: str = None):
 
 # region Store callbacks into Session
 
-class _SessionCallbacksStorage(SessionInfoDictStorage[List]):
-    DEFAULT_FACTORY = lambda self: defaultdict(list)
+class _SessionCallbacksStorage(SessionInfoDictStorage[list]):
+    DEFAULT_FACTORY: abc.Callable[..., Any] = lambda self: defaultdict(list)
 
     def reset_stored_callbacks(self, session: Session):
         """ Clean-up all stored callbacks """
@@ -114,7 +118,7 @@ class _SessionCallbacksStorage(SessionInfoDictStorage[List]):
         """ Clean-up callbacks stored for a particular `event_name` """
         self.pop(session, event_name, None)
 
-    def append_callback(self, session: Session, event_name: str, callback: callable):
+    def append_callback(self, session: Session, event_name: str, callback: UserCallback):
         """ Append a one-shot callback onto a given Session event """
         self.get(session, event_name).append(callback)
 
