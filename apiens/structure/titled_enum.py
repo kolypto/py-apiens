@@ -30,12 +30,12 @@ def titled(title: str, *, description: str = ''):
     return EnumClassWrapper
 
 
-def get_title(Enum: type[TitledEnum]) -> str:
+def get_title(Enum: type[Enum]) -> str:
     """ Get the title of a titled Enum """
     return getattr(Enum, '__title__', '(not set)')
 
 
-def get_description(Enum: type[TitledEnum]) -> str:
+def get_description(Enum: type[Enum]) -> str:
     """ Get the description of a titled Enum """
     return getattr(Enum, '__description__', '')
 
