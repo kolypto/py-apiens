@@ -41,7 +41,7 @@ class TrackingSessionMaker(sa.orm.sessionmaker):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._active_sessions = _ActiveSessionRegistry(weak=False)
+        self._active_sessions = ActiveSessionRegistry(weak=False)
 
     def __call__(self, **kwargs):
         ssn = super().__call__(**kwargs)
@@ -58,7 +58,7 @@ def TrackingSessionCls(weak: bool) -> type[_TrackingSessionBase]:
     It's a *factory*: use it to get a class with its own tracking registry.
     """
     class TrackingSession(_TrackingSessionBase):
-        _active_sessions = _ActiveSessionRegistry(weak=weak)
+        _active_sessions = ActiveSessionRegistry(weak=weak)
 
     return TrackingSession
 
@@ -66,7 +66,7 @@ def TrackingSessionCls(weak: bool) -> type[_TrackingSessionBase]:
 class _TrackingSessionBase(sa.orm.Session):
     """ Base class for Sessions that track themselves """
     assert not hasattr(sa.orm.Session, '_active_sessions')  # make sure there's no clash
-    _active_sessions: ClassVar[_ActiveSessionRegistry]
+    _active_sessions: ClassVar[ActiveSessionRegistry]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -83,7 +83,7 @@ class _TrackingSessionBase(sa.orm.Session):
 T = TypeVar('T')
 
 
-class _ActiveObjectsRegistry(Generic[T]):
+class ActiveObjectsRegistry(Generic[T]):
     """ A registry for objects that must be properly closed """
     active_objects: MutableMapping[T, str]
 
@@ -158,7 +158,7 @@ class _ActiveObjectsRegistry(Generic[T]):
             raise AssertionError(msg)
 
 
-class _ActiveSessionRegistry(_ActiveObjectsRegistry[sa.orm.Session]):
+class ActiveSessionRegistry(ActiveObjectsRegistry[sa.orm.Session]):
     """ Implementation for SqlAlchemy sessions """
 
     def add_and_decorate(self, ssn: sa.orm.Session):  # type: ignore[override]
