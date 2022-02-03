@@ -1,7 +1,7 @@
 """ A default set of errors for your convenience. Use it if you will. """
 
 import gettext
-from typing import Union
+from typing import Union, Any
 from collections import abc
 from http import HTTPStatus
 
@@ -298,10 +298,11 @@ class F_NOT_IMPLEMENTED(BaseApplicationError):
 # endregion
 
 
-def export_error_catalog():
+def export_error_catalog(globals: dict[str, Union[type[BaseApplicationError], Any]] = globals()):
+    """ Get a list of every BaseApplicationError defined in `globals` """
     return [
         value
-        for name, value in globals().items()
+        for name, value in globals.items()
         if not name.startswith('_')
            and (isinstance(value, type) and issubclass(value, BaseApplicationError))
            and value not in (BaseApplicationError,)
