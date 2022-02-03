@@ -1,10 +1,6 @@
-from collections import namedtuple
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager
+from dataclasses import dataclass
 from unittest import mock
-
-
-# A collection of gags
-InternetGags = namedtuple('InternetGags', ('amazon', 'urllib', 'urllib3', 'aiohttp'))
 
 
 @contextmanager  # and decorator!
@@ -19,7 +15,20 @@ def network_gag():
     # Here, we create a patcher targeted at the low-level machinery inside the `boto3` Amazon library.
     # It will fail every time a request is made.
     # Because it's low level, however, it will not interfere with the `moto` library, whose mocks are higher-level
-    amazon_gag = mock.patch('botocore.httpsession.URLLib3Session.send', mock.Mock(side_effect=AmazonGagError))
+    try:
+        import botocore  # type: ignore[import]
+    except:
+        amazon_gag = nullmock()
+    else:
+        amazon_gag = mock.patch('botocore.httpsession.URLLib3Session.send', mock.Mock(side_effect=AmazonGagError))
+
+    # asyncio HTTP requests should be stopped
+    try:
+        import aiohttp  # type: ignore[import]
+    except ImportError:
+        internet_gag_aiohttp = nullmock()
+    else:
+        internet_gag_aiohttp = mock.patch('aiohttp.client.ClientSession._request', aiohttp_client_request_callback)
 
     # Network gag: HTTP requests
     # We put an additional stopper here that prevents all network requests through urllib3
@@ -35,24 +44,20 @@ def network_gag():
         urllib_urlopen_callback
     )
 
-    # asyncio HTTP requests should be stopped
-    internet_gag_aiohttp = mock.patch(
-        'aiohttp.client.ClientSession._request',
-        aiohttp_client_request_callback,
+    # All mocks
+    gags = InternetGags(
+        amazon=amazon_gag,
+        urllib=internet_gag_urllib,
+        urllib3=internet_gag_urllib3,
+        aiohttp=internet_gag_aiohttp,
     )
 
-    # All mocks
-    gags = InternetGags(amazon_gag, internet_gag_urllib, internet_gag_urllib3, internet_gag_aiohttp)
-    with ExitStack() as stack:
-        # Start every gag
-        for gag in gags:
-            try:
-                stack.enter_context(gag)
-            # Some gags may try to patch modules that we don't have. Ignore.
-            except ModuleNotFoundError:
-                pass
+    gags.start()
 
+    try:
         yield gags
+    finally:
+        gags.stop()
 
 
 def urllib_urlopen_callback(url, *args, **kwargs):
@@ -77,6 +82,26 @@ def aiohttp_client_request_callback(self, method, url, **kwargs):
     raise InternetGagError(url=f'{method} {url}')
 
 
+@dataclass
+class InternetGags:
+    amazon: mock._patch
+    urllib: mock._patch
+    urllib3: mock._patch
+    aiohttp: mock._patch
+
+    def stop(self):
+        self.amazon.stop()
+        self.urllib.stop()
+        self.urllib3.stop()
+        self.aiohttp.stop()
+
+    def start(self):
+        self.amazon.start()
+        self.urllib.start()
+        self.urllib3.start()
+        self.aiohttp.start()
+
+
 class AmazonGagError(RuntimeError):
     """ Error: a unit-test tried to use Amazon """
     def __init__(self):
@@ -98,6 +123,9 @@ class InternetGagError(RuntimeError):
             f'Cheers!'
         )
 
+
+def nullmock():
+    return mock.patch.object(type('', (), {}), '__doc__', 'placeholder')
 
 
 # Unmocked methods
