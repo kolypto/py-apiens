@@ -1,3 +1,5 @@
+""" Pieces for building a useful application settings """
+
 import secrets
 from typing import Optional
 
@@ -7,7 +9,17 @@ from urllib3.util import parse_url  # type: ignore[import]
 from .defs import Env
 
 
+__all__ = (
+    'EnvMixin', 'LocaleMixin', 'DomainMixin', 'CorsMixin', 'SecretMixin',
+    'PostgresMixin', 'RedisMixin',
+)
+
+
 class EnvMixin(pd.BaseSettings):
+    """ Settings: environment.
+
+    Lets your app run in different modes: e.g. provide more error information when in development
+    """
     # Environment
     ENV: Env
 
@@ -37,6 +49,7 @@ class EnvMixin(pd.BaseSettings):
 
 
 class LocaleMixin(pd.BaseSettings):
+    """ Settings: language and timezone """
     # Locale
     LOCALE: str = 'en'
 
@@ -45,6 +58,7 @@ class LocaleMixin(pd.BaseSettings):
 
 
 class DomainMixin(pd.BaseSettings):
+    """ Settings: application URL """
     # URL to where the app is served
     # Example: https://example.com/
     SERVER_URL: pd.AnyHttpUrl
@@ -57,10 +71,10 @@ class DomainMixin(pd.BaseSettings):
 
 
 class CorsMixin(pd.BaseSettings):
+    """ Settings: CORS policy setting """
     # Allowed CORS origins
     # List of JSON urls: ["http://localhost","http://localhost:4200"]
     CORS_ORIGINS: list[pd.AnyHttpUrl] = []
-
 
     @pd.validator('CORS_ORIGINS', pre=True)
     def prepare_cors_origins(cls, v: Optional[str]):
@@ -76,7 +90,7 @@ class CorsMixin(pd.BaseSettings):
         CORS_NAME = self.Config.env_prefix + 'CORS_ORIGINS'
         if f'{CORS_NAME}::modified' not in os.environ:
             os.environ[CORS_NAME] = json.dumps(
-                Settings.prepare_cors_origins(os.getenv(CORS_NAME, ''))
+                CorsMixin.prepare_cors_origins(os.getenv(CORS_NAME, ''))
             )
 
             # We have to make sure that this os.environ hacking happens only once.
@@ -88,22 +102,14 @@ class CorsMixin(pd.BaseSettings):
 
 
 class SecretMixin(pd.BaseSettings):
+    """ Setting: secret key for cryptography """
     # Secret key for the app
     # The default is used for testing and is regenerated every time
     SECRET_KEY: str = secrets.token_urlsafe(32)
 
 
-class Settings(pd.BaseSettings, EnvMixin, LocaleMixin, DomainMixin, CorsMixin, SecretMixin):  # type: ignore[misc]
-    # Human-readable name of this project
-    # Used in titles & emails & stuff
-    PROJECT_NAME: str
-
-    class Config:
-        # env_prefix = 'APP_'  # you can set a prefix for your environment variables
-        case_sensitive = True
-
-
 class PostgresMixin(pd.BaseSettings):
+    """ Setting: Postgres connection """
     # Database connection
     # Names of these variables match with names from the postgres Docker container.
     # We manually set `env=` name to make sure that Config.env_prefix has no effect on it
@@ -123,5 +129,24 @@ class PostgresMixin(pd.BaseSettings):
             user=values.get("POSTGRES_USER"),
             password=values.get("POSTGRES_PASSWORD"),
             host=values.get("POSTGRES_HOST"),
+            port=values.get('POSTGRES_PORT', None),
             path=f"/{values.get('POSTGRES_DB') or ''}",
         )
+
+
+class RedisMixin(pd.BaseSettings):
+    """ Setting: Redis connection """
+    REDIS_URL: pd.RedisDsn
+
+
+# Example:
+
+
+class ExampleSettings(EnvMixin, LocaleMixin, DomainMixin, CorsMixin, SecretMixin, PostgresMixin, RedisMixin, pd.BaseSettings):
+    # Human-readable name of this project
+    # Used in titles & emails & stuff
+    PROJECT_NAME: str = 'Cat Image Gallery'
+
+    class Config:
+        env_prefix = 'CATS_'
+        case_sensitive = True

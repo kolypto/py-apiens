@@ -19,7 +19,12 @@ from .env import (
     get_environment,
 )
 from .env_test import switch_environment_when_running_tests
-from .settings import Settings
+from . import mixins
+
+
+# Syntactic sugar to indicate values that will get defaults when not provided
+AUTOMATIC = None
+
 
 try:
     from .unit import unit
