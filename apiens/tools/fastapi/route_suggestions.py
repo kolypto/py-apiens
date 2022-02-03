@@ -1,5 +1,5 @@
 from collections import abc
-from functools import cache
+from functools import cache, lru_cache
 from typing import Optional
 
 from fastapi import FastAPI
@@ -32,8 +32,8 @@ def suggest_api_endpoint(app: FastAPI, method: Optional[str], path: str) -> abc.
     return get_close_matches(input_route, valid_routes)
 
 
-@cache
-def _all_application_routes(app: FastAPI) -> abc.Iterator[tuple[str, str]]:
+@lru_cache(maxsize=9)  # must be 1, but just in case
+def _all_application_routes(app: FastAPI) -> tuple[tuple[str, str], ...]:
     # Get all routes that make sense
     routes = [
         route
@@ -41,8 +41,8 @@ def _all_application_routes(app: FastAPI) -> abc.Iterator[tuple[str, str]]:
         if isinstance(route, (Route, APIRoute,))
     ]
 
-    # Render as list
-    return (
+    # Render as immutable list: tuple
+    return tuple(
         (method, route.path)
         for route in routes
         for method in (route.methods or ())
