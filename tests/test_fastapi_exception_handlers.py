@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from apiens.structure.error import exc
 from apiens.testing import Parameter
+from apiens.testing.okok import Whatever
 from apiens.tools.fastapi.exception_handlers import register_application_exception_handlers
 
 
@@ -52,13 +53,19 @@ def test_fastapi_exception_handlers(debug: bool):
                 'fixit': (fixit := Parameter()),
                 'info': {},
                 'debug': (
-                    {'msg': 'Internal server error', 'type': 'RuntimeError'}
+                    {
+                        'errors': [
+                            {'type': 'RuntimeError', 'msg': 'Internal server error', 'trace': (trace := Parameter())}
+                        ]
+                    }
                     if debug else
                     None
                 ),
             }
         }
         assert fixit.value.startswith('Please try again')
+        if debug:
+            assert trace.value[-1] == 'tests/test_fastapi_exception_handlers.py:server_error'
 
         # === Test: request validation error
         res = c.post('/validation/request', json={'user': {}})
@@ -96,7 +103,11 @@ def test_fastapi_exception_handlers(debug: bool):
                     ]
                 },
                 'debug': (
-                    {'msg': error, 'type': 'ValidationError'}
+                    {
+                        'errors': [
+                            {'type': 'ValidationError', 'msg': error, 'trace': Whatever}
+                        ]
+                    }
                     if debug else
                     None
                 ),

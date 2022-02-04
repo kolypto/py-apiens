@@ -1,6 +1,8 @@
 """ A default set of errors for your convenience. Use it if you will. """
 
+import os.path
 import gettext
+import traceback
 from typing import Union, Any
 from collections import abc
 from http import HTTPStatus
@@ -284,11 +286,28 @@ class F_UNEXPECTED_ERROR(BaseApplicationError):
             error or str(unexpected_exception),
             fixit or _('Please try again in a couple of minutes. '
                        'If the error does not go away, contact support and describe the issue'),
-            debug_msg=str(unexpected_exception),
-            debug_type=type(unexpected_exception).__name__,
+            debug_errors=list(cls._exception_cause(unexpected_exception)),
             **info
         )
         return exception_from(e, unexpected_exception)
+
+    @classmethod
+    def _exception_cause(cls, e: BaseException) -> abc.Iterator[dict]:
+        for _ in range(100):
+            yield {
+                'type': type(e).__name__,
+                'msg': str(e),
+                'trace': [
+                    f'{_short_filename(frame.filename)}:{frame.name}'
+                    for frame in traceback.extract_tb(e.__traceback__)
+                ]
+            }
+
+            # Descend into causation
+            if e.__cause__:
+                e = e.__cause__
+            else:
+                break
 
 
 class F_NOT_IMPLEMENTED(BaseApplicationError):
@@ -308,3 +327,11 @@ def export_error_catalog(globals: dict[str, Union[type[BaseApplicationError], An
            and (isinstance(value, type) and issubclass(value, BaseApplicationError))
            and value not in (BaseApplicationError,)
     ]
+
+
+def _short_filename(filename: str) -> str:
+    dir, file = os.path.split(filename)
+    return os.path.join(
+        os.path.basename(dir),
+        file
+    )
