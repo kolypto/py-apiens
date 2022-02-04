@@ -29,7 +29,7 @@ def suggest_api_endpoint(app: FastAPI, method: Optional[str], path: str) -> abc.
         for method, path in _all_application_routes(app)
     ]
 
-    return get_close_matches(input_route, valid_routes)
+    return get_close_matches(input_route, valid_routes, n=9)
 
 
 @lru_cache(maxsize=9)  # must be 1, but just in case

@@ -44,7 +44,7 @@ class ErrorObject(pd.BaseModel):
             error=str(e.error),
             fixit=str(e.fixit),
             info=e.info,
-            debug=None if include_debug_info else e.debug,
+            debug=e.debug if include_debug_info else None,
         )
 
 

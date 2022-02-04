@@ -284,7 +284,8 @@ class F_UNEXPECTED_ERROR(BaseApplicationError):
             error or str(unexpected_exception),
             fixit or _('Please try again in a couple of minutes. '
                        'If the error does not go away, contact support and describe the issue'),
-            debug_unexpected_exception=str(unexpected_exception),
+            debug_msg=str(unexpected_exception),
+            debug_type=type(unexpected_exception).__name__,
             **info
         )
         return exception_from(e, unexpected_exception)
