@@ -132,5 +132,5 @@ class BaseApplicationError(Exception):
             error=str(self.error),
             fixit=str(self.fixit),
             info=self.info,
-            debug=None if include_debug_info else self.debug,
+            debug=self.debug if include_debug_info else None,
         )

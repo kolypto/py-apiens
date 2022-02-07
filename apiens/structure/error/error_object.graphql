@@ -1,22 +1,64 @@
+""" The structure for an error object returned by the API for E_* and F_* errors
+
+When the API reports a failure, it is not just a string: it is an object with structured information
+about that error.
+
+Every error has a name, such as "E_AUTH_REQUIRED" or "F_UNEXPECTED_ERROR".
+
+Errors have distinction between user errors and technical errors.
+* A user error name starts with `E_` and means that the user can do something about it.
+Blame the user or the client application for this error.
+* A technical error name starts with `F_` and means that the user cannot fix it.
+Blame the server for the error.
+"""
 type ErrorObject {
-    # Error name: `E_*` for user errors, `F_*` for server faults
+    """ Error class name.
+
+    Use it in your code to handle different error conditions.
+
+    Examples: E_AUTH_REQUIRED, F_UNEXPECTED_ERROR
+    """
     name: String!
 
-    # Generic error title. Comes from the error class
+    """ A generic descriptive message, common to the error class.
+
+    This message is not too informative: can be used as a caption, but not as description.
+    """
     title: String!
 
-    # HTTP code for the error
-    httpcode: Int
+    """ HTTP error code """
+    httpcode: Int!
 
-    # Error description: what went wrong
+    """ Error message for the user
+
+    The negative side: what went wrong
+    """
     error: String!
 
-    # Error suggestion: what can you do to fix it
+    """ Suggested action for the user
+
+    The positive side: what the user is supposed to do
+    """
     fixit: String!
 
-    # Additional data
-    info: Object
+    """ Additional information
 
-    # Debug data. Not available in production.
+    Structured information about the error. It differs from one error to another, but in general,
+    if provides the same information that the error message has, but in structured format.
+
+    Example:
+
+    E_NOT_FOUND:
+    error: 'Cannot find User by id'
+    fixit: 'Have you entered the correct id?'
+    info:
+    object: 'User'
+    """
+    info: Object!
+
+    """ Additional debug information for developers.
+
+    Only available in non-production mode
+    """
     debug: Object
 }
