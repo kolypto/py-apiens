@@ -45,5 +45,6 @@ testpaths = [
 
 # all markers: $ pytest --markers
 markers = [
-    'extra: optional tests (mypy, etc)'
+    'extra: optional tests (mypy, etc)',
+    'makes_real_network_connections: The test makes connections to real hosts in the Internet',
 ]
