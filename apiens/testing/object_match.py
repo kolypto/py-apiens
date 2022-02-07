@@ -13,7 +13,7 @@ class ObjectMatch:
     """
     __slots__ = '_fields',
 
-    def __init__(self, /, **fields):
+    def __init__(self, **fields):
         self._fields = fields
 
     def __eq__(self, other: object):
