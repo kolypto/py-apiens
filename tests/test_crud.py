@@ -710,7 +710,7 @@ def test_mutation_saves_custom_fields():
         class UserMutateApi(MutateApi):
             # Implement a method for saving articles
             @saves_custom_fields('articles', 'new_articles')
-            def save_articles(self, /, new: User, prev: User = None, *, articles: list[dict] = MISSING, new_articles: list[dict] = MISSING):
+            def save_articles(self, new: User, prev: User = None, /, *, articles: list[dict] = MISSING, new_articles: list[dict] = MISSING):
                 if new_articles is not MISSING:
                     # Always add articles, do not replace.
                     # This is to simplify the implementation for the sake of tests

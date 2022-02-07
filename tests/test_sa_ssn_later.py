@@ -113,4 +113,4 @@ class User(Base):
 
 
 # DB Engine
-from .test_cqrs_crud import engine, Session  # reuse DB connection
+from .test_crud import engine, Session  # reuse DB connection

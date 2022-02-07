@@ -65,7 +65,7 @@ def test_fastapi_exception_handlers(debug: bool):
         }
         assert fixit.value.startswith('Please try again')
         if debug:
-            assert trace.value[-1] == 'tests/test_fastapi_exception_handlers.py:server_error'
+            assert trace.value[-1] == 'tests/test_fastapi.py:server_error'
 
         # === Test: request validation error
         res = c.post('/validation/request', json={'user': {}})
