@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from apiens.testing import DictMatch
+from apiens.testing.object_match import DictMatch
 from apiens.testing.models_match.match import match
 
 

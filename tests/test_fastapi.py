@@ -5,8 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apiens.structure.error import exc
-from apiens.testing import Parameter
-from apiens.testing.okok import Whatever
+from apiens.testing.object_match import Parameter, Whatever
 from apiens.tools.fastapi.exception_handlers import register_application_exception_handlers
 
 

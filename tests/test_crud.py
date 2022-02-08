@@ -29,7 +29,7 @@ from apiens.crud import CrudParams
 from apiens.crud import CrudSettings
 from apiens.crud import QueryApi, MutateApi, ReturningMutateApi
 from apiens.crud import saves_custom_fields, MISSING
-from apiens.testing import Parameter, ObjectMatch
+from apiens.testing.object_match import Parameter, ObjectMatch
 from apiens.tools.pydantic import partial
 from apiens.tools.pydantic.derive import derive_model
 from apiens.tools.sqlalchemy.session import db_transaction
