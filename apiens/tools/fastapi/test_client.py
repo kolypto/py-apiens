@@ -1,7 +1,7 @@
 import requests  # type: ignore[import]
 import fastapi.testclient
 
-from apiens.testing import SuccessfulMixin
+from apiens.testing.successful_mixin import SuccessfulMixin
 
 
 class TestClient(fastapi.testclient.TestClient, SuccessfulMixin):

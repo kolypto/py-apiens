@@ -105,3 +105,8 @@ class JWTToken(pd.BaseModel, Generic[SubjectT]):
 # Reserved claims.
 # Be careful not to use any of those values accidentally
 JWT_RESERVED_CLAIMS = frozenset(('iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti'))
+
+
+def looks_like_jwt_token(token: str) -> bool:
+    """ Does the value look like a JWT token? """
+    return isinstance(token, str) and token.count('.') == 2

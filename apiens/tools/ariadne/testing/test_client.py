@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import graphql
 import ariadne
 from dataclasses import dataclass
@@ -17,12 +19,22 @@ class GraphQLTestClient:
         self.debug = debug
         self.error_formatter = error_formatter
 
-    def execute_sync(self, query: str, context_value: Any = None, /, **variables) -> GraphQLResult:
-        """ Execute a GraphQL operation on the schema """
+    def execute_sync(self, query: str, **variables) -> GraphQLResult:
+        """ Execute a GraphQL operation """
+        with self.init_context_sync() as context_value:
+            return self.execute_sync_operation(query, context_value, **variables)
+
+    @contextmanager
+    def init_context_sync(self):
+        """ Prepare a context for a GraphQL request """
+        yield None
+
+    def execute_sync_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult:
+        """ Execute a GraphQL operation on the schema, with a custom context """
         data = dict(
             query=query,
             variables=variables or {},
-            operationName=None,
+            operationName=operation_name,
         )
         success, response = ariadne.graphql_sync(
             self.schema,
@@ -33,7 +45,6 @@ class GraphQLTestClient:
             logger=__name__,
             error_formatter=self.error_formatter,
         )
-        print(success, response)
         return GraphQLResult(response)  # type: ignore[arg-type]
 
     def __enter__(self):
@@ -50,7 +61,7 @@ class GraphQLResult:
     errors: list[GraphqlResponseErrorObject]
 
     def __init__(self, response: GraphQLResponseDict):
-        self.data = response['data']
+        self.data = response.get('data', None)
         self.errors = response.get('errors', [])
 
     @property
