@@ -3,7 +3,7 @@ from typing import Union, Any, Optional
 import graphql
 
 
-def has_directive(directive_name: str, node: Union[graphql.InputObjectTypeDefinitionNode, graphql.ObjectTypeDefinitionNode, Any]) -> bool:
+def has_directive(directive_name: str, node: Union[graphql.InputObjectTypeDefinitionNode, graphql.ObjectTypeDefinitionNode, graphql.FieldDefinitionNode, Any]) -> bool:
     """ Check that a field has a specific directive on it
 
     Example:
