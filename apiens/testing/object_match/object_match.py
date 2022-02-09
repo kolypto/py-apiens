@@ -27,7 +27,7 @@ class ObjectMatch:
                 # raise AssertionError(f'Error comparing values of attribute {name!r}') from e  # too much nesting
 
             # Finally, assert
-            assert values_are_equal, f'{other!r} == {self!r} because of {value!r} != {other_value}'
+            assert values_are_equal, f'{other!r} == {self!r} because of `{name}` {value!r} != {other_value}'
 
             # if value != getattr(other, name):
             #     return False
