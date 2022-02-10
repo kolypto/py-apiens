@@ -15,7 +15,7 @@ class GraphQLClientMixin:
     # URI of the GraphQL endpoint
     GRAPHQL_ENDPOINT: ClassVar[str]
 
-    def graphql(self: _GraphQLClientMixinTarget, query: str, /, **variables) -> GraphQLResponse:
+    def graphql_sync(self: _GraphQLClientMixinTarget, query: str, /, **variables) -> GraphQLResponse:
         """ Make a GraphQL query through the API
 
         NOTE: this is essential for E2E testing, but not too performant.
