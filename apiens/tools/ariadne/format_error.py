@@ -25,7 +25,7 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
 
         # Application error? Add Error Object
         if isinstance(original_error, BaseApplicationError):
-            error.extensions['error'] = _export_application_error_object(original_error, include_debug_info=debug)
+            error.extensions['error'] = _export_jsonable_application_error_object(original_error, include_debug_info=debug)
 
     # Format error
     error_dict = ariadne.format_error(error, debug)
@@ -38,7 +38,8 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
     return error_dict
 
 
-def _export_application_error_object(e: exc.BaseApplicationError, *, include_debug_info: bool) -> ErrorObject:
+def _export_jsonable_application_error_object(e: exc.BaseApplicationError, *, include_debug_info: bool) -> ErrorObject:
+    """ Convert an Application Error to a jsonable dict """
     error_object = e.dict(include_debug_info=include_debug_info)
 
     # NOTE: error objects may contain references to: dates, enums, etc. These have to be jsonable encoded.
