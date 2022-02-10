@@ -1,10 +1,11 @@
 import graphql
 import ariadne
 
-from typing import Optional, Union
+from typing import Union
 
-from apiens.structure.error import exc
+from apiens.structure.error import exc, ErrorObject
 from apiens.tools.ariadne.testing.query import ErrorDict
+from .convert_error import unwrap_graphql_error
 
 
 def application_error_formatter(error: graphql.GraphQLError, debug: bool = False, *, BaseApplicationError = exc.BaseApplicationError) -> Union[dict, ErrorDict]:
@@ -24,7 +25,7 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
 
         # Application error? Add Error Object
         if isinstance(original_error, BaseApplicationError):
-            error.extensions['error'] = original_error.dict(include_debug_info=debug)
+            error.extensions['error'] = _export_application_error_object(original_error, include_debug_info=debug)
 
     # Format error
     error_dict = ariadne.format_error(error, debug)
@@ -37,47 +38,18 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
     return error_dict
 
 
+def _export_application_error_object(e: exc.BaseApplicationError, *, include_debug_info: bool) -> ErrorObject:
+    error_object = e.dict(include_debug_info=include_debug_info)
 
-def convert_exception_to_graphql_error(e: Union[Exception, graphql.GraphQLError]) -> graphql.GraphQLError:
-    """ Convert a generic exception to a GraphQL error, if not already.
+    # NOTE: error objects may contain references to: dates, enums, etc. These have to be jsonable encoded.
+    # TODO: it's probably not a good idea to invoke FastAPI here thus adding it as a dependency, but at the moment, I've found no better way to do this.
+    if fastapi is not None:
+        error_object = fastapi.encoders.jsonable_encoder(error_object)
 
-    Note that such a representation will lack the rich error information Application errors provide.
-    Avoid using this function.
-    """
-    if isinstance(e, graphql.GraphQLError):
-        return e
-
-    return graphql.GraphQLError(str(e), original_error=e)
+    return error_object
 
 
-def convert_application_error_to_graphql_error(e: exc.BaseApplicationError, *, include_debug_info: bool) -> graphql.GraphQLError:
-    """ Convert an Application Error into a GraphQLError
-
-    Args:
-        e: The error to convert
-        include_debug_info: Expose debugging information?
-    """
-    assert isinstance(e, exc.BaseApplicationError)
-
-    return graphql.GraphQLError(
-        str(e.error),
-        original_error=e,
-        extensions={
-            'error': e.dict(include_debug_info=include_debug_info)
-        }
-    )
-
-def unwrap_graphql_error(error: graphql.GraphQLError) -> Optional[Exception]:
-    """ Get the original, non-GraphQL error
-
-    The `GraphQLError` wraps the original error, sometimes multiple times.
-    Get down to the original error and return it.
-
-    If there's no original error, return None
-    """
-    if error.original_error is None:
-        return None
-    elif isinstance(error.original_error, graphql.GraphQLError):
-        return unwrap_graphql_error(error)
-    else:
-        return error.original_error
+try:
+    import fastapi.encoders
+except ImportError:
+    fastapi = None  # type: ignore[assignment]

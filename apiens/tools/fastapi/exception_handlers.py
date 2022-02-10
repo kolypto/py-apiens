@@ -45,9 +45,10 @@ async def application_exception_handler(request: Request, e: exc.BaseApplication
     """
     # TODO: errors passthrough mode for unit-tests
     # Format the JSON error object properly
+    error_response = jsonable_encoder(ErrorResponse.from_exception(e, include_debug_info=request.app.debug))
     return JSONResponse(
         status_code=e.httpcode,
-        content=jsonable_encoder(ErrorResponse.from_exception(e, include_debug_info=request.app.debug)),
+        content=error_response,
         headers=e._response_headers
     )
 
