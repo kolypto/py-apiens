@@ -38,6 +38,6 @@ def unwrap_graphql_error(error: graphql.GraphQLError) -> Optional[Exception]:
     if error.original_error is None:
         return None
     elif isinstance(error.original_error, graphql.GraphQLError):
-        return unwrap_graphql_error(error)
+        return unwrap_graphql_error(error.original_error)
     else:
         return error.original_error

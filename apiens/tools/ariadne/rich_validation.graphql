@@ -1,0 +1,14 @@
+""" Additional information about validation errors
+
+This object provides structured validation errors for GraphQL types
+"""
+type GraphQLStructuredValidationErrorExtension {
+    """ Name of the input $variable that contains the error """
+    variable: String!
+
+    """ Path to the failing field, including the variable name """
+    path: [String!]!
+
+    """ User-friendly validation error message """
+    message: String!
+}

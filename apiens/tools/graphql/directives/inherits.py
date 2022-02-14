@@ -125,7 +125,7 @@ def _inherit_field__type_to_input(field: graphql.GraphQLField) -> graphql.GraphQ
         type_=field.type,  # type: ignore[arg-type]
         # default_value=graphql.Undefined,  # the default
         description=field.description,
-        deprecation_reason=field.deprecation_reason,
+        # deprecation_reason=field.deprecation_reason,  # TODO: uncomment when minimal GraphQL-Core version >= 3.1.5
         extensions=field.extensions,
         ast_node=graphql.language.ast.InputValueDefinitionNode(
             name=field.ast_node.name,
