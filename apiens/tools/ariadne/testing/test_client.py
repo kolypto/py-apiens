@@ -19,6 +19,9 @@ class GraphQLTestClient:
         self.debug = debug
         self.error_formatter = error_formatter
 
+        # Initialize a MiddlewareManager if you need one
+        self.middleware = None
+
     def execute_sync(self, query: str, **variables) -> GraphQLResult:
         """ Execute a GraphQL operation """
         with self.init_context_sync() as context_value:
@@ -44,6 +47,7 @@ class GraphQLTestClient:
             debug=self.debug,
             logger=__name__,
             error_formatter=self.error_formatter,
+            middleware=self.middleware,
         )
         return GraphQLResult(response)  # type: ignore[arg-type]
 
