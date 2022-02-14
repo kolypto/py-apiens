@@ -392,7 +392,7 @@ def test_documented_errors():
 
     # Middleware
     middleware = graphql.MiddlewareManager(
-        documented_errors_middleware,
+        documented_errors_middleware(),
     )
 
     # Go
