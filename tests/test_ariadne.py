@@ -4,9 +4,11 @@ import graphql
 import ariadne
 
 from apiens.structure.error import exc
+from apiens.structure.func import UndocumentedError
 from apiens.testing.object_match import Whatever
 from apiens.tools.ariadne.testing.test_client import GraphQLTestClient
 from apiens.tools.ariadne.format_error import application_error_formatter
+from apiens.tools.graphql.middleware.documented_errors import documented_errors_middleware
 
 
 @pytest.mark.parametrize('debug', [True, False])
@@ -85,9 +87,6 @@ def test_graphql_exception_handlers(debug: bool):
 
 def test_input_validation(caplog):
     """ Test how input validation errors are reported """
-    # Don't log all these annoying GraphQL errors. They're all expected and welcome.
-    caplog.set_level(logging.CRITICAL, logger="apiens.tools.ariadne.testing.test_client")
-
     def main(c: GraphQLTestClient):
         query_inputScalar = 'mutation ($age: Int!) { inputScalar(age: $age) }'
         query_inputScalarCustom = 'mutation ($age: PositiveInt!) { inputScalarCustom(age: $age) }'
@@ -302,7 +301,7 @@ def test_input_validation(caplog):
         }
 
     # GraphQL schema
-    # language=graphql
+    #language=graphql
     gql_schema = '''
     type Query { hello: String }
     
@@ -353,3 +352,56 @@ def test_input_validation(caplog):
     # Go
     with GraphQLTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
         main(c)
+
+
+def test_documented_errors():
+    def main(c: GraphQLTestClient):
+        # A field raises undocumented error
+        res = c.execute_sync('query { undocumented }')
+        assert isinstance(res.original_error, UndocumentedError)
+
+        # A field raises documented error
+        res = c.execute_sync('query { documented }')
+        assert res.app_error_name == 'E_AUTH_REQUIRED'
+
+
+    # GraphQL schema
+    #language=graphql
+    gql_schema = '''
+    type Query {
+        """ Documentation missing """
+        undocumented: String
+        
+        """ Documented
+        
+        Errors:
+            E_AUTH_REQUIRED: when not authenticated
+        """ 
+        documented: String
+    }
+    '''
+
+    QueryType = ariadne.QueryType()
+
+    @QueryType.field('undocumented')
+    @QueryType.field('documented')
+    def resolve_error_auth_required(_, info):
+        raise exc.E_AUTH_REQUIRED('Unauth', 'Auth')
+
+    schema = ariadne.make_executable_schema(gql_schema, QueryType)
+
+    # Middleware
+    middleware = graphql.MiddlewareManager(
+        documented_errors_middleware,
+    )
+
+    # Go
+    with GraphQLTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
+        c.middleware = middleware
+        main(c)
+
+
+@pytest.fixture(autouse=True)
+def no_graphql_test_client_logging(caplog):
+    # Don't log all these annoying GraphQL errors. They're all expected and welcome.
+    caplog.set_level(logging.CRITICAL, logger="apiens.tools.ariadne.testing.test_client")

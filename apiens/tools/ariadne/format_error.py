@@ -19,6 +19,7 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
         error.extensions = {}
 
     # Augmentations
+    # TODO: should these be implemented as extensions?
     augment_application_error(error, debug=debug, BaseApplicationError=BaseApplicationError)
     augment_validation_error(error)
 
@@ -34,6 +35,8 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
 
 
 def augment_application_error(error: graphql.GraphQLError, *, debug: bool = False, BaseApplicationError=exc.BaseApplicationError):
+    assert error.extensions is not None
+
     # Only once
     if 'error' in error.extensions:
         return
@@ -48,8 +51,10 @@ def augment_application_error(error: graphql.GraphQLError, *, debug: bool = Fals
 
 
 def augment_validation_error(error: graphql.GraphQLError):
+    assert error.extensions is not None
+
     # Only once
-    if 'validation' in error.extensions:
+    if 'validation' in error.extensions:  # type: ignore[operator]
         return
 
     # Is it a validation error?

@@ -23,9 +23,9 @@ def install_types_to_schema(schema: graphql.GraphQLSchema):
     with an alternative version that returns better, user-friendly, and structured, error messages.
     """
     for type_name, parse_value_func in SCALAR_PARSE_VALUE_MAP.items():
-        type: graphql.GraphQLScalarType = schema.type_map.get(type_name)
+        type: graphql.GraphQLScalarType = schema.type_map.get(type_name)  # type: ignore[assignment]
         if type is not None:
-            type.parse_value = parse_value_func
+            type.parse_value = parse_value_func  # type: ignore[assignment]
 
 
 def coerce_int(input_value: Any) -> int:
@@ -33,22 +33,22 @@ def coerce_int(input_value: Any) -> int:
         return graphql.type.scalars.coerce_int(input_value)
         # return pydantic.validators.int_validator(input_value)
     except graphql.GraphQLError as e:
-        raise graphql.GraphQLError(_('Not a valid number'))
+        raise graphql.GraphQLError(_('Not a valid number')) from e
 
 
-def coerce_float(input_value: Any) -> int:
+def coerce_float(input_value: Any) -> float:
     try:
         return graphql.type.scalars.coerce_float(input_value)
         # return pydantic.validators.float_validator(input_value)
     except graphql.GraphQLError as e:
-        raise graphql.GraphQLError(_('Not a valid number'))
+        raise graphql.GraphQLError(_('Not a valid number')) from e
 
 
 def coerce_bool(input_value: Any) -> bool:
     try:
         return graphql.type.scalars.coerce_boolean(input_value)
     except graphql.GraphQLError as e:
-        raise graphql.GraphQLError(_('Not a valid yes/no value'))
+        raise graphql.GraphQLError(_('Not a valid yes/no value')) from e
 
 
 SCALAR_PARSE_VALUE_MAP = {
