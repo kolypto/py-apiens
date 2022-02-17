@@ -1,5 +1,5 @@
 from collections import abc
-from typing import Optional
+from functools import wraps
 
 from ariadne import SchemaDirectiveVisitor
 from graphql import GraphQLField, GraphQLResolveInfo
@@ -42,7 +42,13 @@ class WrapperDirective(SchemaDirectiveVisitor):
         self.original_resolver = field.resolve  # type: ignore[assignment]
 
         # Use our self.resolve() instead
-        field.resolve = self.resolve
+        # Make sure it's properly wrapped -- so that any decorators applied to the original function are visible through us.
+        # This is especially important for @resolves_in_threadpool and @resolves_nonblocking
+        @wraps(self.original_resolver)
+        def resolve(root, info, /, **kwargs):
+            return self.resolve(root, info, **kwargs)
+
+        field.resolve = resolve
 
         # Done
         return field

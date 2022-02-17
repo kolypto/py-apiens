@@ -9,6 +9,7 @@ from apiens.testing.object_match import Whatever
 from apiens.tools.ariadne.testing.test_client import GraphQLTestClient
 from apiens.tools.ariadne.format_error import application_error_formatter
 from apiens.tools.graphql.middleware.documented_errors import documented_errors_middleware
+from apiens.tools.ariadne.asgi import resolves_nonblocking, resolves_in_threadpool, assert_no_unmarked_resolvers
 
 
 @pytest.mark.parametrize('debug', [True, False])
@@ -398,6 +399,73 @@ def test_documented_errors():
     # Go
     with GraphQLTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
         c.middleware = middleware
+        main(c)
+
+
+def test_asgi_resolvers():
+    def main(c: GraphQLTestClient):
+        # === Test: run validation to make sure all resolvers are fine
+        assert_no_unmarked_resolvers(schema)
+
+        # === Test: GraphQL Test Client
+        res = c.execute('query { async threaded nonblocking object { a b c } }')
+        assert res.successful().data == {
+            'async': 'async',
+            'threaded': 'threaded',
+            'nonblocking': 'nonblocking',
+            'object': {
+                'a': 1,
+                'b': 2,
+                'c': 3,
+            },
+        }
+
+    # Resolvers:
+    # Three types:
+    # 1. async function
+    # 2. sync function run in threadpool
+    # 3. sync function, non-blocking
+    QueryType = ariadne.QueryType()
+
+    @QueryType.field('async')
+    async def resolve_async(_, info: graphql.GraphQLResolveInfo):
+        return 'async'
+
+    @QueryType.field('threaded')
+    @resolves_in_threadpool
+    def resolve_threaded(_, info: graphql.GraphQLResolveInfo):
+        import time
+        time.sleep(1)
+        return 'threaded'
+
+    @QueryType.field('nonblocking')
+    @resolves_nonblocking
+    def resolve_nonblocking(_, info: graphql.GraphQLResolveInfo):
+        return 'nonblocking'
+
+    @QueryType.field('object')
+    @resolves_nonblocking
+    def resolve_object(_, info: graphql.GraphQLResolveInfo):
+        return {'a': 1, 'b': 2, 'c': 3}
+
+    # language=graphql
+    schema = ariadne.make_executable_schema('''
+    type Query {
+        async: String!
+        threaded: String!
+        nonblocking: String!
+        object: ABC!
+    }
+    
+    type ABC {
+        a: Int!
+        b: Int!
+        c: Int!
+    }
+    ''', QueryType, ariadne.snake_case_fallback_resolvers)
+
+    # Go
+    with GraphQLTestClient(schema, debug=True) as c:
         main(c)
 
 

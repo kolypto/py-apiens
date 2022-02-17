@@ -3,6 +3,8 @@ from types import ModuleType
 
 import ariadne
 
+from apiens.tools.ariadne.asgi import resolves_nonblocking
+
 
 def register_nested_object(parent: ariadne.ObjectType, field_name: str, nested: ariadne.ObjectType):
     """ Utility to use nested query and mutation types
@@ -28,6 +30,7 @@ def register_nested_object(parent: ariadne.ObjectType, field_name: str, nested: 
 
     See: https://github.com/mirumee/ariadne/issues/101#issuecomment-766999736
     """
+    @resolves_nonblocking
     def resolver(*_):
         return nested
 
