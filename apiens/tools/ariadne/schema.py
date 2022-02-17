@@ -1,3 +1,6 @@
+import os.path
+from types import ModuleType
+
 import ariadne
 
 
@@ -29,3 +32,17 @@ def register_nested_object(parent: ariadne.ObjectType, field_name: str, nested: 
         return nested
 
     parent.set_field(field_name, resolver)
+
+
+def load_schema_from_module(module: ModuleType, filename: str = '') -> str:
+    """ Given a Python module, load a graphql schema from a file in its path
+
+    Example:
+        load_schema_from_module(apiens.tools.ariadne, 'rich_validation.graphql')
+    """
+    return ariadne.load_schema_from_path(
+        os.path.join(
+            os.path.dirname(module.__file__),
+            filename
+        )
+    )
