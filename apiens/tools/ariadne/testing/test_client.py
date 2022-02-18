@@ -23,12 +23,12 @@ class GraphQLTestClient:
         # Initialize a MiddlewareManager if you need one
         self.middleware = None
 
-    def execute(self, query: str, **variables) -> GraphQLResult:
+    def execute(self, query: str, /, **variables) -> GraphQLResult:
         """ Execute a GraphQL query, with async resolver support """
         with self.init_context_sync() as context_value:
             return self.execute_operation(query, context_value, **variables)
 
-    def execute_sync(self, query: str, **variables) -> GraphQLResult:
+    def execute_sync(self, query: str, /, **variables) -> GraphQLResult:
         """ Execute a GraphQL query in sync mode """
         with self.init_context_sync() as context_value:
             return self.execute_sync_operation(query, context_value, **variables)
