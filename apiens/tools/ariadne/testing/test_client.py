@@ -168,7 +168,8 @@ class GraphQLResult:
             # If ErrorDict, raise the original error
             if isinstance(error, ErrorDict):
                 original_error = unwrap_graphql_error(error.error) or error.error
-                raise RuntimeError from original_error
+                # TODO: perhaps, add another line to the traceback to indicate we're here?
+                raise original_error
             # Otherwise raise the dict =\
             else:
                 raise RuntimeError(error)
