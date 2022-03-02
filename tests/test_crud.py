@@ -1192,7 +1192,7 @@ type Mutation {
     updateUser(user: UserUpdate!): Int!
     updateUserId(id: Int, user: UserUpdate!): Int!
     deleteUser(id: Int!): Int!
-    
+
     # Mutations that return the object
     createUserF(user: UserCreate!): User!
     updateUserF(user: UserUpdate!): User!
@@ -1233,7 +1233,7 @@ input ArticleCreateForUser {
 type ListUsersResponse {
     # The list of found users
     users: [User!]!
-    
+
     # Cursor to the previous page, if any
     prev: String
     # Cursor to the next page, if any
@@ -1244,15 +1244,16 @@ type ListUsersResponse {
 
 def schema_prepare() -> graphql.GraphQLSchema:
     """ Build a GraphQL schema for testing JessiQL queries """
-    from jessiql.integration.graphql.schema import graphql_jessiql_schema
+    import jessiql.integration.graphql
     from apiens.tools.graphql.directives import inherits, partial
+    from apiens.tools.ariadne.schema import load_schema_from_module
     schema_sdl = '\n'.join((
         GQL_SCHEMA,
+        load_schema_from_module(jessiql.integration.graphql, 'query_object.graphql'),
+        load_schema_from_module(jessiql.integration.graphql, 'object.graphql'),
         # Directives
         inherits.DIRECTIVE_SDL,
         partial.DIRECTIVE_SDL,
-        # QueryObject and QueryObjectInput
-        graphql_jessiql_schema,
     ))
 
     # Build
