@@ -15,6 +15,7 @@ This module provides decorators that make sure that your non-async functions wor
 from __future__ import annotations
 
 import asyncio
+import functools
 import graphql
 from enum import Enum
 from typing import Any, TypeVar, Optional
@@ -52,6 +53,17 @@ def resolves_async(function: AFT) -> AFT:
     return mark_async_resolver(function)
 
 
+def partial_resolver(resolver: FT, *args, **kwargs) -> FT:
+    """ partial() for resolvers
+
+    Python partial() loses additional function attributes because it does not use update_wrapper().
+    This version does.
+    """
+    f: FT = functools.partial(resolver, *args, **kwargs)  # type: ignore[assignment]
+    functools.update_wrapper(f, resolver)
+    return f
+
+
 # List of built-in modules to ignore while checking resolvers.
 # They're assumed to be non-blocking.
 BUILTIN_GRAPHQL_MODULES = frozenset((
@@ -61,7 +73,9 @@ BUILTIN_GRAPHQL_MODULES = frozenset((
 ))
 
 
-def assert_no_unmarked_resolvers(schema: graphql.GraphQLSchema, *, ignore_modules: abc.Container = BUILTIN_GRAPHQL_MODULES, ignore_resolvers: abc.Container = ()):
+def assert_no_unmarked_resolvers(schema: graphql.GraphQLSchema, *,
+                                 ignore_modules: abc.Container = BUILTIN_GRAPHQL_MODULES,
+                                 ignore_resolvers: abc.Container = ()):
     """ Make sure that every resolver in a GraphQL schema is properly marked """
     unmarked_resolvers = [
         f"{field.resolve.__qualname__} (module: {field.resolve.__module__})"  # type: ignore[union-attr]
@@ -120,6 +134,10 @@ def mark_nonblocking_resolver(function: FT) -> FT:
 
 def _get_resolver_type(function: abc.Callable) -> Optional[ResolverType]:
     """ Get resolver type marker from a function """
+    # Unwrap: partial()
+    if isinstance(function, functools.partial):
+        function = function.func
+
     # Async functions don't have to be decorated
     if asyncio.iscoroutinefunction(function):
         return ResolverType.ASYNC
