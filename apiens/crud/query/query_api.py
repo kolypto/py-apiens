@@ -66,7 +66,7 @@ class QueryApi(ModelOperationBase[SAInstanceT], Generic[SAInstanceT, QueryT]):
 
     def init_query(self) -> QueryT:
         """ Initialize JessiQL query """
-        query = self.QUERY_CLS(self.query_object, self.params.crudsettings.Model)
+        query = self.QUERY_CLS(self.query_object, self.params.crudsettings.Model, self.params.crudsettings.query_settings)
         query.customize_statements.append(self._query_customize_statements)  # type: ignore[arg-type]
         return query
 

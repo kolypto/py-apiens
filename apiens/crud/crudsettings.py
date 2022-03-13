@@ -1,7 +1,7 @@
 from collections import abc
-
 from typing import Optional
-from jessiql import sainfo
+
+from jessiql import QuerySettings, sainfo
 from .defs import AUTOMATIC
 from .crudfields import CrudFields
 
@@ -20,8 +20,13 @@ class CrudSettings:
     # Is the class using natural primary keys?
     natural_primary_key: bool = False
 
+    # Query Settings.
+    # Only applicable to APIs that Query
+    query_settings: Optional[QuerySettings] = None
+
     def __init__(self,
                  Model: type, *,
+                 query_settings: QuerySettings = None,
                  natural_primary_key: bool = False,
                  debug: bool = False
                  ):
@@ -33,6 +38,7 @@ class CrudSettings:
         """
         self.debug = debug
         self.Model = Model
+        self.query_settings = query_settings
         self.natural_primary_key = natural_primary_key
         self.primary_key = sainfo.primary_key.primary_key_names(self.Model)
 
