@@ -96,10 +96,11 @@ def converting_sa_errors(*, Model: type, exc=exc, _=exc._):
     """ Handle common SqlAlchemy errors in API operations
 
     SqlAlchemy raises errors that are cryptic to the end-user.
-    Convert them into something readable:
+    Convert them into something readable.
 
     Raises:
-        exc.E_NOT_FOUND: when one() fails
+        exc.E_NOT_FOUND: when not found
+        exc.E_NOT_FOUND: when multiple found
         exc.E_CONFLICT_DUPLICATE: for unique index violations
     """
     try:
@@ -114,7 +115,7 @@ def convert_sa_error(error: Exception, *, Model: type, exc=exc, _=exc._) -> Opti
     # NoResultFound
     if isinstance(error, sa.orm.exc.NoResultFound):
         e = exc.E_NOT_FOUND.format(
-            _('Cannot find {object} by id'),
+            _('Cannot find {object}'),
             _('Make sure you have entered a correct URL with a valid id'),
             object=Model.__name__,
         )
@@ -123,7 +124,7 @@ def convert_sa_error(error: Exception, *, Model: type, exc=exc, _=exc._) -> Opti
     # MultipleResultsFound
     if isinstance(error, sa.orm.exc.MultipleResultsFound):
         e = exc.E_NOT_FOUND.format(
-            _('Too many {object}s found'),
+            _('Several {object}s found'),
             _('Make sure you have entered a correct URL with a valid id'),
         )
         return exception_from(e, error)
