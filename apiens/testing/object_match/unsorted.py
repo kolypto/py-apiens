@@ -25,14 +25,15 @@ class unsorted:
         }
     """
 
-    def __init__(self, sequence: abc.Iterable):
+    def __init__(self, sequence: abc.Iterable, key=None):
         # Don't use `set()` because otherwise duplicate items would be collapsed.
-        self.__seq = sorted(sequence)
+        self.__key = key
+        self.__seq = sorted(sequence, key=key)
 
-    __slots__ = '__seq',
+    __slots__ = '__seq', '__key'
 
     def __eq__(self, other: abc.Iterable):  # type: ignore[override]
-        return self.__seq == sorted(other)
+        return self.__seq == sorted(other, key=self.__key)
 
     def __repr__(self):
         return repr(self.__seq)
