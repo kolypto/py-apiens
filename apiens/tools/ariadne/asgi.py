@@ -53,16 +53,6 @@ def resolves_async(function: AFT) -> AFT:
     return mark_async_resolver(function)
 
 
-def partial_resolver(resolver: FT, *args, **kwargs) -> FT:
-    """ partial() for resolvers
-
-    Python partial() loses additional function attributes because it does not use update_wrapper().
-    This version does.
-    """
-    f: FT = functools.partial(resolver, *args, **kwargs)  # type: ignore[assignment]
-    functools.update_wrapper(f, resolver)
-    return f
-
 
 # List of built-in modules to ignore while checking resolvers.
 # They're assumed to be non-blocking.
