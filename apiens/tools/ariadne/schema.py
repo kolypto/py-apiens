@@ -1,5 +1,9 @@
+
 import os.path
 from types import ModuleType
+from collections import abc
+from typing import Protocol, runtime_checkable
+from typing_extensions import runtime
 
 import ariadne
 
@@ -49,3 +53,18 @@ def load_schema_from_module(module: ModuleType, filename: str = '') -> str:
             filename
         )
     )
+
+
+def definitions_from_module(module: ModuleType) -> list[ariadne.SchemaBindable]:
+    """ Given a module, get all Ariadne definitions from it as a list """
+    return [
+        definition
+        for definition in vars(module).values()
+        if not isinstance(definition, type) and isinstance(definition, AriadneSchemaBindable)
+        # if isinstance(definition, type) and hasattr(definition, 'bind_to_schema')  # see: ariadne.SchemaBindable
+    ]
+
+
+@runtime_checkable
+class AriadneSchemaBindable(Protocol):
+    bind_to_schema = ariadne.SchemaBindable.bind_to_schema
