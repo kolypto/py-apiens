@@ -1,4 +1,5 @@
 from collections import abc
+from operator import itemgetter
 
 
 class unsorted:
@@ -23,6 +24,8 @@ class unsorted:
             'roles': unsorted(['admin', 'employee']),
             ...
         }
+
+    NOTE: when your sequence contains mutable object (e.g. dicts), use `key=repr` to sort them :)
     """
 
     def __init__(self, sequence: abc.Iterable, key=None):
@@ -37,3 +40,18 @@ class unsorted:
 
     def __repr__(self):
         return repr(self.__seq)
+
+
+class runsorted(unsorted):
+    """ unsorted() for testing lists of unsorted mutables
+
+    This implementation uses repr() to compare unsorted objects
+    """
+    def __init__(self, sequence: abc.Iterable):
+        super().__init__(sequence, key=repr)
+
+
+class kunsorted(unsorted):
+    """ unsorted() for testing lists of dicts """
+    def __init__(self, key, sequence: abc.Iterable):
+        super().__init__(sequence, key=itemgetter(key))
