@@ -49,6 +49,20 @@ def no_expire_on_commit(session: sa.orm.Session):
         session.expire_on_commit = prev_expire_on_commit
 
 
+def commit_no_expire(session: sa.orm.Session):
+    """ Do commit() on this session without expiring """
+    # Expire on commit
+    prev_expire_on_commit = session.expire_on_commit
+    session.expire_on_commit = False
+
+    # Yield
+    try:
+        session.commit()
+    # Restore
+    finally:
+        session.expire_on_commit = prev_expire_on_commit
+
+
 def db_save(session: sa.orm.Session, *instances):
     """ Commit a number of instances to the database
 
@@ -57,7 +71,6 @@ def db_save(session: sa.orm.Session, *instances):
     3. refresh() them
     """
     session.add_all(instances)
-    session.commit()
 
     with no_expire_on_commit(session):
         session.commit()
