@@ -203,7 +203,7 @@ def test_crud_create_api():
     @resolves(gql_schema, 'Mutation', 'createUserF')
     def resolve_create_userF(root, info: graphql.GraphQLResolveInfo, user: dict):
         """ Create user CRUD, returning full object with JessiQL support """
-        query_object = query_object_for(info, has_query_argument=False)
+        query_object = query_object_for(info)
         with Session() as ssn:
             return create_userF(UserCreate.parse_obj(user), ssn, query_object)['user']
 
@@ -463,13 +463,13 @@ def test_crud_update_api():
 
     @resolves(gql_schema, 'Mutation', 'updateUserF')
     def resolve_update_userF(root, info: graphql.GraphQLResolveInfo, user: dict):
-        query_object = query_object_for(info, has_query_argument=False)
+        query_object = query_object_for(info)
         with Session() as ssn:
             return update_userF(UserUpdate.parse_obj(user), ssn, query_object)['user']
 
     @resolves(gql_schema, 'Mutation', 'updateUserIdF')
     def resolve_update_userF_id(root, info: graphql.GraphQLResolveInfo, id: int, user: dict):
-        query_object = query_object_for(info, has_query_argument=False)
+        query_object = query_object_for(info)
         with Session() as ssn:
             return update_userF_id(id, UserUpdate.parse_obj(user), ssn, query_object)['user']
 
@@ -637,7 +637,7 @@ def test_crud_delete_api():
 
     @resolves(gql_schema, 'Mutation', 'deleteUserF')
     def resolve_delete_userF(root, info: graphql.GraphQLResolveInfo, id: int):
-        query_object = query_object_for(info, has_query_argument=False)
+        query_object = query_object_for(info)
         with Session() as ssn:
             return delete_userF(id, ssn, query_object)['user']
 
