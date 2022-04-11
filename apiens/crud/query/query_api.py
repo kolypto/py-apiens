@@ -62,7 +62,7 @@ class QueryApi(ModelOperationBase[SAInstanceT], Generic[SAInstanceT, QueryT]):
     _filter_func: abc.Callable[[], abc.Iterable[sa.sql.elements.BinaryExpression]]
 
     # Which JessiQL Query class to use: Query, QueryPage, etc
-    QUERY_CLS: type[QueryT] = jessiql.QueryPage  # type: ignore[assignment]
+    QUERY_CLS: type[QueryT] = jessiql.Query  # type: ignore[assignment]
 
     def init_query(self) -> QueryT:
         """ Initialize JessiQL query """

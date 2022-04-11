@@ -858,7 +858,7 @@ def test_crud_query():
             assert links.next.startswith('keys:')  # "keyset" cursor!
 
             # Second page
-            api = QueryApi(ssn, UserCrudParams(), {'select': ['id'], 'skip': links.next, 'limit': 2, 'sort': ['id+']})
+            api = QueryApi(ssn, UserCrudParams(), {'select': ['id'], 'after': links.next, 'limit': 2, 'sort': ['id+']})
 
             expected_result = [{'id': 3}, {'id': 4}]
             assert api.list() == expected_result
@@ -866,7 +866,7 @@ def test_crud_query():
             assert links.next.startswith('keys:')  # "keyset" cursor!
 
             # Third page
-            api = QueryApi(ssn, UserCrudParams(), {'select': ['id'], 'skip': links.next, 'limit': 2, 'sort': ['id+']})
+            api = QueryApi(ssn, UserCrudParams(), {'select': ['id'], 'after': links.next, 'limit': 2, 'sort': ['id+']})
 
             expected_result = [{'id': 5}]
             assert api.list() == expected_result
@@ -951,7 +951,7 @@ def test_crud_query_api():
         assert next.value.startswith('keys:')  # keyset pagination!
 
         # Next page
-        q = qop({'select': ['id'], 'sort': ['id+'], 'limit': 2, 'skip': next.value})
+        q = qop({'select': ['id'], 'sort': ['id+'], 'limit': 2, 'after': next.value})
         expected_result = {
             'users': [{'id': 3}],
             'prev': Parameter(),

@@ -1,10 +1,9 @@
 
 import os.path
 from types import ModuleType
-from collections import abc
 from typing import Protocol, runtime_checkable
-from typing_extensions import runtime
 
+import graphql
 import ariadne
 
 from apiens.tools.ariadne.asgi import resolves_nonblocking
@@ -65,6 +64,9 @@ def definitions_from_module(module: ModuleType) -> list[ariadne.SchemaBindable]:
     ]
 
 
+# We have to redefine the type to make it @runtime_checkable
 @runtime_checkable
 class AriadneSchemaBindable(Protocol):
-    bind_to_schema = ariadne.SchemaBindable.bind_to_schema
+    # copied from: ariadne.SchemaBindable.bind_to_schema
+    def bind_to_schema(self, schema: graphql.GraphQLSchema) -> None:
+        pass  # pragma: no cover

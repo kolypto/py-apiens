@@ -19,11 +19,11 @@ SQLALCHEMY_VERSIONS = [
 ]
 FASTAPI_VERSIONS = [
     # Selective: one latest version from 0.5x, 0.6x, 0.7x and so on
-    '0.59.0', '0.69.0', '0.73.0',
+    '0.59.0', '0.69.0', '0.73.0', '0.75.0',
 ]
 ARIADNE_VERSIONS = [
     # Selective
-    '0.13.0', '0.14.0',
+    '0.13.0', '0.14.1',
 ]
 GRAPHQL_CORE_VERSIONS = [
     '3.1.0', '3.1.1', '3.1.2', '3.1.3', '3.1.4', '3.1.5', '3.1.6', '3.1.7',
