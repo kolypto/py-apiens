@@ -27,6 +27,9 @@ def documented_errors_middleware(*, ignore_errors: frozenset[str] = DEFAULT_IGNO
 
     When an error is raised, this middleware would check whether docstring has it covered.
     If not, an UndocumentedError is raised instead.
+
+    Args:
+        ignore_errors: The list of error names to ignore.
     """
     def middleware(*args, **kwargs):
         return documented_errors_middleware_impl(ignore_errors, *args, **kwargs)
