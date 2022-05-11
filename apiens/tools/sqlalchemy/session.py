@@ -50,8 +50,12 @@ def no_expire_on_commit(session: sa.orm.Session):
 
 
 def commit_no_expire(session: sa.orm.Session):
-    """ Do commit() on this session without expiring """
-    # Expire on commit
+    """ Do commit() on this session without expiring instances
+
+    When you commit(), every instance is marked as "expired": that is, touching an attribute makes an SQL query.
+    This function will commit without expiring instances.
+    """
+    # Expire on commit: disable
     prev_expire_on_commit = session.expire_on_commit
     session.expire_on_commit = False
 
@@ -63,17 +67,35 @@ def commit_no_expire(session: sa.orm.Session):
         session.expire_on_commit = prev_expire_on_commit
 
 
+def db_flush(session: sa.orm.Session, *instances):
+    """ Flush a number of instances to the database """
+    session.add_all(instances)
+    session.flush()
+
+
 def db_save(session: sa.orm.Session, *instances):
     """ Commit a number of instances to the database
 
-    1. add() them
-    2. commit() them
-    3. refresh() them
+    Main feature: objects won't be "expired" after they're saved.
     """
     session.add_all(instances)
+    commit_no_expire(session)
 
-    with no_expire_on_commit(session):
-        session.commit()
+    # Done
+    return instances
+
+
+def db_save_refresh(session: sa.orm.Session, *instances):
+    """ Commit a number of instances, then refresh() them from the database
+
+    This makes sure that no object is expired, and also that they are up to date with the DB state.
+    """
+    # Save
+    session.add_all(instances)
+    session.commit()
+
+    # Refresh
+    instances = refresh_instances(session, instances)
 
     # Done
     return instances
@@ -129,7 +151,7 @@ def session_safe_commit(session: sa.orm.Session):
         raise
 
 
-def refresh_instances(session: sa.orm.Session, instances: abc.Iterable[object]):
+def refresh_instances(session: sa.orm.Session, instances: abc.Iterable[object], loadopt: abc.Mapping[type, ]):
     """ Refresh multiple instances at once
 
     This is much faster than doing `ssn.refresh()` in a loop.
@@ -141,10 +163,10 @@ def refresh_instances(session: sa.orm.Session, instances: abc.Iterable[object]):
         instances: The list of instances to refresh
     """
     for mapper, states in _group_instances_by_mapper(instances).items():
-        _refresh_multiple_instance_states(session, mapper, states).all()
+        _refresh_multiple_instance_states(session, mapper, states, loadopt=loadopt.get(mapper.class_, ())).all()
 
 
-def _refresh_multiple_instance_states(session: sa.orm.Session, mapper: sa.orm.mapper, states: list[sa.orm.state.InstanceState]) -> sa.orm.Query:
+def _refresh_multiple_instance_states(session: sa.orm.Session, mapper: sa.orm.mapper, states: list[sa.orm.state.InstanceState], loadopt=()) -> sa.orm.Query:
     """ Create a query to refresh multiple instance states at once
 
     Args:
@@ -164,7 +186,7 @@ def _refresh_multiple_instance_states(session: sa.orm.Session, mapper: sa.orm.ma
 
     # Execute one bulk query to load all instances at once.
     # This query will Session.merge() them into the Session, and thus, a bulk refresh is achieved.
-    return session.query(mapper).filter(condition)
+    return session.query(mapper).options(*loadopt).filter(condition)
 
 
 def _group_instances_by_mapper(instances: abc.Iterable[object]) -> dict[sa.orm.Mapper, list[sa.orm.state.InstanceState]]:
