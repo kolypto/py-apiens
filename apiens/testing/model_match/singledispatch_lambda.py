@@ -3,10 +3,14 @@ from .model_info import ModelInfo
 
 
 class singledispatch_lambda:
-    """ singledispatch, where every function has a custom lambda that checks whether it's applicable
+    """ singledispatch with custom lambda-function matching.
+
+    Every registered function has a custom lambda that checks whether the implementation is applicable.
 
     Here, you register functions together with a `check` function that decides whether it's applicable.
     It enables you to work with complicated types, like types themselves.
+
+    Note that this approach has poor performance, but this is fine for our testing purposes.
     """
     def __init__(self):
         self.dispatchers = []

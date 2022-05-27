@@ -151,7 +151,7 @@ def session_safe_commit(session: sa.orm.Session):
         raise
 
 
-def refresh_instances(session: sa.orm.Session, instances: abc.Iterable[object], loadopt: abc.Mapping[type, ]):
+def refresh_instances(session: sa.orm.Session, instances: abc.Iterable[object], loadopt: abc.Mapping[type, list] = {}):
     """ Refresh multiple instances at once
 
     This is much faster than doing `ssn.refresh()` in a loop.

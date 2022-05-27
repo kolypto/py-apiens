@@ -16,6 +16,8 @@ class exclude:
     def include(self, field_name: str):
         return field_name not in self._names
 
+    __call__ = include
+
 
 class include_only:
     """ Filter field names: include only those listed in `names` """
@@ -24,6 +26,8 @@ class include_only:
 
     def include(self, field_name: str):
         return field_name in self._names
+
+    __call__ = include
 
 
 # TODO: more predicates to: ignore types, ignore nullables, customize comparison on other ways, to make the matching more flexible.

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from collections import abc
 import dataclasses
+from collections import abc
 from copy import copy
-from dataclasses import dataclass
 from typing import Optional
 
 from .predicates import filter_by_predicate, PredicateFn
 
 
 # Model info
-@dataclass
+@dataclasses.dataclass
 class ModelInfo:
     """ Model information """
     fields: dict[str, FieldInfo]
@@ -32,14 +31,14 @@ class ModelInfo:
     def required(self, required: Optional[bool], filter: PredicateFn = None):
         """ Get a copy of self, with every matching field's `required` value changed """
         model = copy(self)
-        for field in applicable_fields(self, filter):
+        for field in applicable_fields(model, filter):
             field.required = required
         return model
 
     def nullable(self, nullable: Optional[bool], filter: PredicateFn = None):
         """ Get a copy of self, with every matching field's `nullable` value changed """
         model = copy(self)
-        for field in applicable_fields(self, filter):
+        for field in applicable_fields(model, filter):
             field.nullable = nullable
         return model
 
@@ -49,14 +48,14 @@ class ModelInfo:
 
 
 def applicable_fields(model: ModelInfo, filter: PredicateFn = None) -> abc.Iterable[FieldInfo]:
-    """ Iterate over model fields filtered by `filder` """
+    """ Iterate over model fields filtered by `filter` """
     for name, field in model.fields.items():
         if filter_by_predicate(name, filter):
             yield field
 
 
 # A field definition: tuple (name, extra info)
-@dataclass
+@dataclasses.dataclass
 class FieldInfo:
     """ Basic, uniform, field information
 

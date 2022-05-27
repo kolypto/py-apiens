@@ -17,6 +17,11 @@ from .singledispatch_lambda import singledispatch_lambda
 
 @singledispatch_lambda().decorator
 def match(model: Union[type, Any], filter: PredicateFn = None) -> ModelInfo:
+    """ Convert an object into a dict for matching
+
+    Given an object (a typed dict, a dataclass, a pydantic model, an sqlalchemy model, graphql type),
+    it will convert it into a ModelInfo dict that can be used for matching.
+    """
     raise NotImplementedError(f'Object of type {model} is not supported')
 
 
@@ -80,7 +85,7 @@ except ImportError:
     pass
 else:
     @match.register(lambda v: sa.orm.base.manager_of_class(v) is not None)
-    def match_sqlalchemy_model(model: type, filter: PredicateFn = None, *, props: bool = False, rels: bool = False) -> ModelInfo:
+    def match_sqlalchemy_model(model: type, filter: PredicateFn = None, *, props: bool = True, rels: bool = True) -> ModelInfo:
         """ Match: SqlAlchemy model """
         mapper: sa.orm.Mapper = sa.orm.class_mapper(model)
 
@@ -94,35 +99,74 @@ else:
             if jessiql.sainfo.columns.is_column(attr):
                 col: sa.Column = attr.expression
 
-                # Extract the default value
-                default = attr.default
-                # SqlALchemy likes to wrap it into `ColumnDefault`
-                if isinstance(default, sa.sql.schema.ColumnDefault):
-                    default = default.arg
+                if jessiql.sainfo.columns.is_column_property(attr):
+                    default = attr.default
 
-                # SqlAlchemy supports defaults that are: callable, SQL expressions
-                if isinstance(default, (abc.Callable, sa.sql.ColumnElement, sa.sql.Selectable)):  # type: ignore[arg-type]
-                    default_provided = True
-                # ignore `None` for non-nullable columns
-                elif default is None and not attr.expression.nullable:
-                    default_provided = False
+                    # SqlALchemy likes to wrap it into `ColumnDefault`
+                    if isinstance(default, sa.sql.schema.ColumnDefault):
+                        default = default.arg
+
+                    # SqlAlchemy supports defaults that are: callable, SQL expressions
+                    if isinstance(default, (abc.Callable, sa.sql.ColumnElement, sa.sql.Selectable)):  # type: ignore[arg-type]
+                        default_provided = True
+                    # ignore `None` for non-nullable columns
+                    elif default is None and not attr.expression.nullable:
+                        default_provided = False
+                    else:
+                        default_provided = True
+
+                    fields[name] = FieldInfo(
+                        name=name,
+                        type=None,  # not implemented
+                        required=not default_provided,
+                        nullable=col.nullable,
+                        aliases={col.name} if col.name != name else set(),
+                    )
+                elif jessiql.sainfo.columns.is_column_expression(attr):
+                    fields[name] = FieldInfo(
+                        name=name,
+                        type=None,  # not implemented
+                        required=False,
+                        nullable=True,  # everything's possible. Let's be lax
+                        aliases={col.name} if col.name != name else set(),
+                    )
+                elif jessiql.sainfo.columns.is_composite_property(attr):
+                    fields[name] = FieldInfo(
+                        name=name,
+                        type=None,  # not implemented
+                        required=False,
+                        nullable=False,  # composite properties do not support NULLs
+                        aliases={col.name} if col.name != name else set(),
+                    )
                 else:
-                    default_provided = True
-
-                fields[name] = FieldInfo(
-                    name=name,
-                    type=None,  # not implemented
-                    required=not default_provided,
-                    nullable=col.nullable,
-                    aliases={col.name} if col.name != name else set(),
-                )
+                    raise NotImplementedError
             elif jessiql.sainfo.relations.is_relation(attr) and rels:
+                # TO-MANY relationships are not nullable. They're lists.
+                if attr.property.uselist:
+                    nullable = False
+                # TO-ONE relationships may be nullable if the FK is nullable
+                else:
+                    nullable = any((
+                        local_col.nullable == True or remote_col.nullable == True
+                        for local_col, remote_col in attr.property.local_remote_pairs
+                    ))
+
                 fields[name] = FieldInfo(
                     name=name,
                     type=None,  # not implemented
                     required=False,
-                    nullable=attr.expression.nullable,
+                    nullable=nullable,
                 )
+            elif isinstance(attr, sa.ext.hybrid.hybrid_property):
+                # Will be handled in the properties section down below
+                pass
+            # These types are not implemented
+            # elif isinstance(attr, sa.ext.associationproxy.AssociationProxyInstance):
+            #     pass
+            # elif isinstance(attr, sa.ext.hybrid.hybrid_method):
+            #     pass
+            # else:
+            #     raise NotImplementedError(type(attr))
 
         # Properties
         if props:
