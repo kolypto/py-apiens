@@ -15,7 +15,7 @@ PYTHON_VERSIONS = ['3.9', '3.10']
 SQLALCHEMY_VERSIONS = [
     # Selective
     '1.3.11', '1.3.24',
-    '1.4.23', '1.4.36',
+    '1.4.23', '1.4.37',
 ]
 FASTAPI_VERSIONS = [
     # Selective: one latest version from 0.5x, 0.6x, 0.7x and so on
