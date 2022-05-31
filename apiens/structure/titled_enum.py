@@ -5,6 +5,8 @@ from typing import Any, Optional, TypeVar
 
 class TitledEnum(Enum):
     """ An Enum with both a value and a title """
+    title: str
+
     def __new__(cls, value: Any, title: str):
         v = object.__new__(cls)
         v._value_ = value

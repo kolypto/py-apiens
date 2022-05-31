@@ -48,7 +48,7 @@ def load_schema_from_module(module: ModuleType, filename: str = '') -> str:
     """
     return ariadne.load_schema_from_path(
         os.path.join(
-            os.path.dirname(module.__file__),
+            os.path.dirname(module.__file__),  # type: ignore[type-var,arg-type]
             filename
         )
     )

@@ -58,6 +58,10 @@ def extract_postgres_unique_violation_columns(err: sa.exc.IntegrityError, metada
     # Get diagnostic info
     diag: psycopg2.extensions.Diagnostics = err.orig.diag
 
+    # No table info? Quit.
+    if diag.table_name is None:
+        return ()
+
     # Find the schema item
     # Whatever this `schema_item` object is, it has a `.columns` property
     table: sa.Table = metadata.tables[diag.table_name]

@@ -5,7 +5,7 @@ import ariadne
 
 from apiens.structure.error import exc
 from apiens.structure.func import UndocumentedError
-from apiens.testing.object_match import Whatever
+from apiens.testing.object_match import Whatever, DictMatch
 from apiens.tools.ariadne.testing.test_client import GraphQLTestClient
 from apiens.tools.ariadne.format_error import application_error_formatter
 from apiens.tools.graphql.middleware.documented_errors import documented_errors_middleware
@@ -104,51 +104,46 @@ def test_input_validation(caplog):
         # === Test: Argument: variable not provided
         # inputScalar() wants an argument, but we do not provide any
         res = c.execute_sync('mutation { inputScalar }')
-        assert res.graphql_error == {
+        assert dict(res.graphql_error) == DictMatch({
             'message': "Field 'inputScalar' argument 'age' of type 'Int!' is required, but it was not provided.",
             'locations': Whatever,
-            'path': None,
             'extensions': {'exception': None},
-        }
+        })
 
         # === Test: Argument: wrong type provided
         # inputScalar() wants an `Int!`, but we provide something else
         res = c.execute_sync('mutation ($age: String!) { inputScalar(age: $age) }')
-        assert res.graphql_error == {
+        assert dict(res.graphql_error) == DictMatch({
             'message': "Variable '$age' of type 'String!' used in position expecting type 'Int!'.",
             'locations': Whatever,
-            'path': None,
             'extensions': {'exception': None},
-        }
+        })
 
         # === Test: Argument: nullable type provided
         # inputScalar() wants an `Int!`, but we provide a nullable `Int`
         res = c.execute_sync('mutation ($age: Int) { inputScalar(age: $age) }')
-        assert res.graphql_error == {
+        assert dict(res.graphql_error) == DictMatch({
             'message': "Variable '$age' of type 'Int' used in position expecting type 'Int!'.",
             'locations': Whatever,
-            'path': None,
             'extensions': {'exception': None},
-        }
+        })
 
         # ### Variable tests ### #
         # Tests where something's wrong with the variable.
         # No value provided, wrong type, null, or custom validation error
 
         # === Test: Variable: variable not provided
-        assert c.execute_sync(query_inputScalar).graphql_error == {
+        assert dict(c.execute_sync(query_inputScalar).graphql_error) == DictMatch({
             'message': "Variable '$age' of required type 'Int!' was not provided.",
             'locations': Whatever,
-            'path': None,
             'extensions': {'exception': None},
-        }
+        })
 
         # === Test: Variable: variable wrong type
-        assert c.execute_sync(query_inputScalar, age='INVALID').graphql_error == {
+        assert dict(c.execute_sync(query_inputScalar, age='INVALID').graphql_error) == DictMatch({
             # 'message': "Variable '$age' got invalid value 'INVALID'; Int cannot represent non-integer value: 'INVALID'",  # original GraphQL error
             'message': "Variable '$age' got invalid value 'INVALID'; Not a valid number",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': None,
                 'validation': {
@@ -157,21 +152,19 @@ def test_input_validation(caplog):
                     'message': 'Not a valid number',
                 },
             },
-        }
+        })
 
         # === Test: Variable: variable must not be null
-        assert c.execute_sync(query_inputScalar, age=None).graphql_error == {
+        assert dict(c.execute_sync(query_inputScalar, age=None).graphql_error) == DictMatch({
             'message': "Variable '$age' of non-null type 'Int!' must not be null.",
             'locations': Whatever,
-            'path': None,
             'extensions': {'exception': None},
-        }
+        })
 
         # === Test: Variable: variable custom type failed
-        assert c.execute_sync(query_inputScalarCustom, age=-1).graphql_error == {
+        assert dict(c.execute_sync(query_inputScalarCustom, age=-1).graphql_error) == DictMatch({
             'message': "Variable '$age' got invalid value -1; Expected type 'PositiveInt'. Must be positive",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': {
                     'context': {'value': '-1'},
@@ -183,32 +176,31 @@ def test_input_validation(caplog):
                     'message': "Must be positive",
                 },
             },
-        }
+        })
 
         # ### Field tests ### #
         # Tests where a value fails inside a complex object, `User`.
         # A nested field's value is not provided, has a wrong type, or there's a custom validation error
 
         # === Test: Field: variable must be a dict
-        assert c.execute_sync(query_inputObject, user='INVALID').graphql_error == {
-            'message':  "Variable '$user' got invalid value 'INVALID'; Expected type 'User' to be a dict.",
+        DICT_NAME = 'dict' if graphql.version_info < (3, 2, 0) else 'mapping'
+        assert dict(c.execute_sync(query_inputObject, user='INVALID').graphql_error) == DictMatch({
+            'message':  f"Variable '$user' got invalid value 'INVALID'; Expected type 'User' to be a {DICT_NAME}.",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': None,
                 'validation': {
                     'variable': 'user',
                     'path': ('user',),
-                    'message': "Expected type 'User' to be a dict.",
+                    'message': f"Expected type 'User' to be a {DICT_NAME}.",
                 },
             },
-        }
+        })
 
         # === Test: Field: variable not provided
-        assert c.execute_sync(query_inputObject, user={}).graphql_error == {
+        assert dict(c.execute_sync(query_inputObject, user={}).graphql_error) == DictMatch({
             'message': "Variable '$user' got invalid value {}; Field 'age' of required type 'Int!' was not provided.",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': None,
                 'validation': {
@@ -217,14 +209,13 @@ def test_input_validation(caplog):
                     'message': "Field 'age' of required type 'Int!' was not provided.",
                 },
             },
-        }
+        })
 
         # === Test: Field: variable wrong type
-        assert c.execute_sync(query_inputObject, user={'age': 'INVALID'}).graphql_error == {
+        assert dict(c.execute_sync(query_inputObject, user={'age': 'INVALID'}).graphql_error) == DictMatch({
             # 'message': "Variable '$user' got invalid value 'INVALID' at 'user.age'; Int cannot represent non-integer value: 'INVALID'",  # original GraphQL error
             'message': "Variable '$user' got invalid value 'INVALID' at 'user.age'; Not a valid number",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': None,
                 'validation': {
@@ -233,13 +224,12 @@ def test_input_validation(caplog):
                     'message': "Not a valid number",
                 },
             },
-        }
+        })
 
         # === Test: Field: variable must not be null
-        assert c.execute_sync(query_inputObject, user={'age': None}).graphql_error == {
+        assert dict(c.execute_sync(query_inputObject, user={'age': None}).graphql_error) == DictMatch({
             'message': "Variable '$user' got invalid value None at 'user.age'; Expected non-nullable type 'Int!' not to be None.",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': None,
                 'validation': {
@@ -248,13 +238,12 @@ def test_input_validation(caplog):
                     'message': "Expected non-nullable type 'Int!' not to be None.",
                 },
             },
-        }
+        })
 
         # === Test: Field: variable custom type failed
-        assert c.execute_sync(query_inputObject, user={'age': -1, 'positiveAge': -1}).graphql_error == {
+        assert dict(c.execute_sync(query_inputObject, user={'age': -1, 'positiveAge': -1}).graphql_error) == DictMatch({
             'message': "Variable '$user' got invalid value -1 at 'user.positiveAge'; Expected type 'PositiveInt'. Must be positive",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': {
                     'context': {'value': '-1'},
@@ -266,14 +255,13 @@ def test_input_validation(caplog):
                     'message': 'Must be positive',
                 },
             },
-        }
+        })
 
         # === Test: Field: nested nested: variable wrong type
-        assert c.execute_sync(query_inputObject, user={'age': 0, 'parent': {'age': 'INVALID'}}).graphql_error == {
+        assert dict(c.execute_sync(query_inputObject, user={'age': 0, 'parent': {'age': 'INVALID'}}).graphql_error) == DictMatch({
             # 'message': "Variable '$user' got invalid value 'INVALID' at 'user.parent.age'; Int cannot represent non-integer value: 'INVALID'",  # original GraphQL error
             'message': "Variable '$user' got invalid value 'INVALID' at 'user.parent.age'; Not a valid number",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': None,
                 'validation': {
@@ -282,14 +270,13 @@ def test_input_validation(caplog):
                     'message': 'Not a valid number',
                 },
             },
-        }
+        })
 
 
         # === Test: enum: wrong value
-        assert c.execute_sync(query_inputEnum, letter='Z').graphql_error == {
+        assert dict(c.execute_sync(query_inputEnum, letter='Z').graphql_error) == DictMatch({
             'message': "Variable '$letter' got invalid value 'Z'; Value 'Z' does not exist in 'FavoriteLetter' enum. Did you mean the enum value 'A', 'B', or 'C'?",
             'locations': Whatever,
-            'path': None,
             'extensions': {
                 'exception': None,
                 'validation': {
@@ -299,13 +286,13 @@ def test_input_validation(caplog):
                     'message': "Value 'Z' does not exist in 'FavoriteLetter' enum. Did you mean the enum value 'A', 'B', or 'C'?",
                 },
             },
-        }
+        })
 
     # GraphQL schema
     #language=graphql
     gql_schema = '''
     type Query { hello: String }
-    
+
     type Mutation {
         # Test: scalar, non-null
         inputScalar(age: Int!): Void
@@ -317,7 +304,7 @@ def test_input_validation(caplog):
         # Test: enum
         inputEnum(letter: FavoriteLetter!): Void
     }
-    
+
     input User {
         # Object fields: scalars
         age: Int!
@@ -325,10 +312,10 @@ def test_input_validation(caplog):
         # Object fields: embedded
         parent: User
     }
-    
+
     scalar Void
     scalar PositiveInt
-    
+
     enum FavoriteLetter {
         A B C
     }
@@ -372,12 +359,12 @@ def test_documented_errors():
     type Query {
         """ Documentation missing """
         undocumented: String
-        
+
         """ Documented
-        
+
         Errors:
             E_AUTH_REQUIRED: when not authenticated
-        """ 
+        """
         documented: String
     }
     '''
@@ -456,7 +443,7 @@ def test_asgi_resolvers():
         nonblocking: String!
         object: ABC!
     }
-    
+
     type ABC {
         a: Int!
         b: Int!

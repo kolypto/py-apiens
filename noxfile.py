@@ -15,25 +15,25 @@ PYTHON_VERSIONS = ['3.9', '3.10']
 SQLALCHEMY_VERSIONS = [
     # Selective
     '1.3.11', '1.3.24',
-    '1.4.23', '1.4.35',
+    '1.4.23', '1.4.36',
 ]
 FASTAPI_VERSIONS = [
     # Selective: one latest version from 0.5x, 0.6x, 0.7x and so on
-    '0.59.0', '0.69.0', '0.73.0', '0.75.0',
+    '0.59.0', '0.69.0', '0.73.0', '0.75.0', '0.78.0',
 ]
 ARIADNE_VERSIONS = [
     # Selective
-    '0.13.0', '0.14.1',
+    '0.13.0', '0.14.1', '0.15.1',
 ]
 GRAPHQL_CORE_VERSIONS = [
     '3.1.0', '3.1.1', '3.1.2', '3.1.3', '3.1.4', '3.1.5', '3.1.6', '3.1.7',
-    # '3.2.0',  # <-- currently breaks Ariadne
+    '3.2.0', '3.2.1',
 ]
 PYDANTIC_VERSIONS = [
     # Selective
     '1.7.4',  # latest 1.7.x
     '1.8', '1.8.1', '1.8.2',
-    '1.9.0',
+    '1.9.0', '1.9.1',
 ]
 
 
@@ -53,7 +53,7 @@ def tests(session: nox.sessions.Session, *, overrides: dict[str, str] = {}):
     # Test
     args = ['-k', 'not extra']
     if not overrides:
-        args.append('--cov=jessiql')
+        args.append('--cov=apiens')
 
     session.run('pytest', 'tests/', *args)
 
