@@ -9,19 +9,44 @@ from typing_extensions import ClassVar
 from .test_client import GraphQLResult
 
 
-class GraphQLClientMixin:
-    """ GraphQL mixin for FastAPI test client """
+
+class GraphQLClientMixinTarget(Protocol):
+    """ Protocol: describes the target for GraphQLClientMixin """
+    def post(self, *, url: str, json: dict):
+        raise NotImplementedError
+
+
+class GraphQLClientMixin(GraphQLClientMixinTarget):
+    """ GraphQL mixin for FastAPI test client
+
+    Example:
+
+        from apiens.tools.fastapi.test_client import TestClient
+
+        class MyApiTestClient(TestClient, GraphQLClientMixin):
+            GRAPHQL_ENDPOINT = f'{settings.API}/graphql/'
+    """
 
     # URI of the GraphQL endpoint
     GRAPHQL_ENDPOINT: ClassVar[str]
 
-    def graphql_sync(self: _GraphQLClientMixinTarget, query: str, /, **variables) -> GraphQLResponse:
+    def graphql_sync(self, query: str, /, **variables) -> GraphQLResponse:
         """ Make a GraphQL query through the API
 
         NOTE: this is essential for E2E testing, but not too performant.
         Use GraphQLTestClient for the majority of your tests
         """
         # Send the request
+        res = self.graphql_sync_request(query, **variables)
+
+        # It must be a 200 OK even in case of an error response
+        assert res.response.ok, f'Bad response code: {res.response.status_code}: {res.response.content}'
+
+        # Done
+        return res
+
+    def graphql_sync_request(self, query: str, /, **variables) -> GraphQLResponse:
+        """ Make a GraphQL HTTP request and get a response """
         res: requests.Response = self.post(
             url=self.GRAPHQL_ENDPOINT,
             json=dict(
@@ -30,21 +55,7 @@ class GraphQLClientMixin:
                 operationName=None,
             ),
         )
-
-        # It must be a 200 OK even in case of an error response
-        assert res.ok, f'Bad response code: {res.status_code}: {res.content}'
-
-        # Done
         return GraphQLResponse(res)
-
-
-class _GraphQLClientMixinTarget(Protocol):
-    """ Protocol: describes the target for GraphQLClientMixin """
-    GRAPHQL_ENDPOINT: str
-
-    def post(self, *, url: str, json: dict):
-        raise NotImplementedError
-
 
 @dataclass
 class GraphQLResponse(GraphQLResult):

@@ -50,7 +50,7 @@ class GraphqlResponseErrorObject(TypedDict):
     extensions: GraphqlErrorExtensionsObject
 
 
-class GraphqlErrorExtensionsObject(TypedDict):
+class GraphqlErrorExtensionsObject(TypedDict, total=False):
     """ GraphQL errors[*].extensions
 
     Every GraphQL error can have additional fields, but there are all in a so-called "json junk drawer":

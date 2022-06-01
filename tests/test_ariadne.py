@@ -2,6 +2,8 @@ import logging
 import pytest
 import graphql
 import ariadne
+import ariadne.asgi
+from collections import abc
 
 from apiens.structure.error import exc
 from apiens.structure.func import UndocumentedError
@@ -455,6 +457,95 @@ def test_asgi_resolvers():
     with GraphQLTestClient(schema, debug=True) as c:
         main(c)
 
+
+@pytest.mark.skipif(not hasattr(ariadne.asgi.GraphQL, 'create_json_response'), reason='Ariadne compatibility')
+def test_asgi_finalizing_app():
+    import starlette.requests
+    import starlette.testclient
+    import starlette.applications
+    import starlette.routing
+
+    def main(c: starlette.testclient.TestClient):
+        nonlocal context_init_should_fail, finalize_request_should_fail
+        query = ''' query { _ } '''
+
+        # === Test: ok request
+        res = c.post('/graphql', json={'query': query})
+        assert res.status_code == 200
+        assert res.json() == {
+            'data': {'_': None}
+        }
+
+        # === Test: fail before request
+        context_init_should_fail = True
+        finalize_request_should_fail = False
+
+        res = c.post('/graphql', json={'query': query})
+        assert res.status_code == 400
+        assert res.json() == {
+            'data': None,
+            'errors': [
+                {'message': 'Failed:context', 'extensions':{'where': 'before-request'}},
+            ]
+        }
+
+
+        # === Test: fail after request
+        context_init_should_fail = False
+        finalize_request_should_fail = True
+
+        res = c.post('/graphql', json={'query': query})
+        assert res.status_code == 200
+        assert res.json() == {
+            'data': None,
+            'errors': [
+                {'message': 'Failed:finalize', 'extensions':{'where': 'after-request'}},
+            ]
+        }
+
+    # language=graphql
+    schema = ariadne.make_executable_schema('''
+        type Query {
+            _: Int
+        }
+    ''')
+
+    # Context
+    context_init_should_fail = False
+    def context_value_provider(request: starlette.requests.Request):
+        # Fail on purpose
+        if context_init_should_fail:
+            raise AssertionError('Failed:context')
+
+        # Init context -- and store it into the request where it can be found
+        context = {
+            'value': 'context-value'
+        }
+        request.state.graphql_context = context
+        return context
+
+    # Finalizing application
+    from apiens.tools.ariadne.asgi_finalizing import FinalizingGraphQL
+
+    finalize_request_should_fail = False
+    class App(FinalizingGraphQL):
+        async def finalize_request(self, request: starlette.requests.Request) -> tuple[bool, abc.Iterable[Exception]]:
+            if finalize_request_should_fail:
+                return True, (
+                    AssertionError('Failed:finalize'),
+                )
+            else:
+                return False, ()
+
+    # Init app
+    app = App(schema, context_value=context_value_provider)
+    app = starlette.applications.Starlette(debug=True, routes=[
+        starlette.routing.Route('/graphql', app)
+    ])
+
+    # Go
+    with starlette.testclient.TestClient(app) as c:
+        main(c)
 
 @pytest.fixture(autouse=True)
 def no_graphql_test_client_logging(caplog):
