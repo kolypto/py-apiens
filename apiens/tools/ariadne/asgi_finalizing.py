@@ -61,7 +61,10 @@ class FinalizingGraphQL(GraphQL):
             # as empty, fatal, response
             result = {'data': None}
             self._add_errors_to_result(result, [e], is_fatal=True, where='before-request')
-            return await self.create_json_response(request, result, success=False)
+
+            # Return the result.
+            # GraphQL reports every successful result as 200 and every client error as 400
+            return await self.create_json_response(request, result, success=True)
 
         # If everything went well, finalize the request as successful
         # This may add headers, data fields, etc

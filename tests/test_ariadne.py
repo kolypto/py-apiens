@@ -484,7 +484,7 @@ def test_asgi_finalizing_app():
         finalize_request_should_fail = False
 
         res = c.post('/graphql', json={'query': query})
-        assert res.status_code == 400
+        assert res.status_code == 200
         assert res.json() == {
             'data': None,
             'errors': [
