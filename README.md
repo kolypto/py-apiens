@@ -5,3 +5,5 @@ Apiens
 ======
 
 TODO
+
+The library is under development. The docs are underway.
