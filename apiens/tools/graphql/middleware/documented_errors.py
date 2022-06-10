@@ -1,12 +1,11 @@
-from asyncio import iscoroutine
 from collections import abc
 from typing import Union
+from inspect import isawaitable
 
 import graphql
 
 from apiens.structure.error import exc
 from apiens.structure.func import UndocumentedError
-from apiens.tools import ariadne
 
 
 # Error names to ignore with this middleware.
@@ -46,7 +45,7 @@ async def documented_errors_middleware_impl(ignore_errors: frozenset[str], next,
     # Run the handler
     try:
         res = next(root, info, *args, **kwargs)
-        if iscoroutine(res):
+        if isawaitable(res):
             res = await res
         return res
     # Check that the error is documented
