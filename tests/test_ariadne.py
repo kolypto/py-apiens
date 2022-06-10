@@ -349,11 +349,11 @@ def test_input_validation(caplog):
 def test_documented_errors():
     def main(c: GraphQLTestClient):
         # A field raises undocumented error
-        res = c.execute_sync('query { undocumented }')
+        res = c.execute('query { undocumented }')
         assert isinstance(res.original_error, UndocumentedError)
 
         # A field raises documented error
-        res = c.execute_sync('query { documented }')
+        res = c.execute('query { documented }')
         assert res.app_error_name == 'E_AUTH_REQUIRED'
 
 

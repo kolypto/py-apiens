@@ -1,3 +1,4 @@
+from asyncio import iscoroutine
 from collections import abc
 from typing import Union
 
@@ -5,6 +6,7 @@ import graphql
 
 from apiens.structure.error import exc
 from apiens.structure.func import UndocumentedError
+from apiens.tools import ariadne
 
 
 # Error names to ignore with this middleware.
@@ -28,18 +30,25 @@ def documented_errors_middleware(*, ignore_errors: frozenset[str] = DEFAULT_IGNO
     When an error is raised, this middleware would check whether docstring has it covered.
     If not, an UndocumentedError is raised instead.
 
+    NOTE: it's an async middleware. It won't work with GraphQL running in sync mode (i.e. using graphql_sync())!
+
     Args:
         ignore_errors: The list of error names to ignore.
     """
-    def middleware(*args, **kwargs):
-        return documented_errors_middleware_impl(ignore_errors, *args, **kwargs)
+    async def middleware(*args, **kwargs):
+        return await documented_errors_middleware_impl(ignore_errors, *args, **kwargs)
     return middleware
 
 
-def documented_errors_middleware_impl(ignore_errors: frozenset[str], next, root, info: graphql.GraphQLResolveInfo, /, *args, **kwargs):
+async def documented_errors_middleware_impl(ignore_errors: frozenset[str], next,
+                                      root, info: graphql.GraphQLResolveInfo, /,
+                                      *args, **kwargs):
     # Run the handler
     try:
-        return next(root, info, *args, **kwargs)
+        res = next(root, info, *args, **kwargs)
+        if iscoroutine(res):
+            res = await res
+        return res
     # Check that the error is documented
     except exc.BaseApplicationError as e:
         error_name = e.name
