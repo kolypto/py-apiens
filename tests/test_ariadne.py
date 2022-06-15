@@ -568,6 +568,7 @@ def test_scalars_date():
 
     # === DateTimeUTC
     d_23_59 = datetime.datetime(2022, 12, 31, 23, 59, 0)
+    moscow = datetime.timezone(datetime.timedelta(hours=2))
     assert DateTimeUTC._parse_value('2022-12-31 23:59') == d_23_59
     assert DateTimeUTC._parse_value('2022-12-31 23:59:00') == d_23_59
     assert DateTimeUTC._parse_value('2022-12-31 23:59:00Z') == d_23_59
@@ -579,7 +580,7 @@ def test_scalars_date():
     assert DateTimeUTC._parse_value('2022-12-31 23:59:00+02:00') == datetime.datetime(2022, 12, 31, 23 - 2, 59, 0)  # converted
     # Output: convered to UTC
     assert DateTimeUTC._serialize(d_23_59.replace(tzinfo=pytz.UTC)) == '2022-12-31 23:59:00Z'
-    assert DateTimeUTC._serialize(d_23_59.replace(tzinfo=pytz.timezone('Europe/Moscow'))) == '2022-12-31 21:59:00Z'
+    assert DateTimeUTC._serialize(d_23_59.replace(tzinfo=moscow)) == '2022-12-31 21:59:00Z'
 
     # === LiteralDate
     assert LiteralDate._parse_value('2022-12-31') == datetime.date(2022, 12, 31)
@@ -611,6 +612,6 @@ def test_scalars_date():
         LiteralDateTime._serialize(d_23_59.replace(tzinfo=pytz.utc))
 
     # === DateTimeWithTimezone
-    d_23_59_moscow = d_23_59.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    d_23_59_moscow = d_23_59.replace(tzinfo=moscow)
     assert DateTimeWithTimezone._parse_value('2022-12-31 23:59:00+02:00') == d_23_59_moscow
     assert DateTimeWithTimezone._serialize(d_23_59_moscow) == '2022-12-31 23:59:00+02:00'
