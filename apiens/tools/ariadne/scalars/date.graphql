@@ -1,0 +1,54 @@
+""" Date in UTC, represented as RFC 3339 date string.
+
+Example: 2021-01-15
+"""
+scalar DateUTC
+
+
+""" Date and time in UTC, represented as RFC 3339 datetime string.
+
+NOTE: It's always in UTC. The timezone suffix is added for convenience, but it always points to UTC.
+
+NOTE: RFC 3339 differs from ISO 8601 in that it allows the use of space " " separator
+between the date and the time parts. It also supports the "Z" suffix that indicates UTC offset of zero.
+
+Example output: 2021-01-15 15:47:45Z
+Example input: 2021-01-15 15:47:45Z
+Example input: 2021-01-15 15:47:45+00:00
+Example input: 2021-01-15 17:47:45+02:00 (will be converted to UTC internally)
+"""
+scalar DateTimeUTC
+
+""" Literal date. Typically, local to a tenant or a patient.
+
+Example: 2021-01-15
+"""
+scalar LiteralDate
+
+""" Literal date and time, represented as RFC 3339 datetime string. Typically, local to a tenant or a patient.
+
+NOTE: it's intentionally missing a timezone because this date/time is used for planning patient events in the UI.
+
+Example: 2021-01-15 15:47:45
+"""
+scalar LiteralDateTime
+
+""" Literal time. Typically, local to a tenant or a patient.
+
+NOTE: it's unrelated to any timezone because the intention is to plan medication events and the like.
+
+Example: 15:47:45
+"""
+scalar LiteralTime
+
+
+# TODO: implement local date, local datetime (for date/times with local timezone information like "...+02:00")
+
+
+
+""" Timezone name
+
+Example: Europe/Oslo, US/Eastern
+Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+"""
+scalar TimezoneName

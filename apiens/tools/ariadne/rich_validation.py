@@ -1,4 +1,15 @@
-""" Tools that enable rich user-friendly validation of input data """
+""" Tools that enable rich user-friendly validation of input data
+
+Usage:
+    from apiens.tools.ariadne.schema import load_schema_from_module
+    import apiens.tools.ariadne.scalars.date
+    schema = ariadne.make_executable_schema([
+            ariadne.load_schema_from_path(os.path.dirname(__file__)),
+            load_schema_from_module(apiens.tools.ariadne, 'rich_validation.graphql'),
+        ],
+        apiens.tools.ariadne.scalars.date.definitions,
+    )
+"""
 
 from typing import Any
 
@@ -14,6 +25,9 @@ try:
 except FileNotFoundError:
     translation = gettext.NullTranslations()
 _ = translation.gettext
+
+
+# TODO: implement ariadne scalars as bindables
 
 
 def install_types_to_schema(schema: graphql.GraphQLSchema):

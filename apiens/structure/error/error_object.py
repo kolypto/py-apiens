@@ -1,3 +1,15 @@
+""" GraphQL definitions for the error object
+
+Usage:
+    from apiens.tools.ariadne.schema import load_schema_from_module
+    import apiens.structure.error
+    schema = ariadne.make_executable_schema([
+            load_schema_from_module(apiens.structure.error, 'error_object.graphql'),
+            load_schema_from_module(apiens.tools.ariadne, 'rich_validation.graphql'),
+        ],
+        apiens.tools.ariadne.scalars.date.definitions,
+    )
+"""
 from __future__ import annotations
 
 from typing import TypedDict, Optional
