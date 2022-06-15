@@ -19,13 +19,22 @@ Example input: 2021-01-15 17:47:45+02:00 (will be converted to UTC internally)
 """
 scalar DateTimeUTC
 
-""" Literal date. Typically, local to a tenant or a patient.
+
+
+
+
+
+""" Literal date. Typically, local to the user we're working with.
+
+Has no timezone information associated with it.
 
 Example: 2021-01-15
 """
 scalar LiteralDate
 
-""" Literal date and time, represented as RFC 3339 datetime string. Typically, local to a tenant or a patient.
+""" Literal date and time, represented as RFC 3339 datetime string. Typically, local to the user we're working with.
+
+Has no timezone information associated with it.
 
 NOTE: it's intentionally missing a timezone because this date/time is used for planning patient events in the UI.
 
@@ -42,7 +51,18 @@ Example: 15:47:45
 scalar LiteralTime
 
 
-# TODO: implement local date, local datetime (for date/times with local timezone information like "...+02:00")
+
+
+
+
+""" Date and time with timezone information, not necessarily in UTC. Format: RFC 3339
+
+This format is used when timezone information matters, when it cannot simply be discarded and converted to UTC.
+"""
+scalar DateTimeWithTimezone
+
+
+
 
 
 

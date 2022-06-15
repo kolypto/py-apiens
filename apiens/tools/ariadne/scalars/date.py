@@ -48,8 +48,16 @@ def parse_date_utc(value: Any) -> datetime.date:
 DateTimeUTC = ScalarType('DateTimeUTC')
 
 @DateTimeUTC.serializer
-def serialize_datetime_utc(value: datetime.datetime) -> str:
-    assert value.tzinfo in (None, datetime.timezone.utc, pytz.utc)
+def serialize_datetime_utc(value: datetime.datetime, *, convert: bool = True) -> str:
+    # Deal with the timezone.
+    # Default behavior: convert
+    if convert:
+        if value.tzinfo:
+            value = value.astimezone(pytz.UTC).replace(tzinfo=None)
+    else:
+        assert value.tzinfo in (None, datetime.timezone.utc, pytz.utc)
+
+    # Format
     return value.replace(tzinfo=None).isoformat(' ', timespec='seconds') + 'Z'
 
 @DateTimeUTC.value_parser
@@ -114,6 +122,29 @@ def parse_literal_datetime(value: Any) -> datetime.datetime:
     # Reject timezone
     if value.tzinfo is not None:
         raise ValueError(_("Timezones not allowed with literal date/times"))
+
+    # Done
+    return value
+
+
+DateTimeWithTimezone = ScalarType('DateTimeWithTimezone')
+
+@DateTimeWithTimezone.serializer
+def serialize_datetime_with_timezone(value: datetime.datetime) -> str:
+    assert value.tzinfo is not None  # must be aware datetime. No assumptions.
+    return value.isoformat(' ', timespec='seconds')
+
+@DateTimeWithTimezone.value_parser
+def parse_datetime_with_timezone(value: Any) -> datetime.datetime:
+    try:
+        value = datetime.datetime.fromisoformat(value)
+    except Exception as e:
+        raise ValueError(_("Not a valid date/time")) from e
+
+    # Require timezone
+    if value.tzinfo is None:
+        # No assumptions
+        raise ValueError(_("Timezone information must be included"))
 
     # Done
     return value
