@@ -11,7 +11,7 @@ Usage:
     )
 """
 
-import pytz
+import pytz  # type: ignore[import]
 import gettext
 import datetime
 from typing import Any
@@ -53,7 +53,7 @@ def serialize_datetime_utc(value: datetime.datetime) -> str:
     return value.replace(tzinfo=None).isoformat(' ', timespec='seconds') + 'Z'
 
 @DateTimeUTC.value_parser
-def parse_datetime_utc(value: Any) -> datetime:
+def parse_datetime_utc(value: Any) -> datetime.datetime:
     try:
         # RFC3339 supports "Z" offset. Our ISO parser does not.
         value = value.removesuffix('Z')
