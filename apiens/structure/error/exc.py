@@ -1,13 +1,13 @@
 """ A default set of errors for your convenience. Use it if you will. """
 
 import os.path
-import gettext
 import traceback
 from typing import Union, Any
 from collections import abc
 from http import HTTPStatus
 
 from apiens.tools.errors import exception_from
+from apiens.tools.translate import _
 
 from .base import BaseApplicationError
 
@@ -19,16 +19,6 @@ except ImportError:
     class pydantic:  # type: ignore[no-redef]
         class ValidationError(Exception):
             pass
-
-
-# Init translations
-# TODO: will this work with lazy translations?
-try:
-    translation = gettext.translation('apiens')
-except FileNotFoundError:
-    translation = gettext.NullTranslations()
-_ = translation.gettext
-
 
 # region HTTP 400 Client Errors
 

@@ -12,19 +12,11 @@ Usage:
 """
 
 import pytz  # type: ignore[import]
-import gettext
 import datetime
 from typing import Any
 from ariadne import ScalarType
 
-
-# Init translations
-# TODO: will this work with lazy translations?
-try:
-    translation = gettext.translation('apiens')
-except FileNotFoundError:
-    translation = gettext.NullTranslations()
-_ = translation.gettext
+from apiens.tools.translate import _
 
 
 DateUTC = ScalarType('DateUTC')

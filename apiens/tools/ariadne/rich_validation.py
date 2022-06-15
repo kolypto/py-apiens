@@ -13,18 +13,10 @@ Usage:
 
 from typing import Any
 
-import gettext
 import graphql.type.scalars
 import graphql.type.definition
 
-
-# Init translations
-# TODO: will this work with lazy translations?
-try:
-    translation = gettext.translation('apiens')
-except FileNotFoundError:
-    translation = gettext.NullTranslations()
-_ = translation.gettext
+from apiens.tools.translate import _
 
 
 # TODO: implement ariadne scalars as bindables
