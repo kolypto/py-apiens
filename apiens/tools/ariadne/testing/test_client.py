@@ -6,11 +6,15 @@ import asyncio
 import graphql
 import ariadne
 from dataclasses import dataclass
-from typing import TypedDict, Optional, Any, Union
+from collections import abc
+from typing import TypedDict, Optional, Any, Union, Generic, TypeVar
 
 from apiens.structure.error import GraphqlResponseErrorObject, ErrorObject
 from .query import debug_format_error, ErrorDict
 from ..format_error import unwrap_graphql_error
+
+
+ContextT = TypeVar('ContextT')
 
 
 class GraphQLTestClient:
@@ -23,22 +27,26 @@ class GraphQLTestClient:
         # Initialize a MiddlewareManager if you need one
         self.middleware = None
 
-    def execute(self, query: str, /, **variables) -> GraphQLResult:
+    def execute(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL query, with async resolver support """
         with self.init_context_sync() as context_value:
-            return self.execute_operation(query, context_value, **variables)
+            res: GraphQLResult[ContextT] = self.execute_operation(query, context_value, **variables)
+            res.context = context_value  # type: ignore[assignment]
+            return res
 
-    def execute_sync(self, query: str, /, **variables) -> GraphQLResult:
+    def execute_sync(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL query in sync mode """
         with self.init_context_sync() as context_value:
-            return self.execute_sync_operation(query, context_value, **variables)
+            res: GraphQLResult[ContextT] = self.execute_sync_operation(query, context_value, **variables)
+            res.context = context_value  # type: ignore[assignment]
+            return res
 
     @contextmanager
-    def init_context_sync(self):
+    def init_context_sync(self) -> abc.Iterator[Optional[ContextT]]:
         """ Prepare a context for a GraphQL request """
         yield None
 
-    def execute_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult:
+    def execute_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, with a custom context, in async mode
 
         Async mode supports async resolvers. Blocking sync resolvers must be careful to run themselves in threadpool.
@@ -46,7 +54,7 @@ class GraphQLTestClient:
         """
         return asyncio.run(self.execute_async_operation(query, context_value, operation_name=operation_name, **variables))
 
-    async def execute_async_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult:
+    async def execute_async_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, async """
         data = dict(
             query=query,
@@ -65,7 +73,7 @@ class GraphQLTestClient:
         )
         return GraphQLResult(response)  # type: ignore[arg-type]
 
-    def execute_sync_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult:
+    def execute_sync_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, with a custom context, in sync mode
 
         Sync mode assumes that every resolver is a sync functin.
@@ -94,11 +102,19 @@ class GraphQLTestClient:
         pass
 
 
+
 @dataclass
-class GraphQLResult:
+class GraphQLResult(Generic[ContextT]):
     """ GraphQL result """
+    # Data returned by the GraphQL API. Dict.
     data: Optional[dict]
+
+    # List of reported errors, if any
     errors: list[GraphqlResponseErrorObject]
+
+    # The context value used for this request.
+    # Note that there is no real HTTP request: just this context.
+    context: ContextT
 
     def __init__(self, response: GraphQLResponseDict):
         self.data = response.get('data', None)
