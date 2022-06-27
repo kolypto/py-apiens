@@ -16,8 +16,7 @@ from apiens.tools.graphql.middleware.documented_errors import documented_errors_
 from apiens.tools.ariadne.asgi import resolves_nonblocking, resolves_in_threadpool, assert_no_unmarked_resolvers
 
 
-@pytest.mark.parametrize('debug', [True, False])
-def test_graphql_exception_handlers(debug: bool):
+def test_graphql_exception_handlers():
     def main(c: GraphQLTestClient):
         # === Test: hello()
         res = c.execute_sync('query { hello }')
@@ -32,12 +31,9 @@ def test_graphql_exception_handlers(debug: bool):
             'error': 'Need auth',
             'fixit': 'Sign in',
             'info': {},
-            'debug': {} if debug else None,
+            'debug': {},
         }
-        if debug:
-            assert isinstance(res.original_error, exc.E_AUTH_REQUIRED)
-        else:
-            assert res.original_error is None
+        assert isinstance(res.original_error, exc.E_AUTH_REQUIRED)
 
         # === Test: internal server error
         res = c.execute_sync('query { serverError }')
@@ -46,13 +42,12 @@ def test_graphql_exception_handlers(debug: bool):
             'locations': Whatever,
             'path': ['serverError'],
         }
-        if debug:
-            expected_error['extensions'] = {
-                'exception': {'stacktrace': Whatever, 'context': Whatever},
-                # Application error: 'error' key is missing because
-                # no middleware has converted the error to ApplicationError
-                # 'error': N/A,
-            }
+        expected_error['extensions'] = {
+            'exception': {'stacktrace': Whatever, 'context': Whatever},
+            # Application error: 'error' key is missing because
+            # no middleware has converted the error to ApplicationError
+            # 'error': N/A,
+        }
         assert res.graphql_error == expected_error
 
     # GraphQL schema
@@ -86,7 +81,7 @@ def test_graphql_exception_handlers(debug: bool):
     )
 
     # Go
-    with GraphQLTestClient(schema, debug=debug, error_formatter=application_error_formatter) as c:
+    with GraphQLTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
         main(c)
 
 

@@ -26,22 +26,16 @@ def test_ariadne():
         res = graphql_query_sync(schema,
                                  'mutation ($user: UserCreate!) { createUser(user: $user) { ok error { name } user { id } } }',
                                  user={'is_admin': False, 'login': 'root', 'name': 'Neo'})
-        assert res == {
-            'data': {
-                'createUser': {
-                    'ok': True,
-                    'error': None,
-                    'user': {'id': 1},
-                }
-            }
+        assert res['createUser'] == {
+            'ok': True,
+            'error': None,
+            'user': {'id': 1},
         }
 
         # === Test: Query
         res = graphql_query_sync(schema, 'query ($id: Int!) { getUser(id: $id) { id login } }', id=1)
-        assert res == {
-            'data': {
-                'getUser': {'id': 1, 'login': 'root'}
-            }
+        assert res['getUser'] == {
+            'id': 1, 'login': 'root',
         }
 
     # Crud Params

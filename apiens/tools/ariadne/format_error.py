@@ -5,11 +5,10 @@ import ariadne
 from typing import Union
 
 from apiens.structure.error import exc, ErrorObject
-from apiens.tools.ariadne.testing.query import ErrorDict
 from .convert_error import unwrap_graphql_error
 
 
-def application_error_formatter(error: graphql.GraphQLError, debug: bool = False, *, BaseApplicationError = exc.BaseApplicationError) -> Union[dict, ErrorDict]:
+def application_error_formatter(error: graphql.GraphQLError, debug: bool = False, *, BaseApplicationError = exc.BaseApplicationError) -> dict:
     """ Error formatter. Add Error Object for application errors
 
     When `debug` is set, it will return an error dict that also has a reference to the original Exception object.
@@ -25,10 +24,6 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
 
     # Format error
     error_dict = ariadne.format_error(error, debug)
-
-    # In debug mode, associate the original exception with it
-    if debug:
-        error_dict = ErrorDict(error_dict, error)
 
     # Done
     return error_dict
@@ -68,7 +63,7 @@ def augment_validation_error(error: graphql.GraphQLError):
         return
 
     # Augment
-    # NOTE: $variable name can be extracted from `node.variable.name.value` if isinstance(error.nodes[i], graphql.VariableDefinitionnode)
+    # NOTE: $variable name can be extracted from `node.variable.name.value` if isinstance(error.nodes[i], graphql.VariableDefinitionNode)
     path = m['path'].split('.') if m['path'] else (m['var'],)
     error.extensions['validation'] = {
         'variable': m['var'],
