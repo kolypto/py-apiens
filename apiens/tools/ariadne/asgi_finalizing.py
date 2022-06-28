@@ -20,6 +20,10 @@ class FinalizingGraphQL(GraphQL):
     async def finalize_request(self, request: Request) -> tuple[bool, abc.Iterable[Exception]]:
         """ Do clean-up after a request is over with
 
+        NOTE: in order to finalize a context, use this storage place:
+        > request.state.graphql_context = context
+        or override the get_context_for_request() method
+
         NOTE: this function is run even when context_provider() function has failed.
         As a result, some stuff may be missing.
 

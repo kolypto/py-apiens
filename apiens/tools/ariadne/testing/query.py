@@ -29,7 +29,7 @@ def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value:
         logger=__name__,
         error_formatter=error_collector.error_formatter(),
     )
-    return GraphQLResult(res, error_collector.errors)  # type: ignore[arg-type]
+    return GraphQLResult(res, context=context_value, exceptions=error_collector.errors)  # type: ignore[arg-type]
 
 
 ContextT = TypeVar('ContextT')
@@ -53,12 +53,13 @@ class GraphQLResult(Generic[ContextT]):
 
     # The context value used for this request.
     # Note that there is no real HTTP request: just this context.
-    context: ContextT
+    context: Optional[ContextT]
 
-    def __init__(self, response: GraphQLResponseDict, exceptions: abc.Iterable[graphql.GraphQLError] = ()):
+    def __init__(self, response: GraphQLResponseDict, context: ContextT = None, exceptions: abc.Iterable[graphql.GraphQLError] = None):
         self.data = response.get('data', None)
         self.errors = response.get('errors', [])
-        self.exceptions = list(exceptions)
+        self.exceptions = list(exceptions or ())
+        self.context = context
 
     @property
     def ok(self) -> bool:
@@ -109,7 +110,15 @@ class GraphQLResult(Generic[ContextT]):
 
     def raise_errors(self):
         """ Raise errors as exceptions, if any """
-        raise_graphql_errors(self.exceptions)
+        # If we have nice Python Exception objects, raise them as is
+        if self.exceptions:
+            raise_graphql_errors(self.exceptions)
+        # If not, reconstruct them from JSON data
+        if self.errors:
+            raise_graphql_errors([
+                graphql.GraphQLError(e['message'], path=e.get('path'), extensions=e['extensions'])
+                for e in self.errors
+            ])
 
 
 class GraphQLResponseDict(TypedDict, total=False):
