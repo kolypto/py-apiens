@@ -3,9 +3,9 @@ import pytest
 import graphql
 import ariadne
 import ariadne.asgi
+import starlette.applications
+import starlette.websockets
 from collections import abc
-
-import starlette
 
 from apiens.structure.error import exc
 from apiens.structure.func import UndocumentedError
@@ -610,3 +610,68 @@ def test_scalars_date():
     d_23_59_moscow = d_23_59.replace(tzinfo=moscow)
     assert DateTimeWithTimezone._parse_value('2022-12-31 23:59:00+02:00') == d_23_59_moscow
     assert DateTimeWithTimezone._serialize(d_23_59_moscow) == '2022-12-31 23:59:00+02:00'
+
+
+@pytest.mark.asyncio
+async def test_subscriptions():
+    """ Test how subscriptions work """
+    async def main():
+        # === Test: GraphQLTestClient
+        with GraphQLTestClient(schema, debug=True) as c:
+            sub = c.subscribe("subscription { updates }")
+            results = [result['updates'] async for result in sub]
+            assert results == ['#1', '#2', '#3']
+
+        # === Test: APITest
+        with APITestClient(app) as c:
+            # Load all results
+            res = [result['updates'] for result in c.graphql_subscribe("subscription { updates }")]
+            assert res == ['#1', '#2', '#3']
+
+            # Load one result
+            res = next(c.graphql_subscribe("subscription { updates }"))
+            assert res['updates'] == '#1'
+
+    # Schema
+    gql_schema = '''
+    type Query {
+        _: ID
+    }
+
+    type Subscription {
+        updates: ID!
+    }
+    '''
+
+    # Subscription that generates integers, with a resolver that converts them into strings
+    Subscription = ariadne.SubscriptionType()
+
+    @Subscription.field('updates')
+    def resolve_updates(value: int, info: graphql.GraphQLResolveInfo):
+        return f'#{value}'
+
+    @Subscription.source('updates')
+    async def generate_updates(_, info: graphql.GraphQLResolveInfo):
+        yield 1
+        yield 2
+        yield 3
+
+    # Init schema
+    schema = ariadne.make_executable_schema(gql_schema, Subscription)
+
+    # Init Starlette as an ASGI app (for websockets)
+    graphql_app = ariadne.asgi.GraphQL(schema)
+    app = starlette.applications.Starlette(debug=True)
+    app.mount('/', graphql_app)
+
+    # Prepare a test client
+    from apiens.tools.fastapi.test_client import TestClient
+    from apiens.tools.ariadne.testing.test_client_api import GraphQLClientMixin
+
+    class APITestClient(TestClient, GraphQLClientMixin):
+        GRAPHQL_ENDPOINT = '/'
+
+
+    # Go
+    await main()
+
