@@ -1,3 +1,5 @@
+""" Generate short, url-friendly, identifiers """
+
 import base64
 import uuid
 from uuid import UUID  # noqa: shortcut
