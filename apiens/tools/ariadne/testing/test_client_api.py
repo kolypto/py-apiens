@@ -1,3 +1,5 @@
+""" A Mixin for your API test client to support GraphQL requests """
+
 from __future__ import annotations
 
 import requests  # type: ignore[import]
@@ -7,7 +9,6 @@ from collections import abc
 from typing import Protocol, ClassVar
 
 from .test_client import GraphQLResult
-
 
 
 class GraphQLClientMixinTarget(Protocol):
