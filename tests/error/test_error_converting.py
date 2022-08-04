@@ -134,10 +134,10 @@ def test_converting_jessiql_errors():
                 with converting_jessiql_errors():
                     jessiql.Query({'join': {'INVALID': {}}}, User)
             assert e.value.info == {
-                'name': 'select',
+                'name': 'join',
                 'column_name': 'INVALID',
                 'model': 'User',
-                'where': 'select',
+                'where': 'join',
             }
 
             # Test: invalid query
