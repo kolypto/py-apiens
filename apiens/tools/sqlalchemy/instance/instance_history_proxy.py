@@ -4,6 +4,7 @@ from typing import TypeVar
 from sqlalchemy.orm.attributes import InstrumentedAttribute, ScalarObjectAttributeImpl
 from sqlalchemy.orm.base import instance_state, DEFAULT_STATE_ATTR
 from sqlalchemy.orm.state import InstanceState
+from apiens.tools.sqlalchemy.sainfo.properties import is_property
 
 
 SAInstanceT = TypeVar('SAInstanceT')
@@ -74,7 +75,6 @@ class InstanceHistoryProxy:
             return rel.get(state, self.__dict)
             # return rel.get_committed_value(state, self.__historical)
         # @property
-        # Only works when jessiql is available
         elif is_property and is_property(mapper.class_, attr_name):
             # Because properties may use other columns,
             # we have to run it against our`self`, because only then it'll be able to get the original values.
@@ -130,9 +130,3 @@ class InstanceStateCopy:
         return getattr(self.__state, name)
 
 
-try:
-    import jessiql
-except ImportError:
-    is_property = None
-else:
-    from jessiql.sainfo.properties import is_property  # type: ignore[misc]

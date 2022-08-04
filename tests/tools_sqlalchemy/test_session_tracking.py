@@ -2,11 +2,11 @@ import pytest
 import sqlalchemy as sa
 import sqlalchemy.orm
 
-import jessiql.sainfo.version
 from apiens.tools.sqlalchemy.session.session_tracking import TrackingSessionMaker, TrackingSessionCls
+from apiens.tools.sqlalchemy import sainfo
 
 
-@pytest.mark.xfail(jessiql.sainfo.version.SA_13, reason='Session() is not a context manager in SA 1.3', )
+@pytest.mark.xfail(sainfo.version.SA_13, reason='Session() is not a context manager in SA 1.3', )
 def test_tracking_sessionmaker(engine: sa.engine.Engine):
     Session = TrackingSessionMaker(bind=engine)
 

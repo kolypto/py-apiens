@@ -2,10 +2,9 @@ import pytest
 import sqlalchemy as sa
 import sqlalchemy.exc
 
-from jessiql.testing import created_tables, insert
-from jessiql.util import sacompat
-
 from apiens.tools.sqlalchemy.postgres.pg_integrity_error import extract_postgres_unique_violation_columns
+from tests.lib import created_tables, declarative_base, insert
+
 
 
 def test_pg_integrity_error(connection: sa.engine.Connection):
@@ -35,7 +34,7 @@ def test_pg_integrity_error(connection: sa.engine.Connection):
 
 
     # Models
-    Base = sacompat.declarative_base()
+    Base = declarative_base()
 
     class User(Base):
         __tablename__ = 'u'

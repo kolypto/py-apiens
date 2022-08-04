@@ -80,7 +80,7 @@ else:
 try:
     import sqlalchemy as sa
     import sqlalchemy.orm.base
-    import jessiql.sainfo
+    from apiens.tools.sqlalchemy import sainfo
 except ImportError:
     pass
 else:
@@ -96,10 +96,10 @@ else:
             if not filter_by_predicate(name, filter):
                 continue
 
-            if jessiql.sainfo.columns.is_column(attr):
+            if sainfo.columns.is_column(attr):
                 col: sa.Column = attr.expression
 
-                if jessiql.sainfo.columns.is_column_property(attr):
+                if sainfo.columns.is_column_property(attr):
                     default = attr.default
 
                     # SqlALchemy likes to wrap it into `ColumnDefault`
@@ -122,7 +122,7 @@ else:
                         nullable=col.nullable,
                         aliases={col.name} if col.name != name else set(),
                     )
-                elif jessiql.sainfo.columns.is_column_expression(attr):
+                elif sainfo.columns.is_column_expression(attr):
                     fields[name] = FieldInfo(
                         name=name,
                         type=None,  # not implemented
@@ -130,7 +130,7 @@ else:
                         nullable=True,  # everything's possible. Let's be lax
                         aliases={col.name} if col.name != name else set(),
                     )
-                elif jessiql.sainfo.columns.is_composite_property(attr):
+                elif sainfo.columns.is_composite_property(attr):
                     fields[name] = FieldInfo(
                         name=name,
                         type=None,  # not implemented
@@ -140,7 +140,7 @@ else:
                     )
                 else:
                     raise NotImplementedError
-            elif jessiql.sainfo.relations.is_relation(attr) and rels:
+            elif sainfo.relations.is_relation(attr) and rels:
                 # TO-MANY relationships are not nullable. They're lists.
                 if attr.property.uselist:
                     nullable = False
@@ -170,7 +170,7 @@ else:
 
         # Properties
         if props:
-            for name, prop in jessiql.sainfo.properties.get_all_model_properties(model).items():
+            for name, prop in sainfo.properties.get_all_model_properties(model).items():
                 fields[name] = FieldInfo(
                     name=name,
                     type=None,  # not implemented
