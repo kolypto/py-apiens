@@ -30,8 +30,8 @@ from typing import Any
 
 import graphql
 
-from apiens.tools.graphql.ast import has_directive
-from apiens.tools.graphql.input_types import wraps_input_object_out_type
+from apiens.tools.graphql.schema.ast import has_directive
+from apiens.tools.graphql.schema.input_types import wrap_input_object_out_type
 
 
 # Directive name
@@ -81,7 +81,6 @@ def installto_input_object_type(schema: graphql.GraphQLSchema, type_def: graphql
             pass
 
     # Wrap the resolver
-    @wraps_input_object_out_type(type_def)
     def out_type(value: dict[str, Any], node=type_def.ast_node, non_null_names = frozenset(non_null_names)) -> dict:
         cannot_be_null = {
             k
@@ -92,6 +91,8 @@ def installto_input_object_type(schema: graphql.GraphQLSchema, type_def: graphql
             raise graphql.GraphQLError(f"Fields must not be null: {', '.join(cannot_be_null)}", node)
         else:
             return value
+    
+    wrap_input_object_out_type(type_def, out_type)
 
 
 def install_directive_to_schema(schema: graphql.GraphQLSchema):
