@@ -29,7 +29,5 @@ AUTOMATIC = None
 try:
     from .unit import unit
 except ImportError as e:
-    if e.name == 'pint':
-        pass
-    else:
+    if e.name != 'pint':
         raise

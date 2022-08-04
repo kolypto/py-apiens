@@ -13,13 +13,14 @@ nox.options.sessions = [
 # Versions
 PYTHON_VERSIONS = ['3.9', '3.10']
 SQLALCHEMY_VERSIONS = [
-    # Selective
+    # Selective. 
+    # NOTE: keep major versions with breaking changes. Skip versions with minor bugfix changes.
     '1.3.11', '1.3.24',
-    '1.4.23', '1.4.37',
+    '1.4.23', '1.4.39',
 ]
 FASTAPI_VERSIONS = [
     # Selective: one latest version from 0.5x, 0.6x, 0.7x and so on
-    '0.59.0', '0.69.0', '0.73.0', '0.75.0', '0.78.0',
+    '0.59.0', '0.69.0', '0.73.0', '0.75.0', '0.79.0',
 ]
 ARIADNE_VERSIONS = [
     # Selective

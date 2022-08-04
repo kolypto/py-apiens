@@ -18,7 +18,7 @@ from typing import TypedDict, Union
 
 import graphql
 
-from apiens.tools.graphql.ast import has_directive
+from apiens.tools.graphql.schema.ast import has_directive
 
 
 # Directive name

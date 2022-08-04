@@ -1,11 +1,13 @@
+""" A middleware that makes sure that every raised error is documented in the resolver docstring """
+
 from collections import abc
 from typing import Union
 from inspect import isawaitable
 
 import graphql
 
-from apiens.structure.error import exc
-from apiens.structure.func import UndocumentedError
+from apiens.error import exc
+from apiens.structure.func.documented_errors import UndocumentedError
 
 
 # Error names to ignore with this middleware.

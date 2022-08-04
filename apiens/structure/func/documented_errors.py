@@ -7,7 +7,7 @@ from collections import abc
 from typing import Optional, Union
 from dataclasses import dataclass
 
-from .decomarker import decomarker
+from apiens.util.decomarker import decomarker
 
 
 class documented_errors(decomarker):

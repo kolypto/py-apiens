@@ -6,7 +6,18 @@ import sqlalchemy.dialects.postgresql as pg
 
 
 class JSONBKeyedBy(sa.TypeDecorator):
-    """ A JSONB object with ENUM keys """
+    """ A JSONB object with ENUM member names 
+    
+    NOTE: enum names are used, not values!
+    
+    Example:
+        class Genre(Enum):
+            DETECTIVE = 'detective'
+            SCI_FI = 'sci-fi'
+
+        class User(Base):
+            favorites = sa.Column(JSONBKeyedBy(Genre), nullable=False)
+    """
     impl = pg.JSONB
 
     def __init__(self, EnumType: type[Enum]):

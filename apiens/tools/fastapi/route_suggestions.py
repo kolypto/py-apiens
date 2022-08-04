@@ -1,3 +1,5 @@
+""" Route suggestions: suggest valid URL routes when the user has entered a wrong one """
+
 from collections import abc
 from functools import cache, lru_cache
 from typing import Optional
@@ -34,6 +36,7 @@ def suggest_api_endpoint(app: FastAPI, method: Optional[str], path: str) -> abc.
 
 @lru_cache(maxsize=9)  # must be 1, but just in case
 def _all_application_routes(app: FastAPI) -> tuple[tuple[str, str], ...]:
+    """ Get a list of all routes from a FastAPI app """
     # Get all routes that make sense
     routes = [
         route

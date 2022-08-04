@@ -1,3 +1,5 @@
+""" Titled Enum: an Enum with human-readable titles """
+
 from enum import Enum
 
 from typing import Any, Optional, TypeVar

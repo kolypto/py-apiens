@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from starlette import status
 from starlette.exceptions import HTTPException, ExceptionMiddleware
 
-from apiens.structure.error.schema import ErrorResponse
-from apiens.structure.error import exc
+from apiens.error.error_object.pydantic import ErrorResponse
+from apiens.error import exc
 
 from .route_suggestions import suggest_api_endpoint
 
@@ -25,10 +25,14 @@ def register_application_exception_handlers(app: FastAPI, *, passthru: bool = Fa
     Args:
         passthru: Let unexpected errors pass through. Used in testing.
     """
+    # Handler: Application errors
     app.add_exception_handler(exc.BaseApplicationError, application_exception_handler)
+
+    # On the 404 page, display a list of route suggestions
     if app.debug:
         app.add_exception_handler(HTTPException, http_404_handler_with_route_suggestions)
 
+    # Pydantic errors
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
     app.add_exception_handler(pd.ValidationError, validation_error_exception_handler)
 

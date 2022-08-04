@@ -1,10 +1,14 @@
 import ariadne
 import graphql
 
+
+# See this module for the docs
 from apiens.tools.graphql.directives import partial
 
-
+# Directive definition. As a string.
 DIRECTIVE_SDL = partial.DIRECTIVE_SDL
+
+# Directive name
 DIRECTIVE_NAME = partial.DIRECTIVE_NAME
 
 

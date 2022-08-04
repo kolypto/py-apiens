@@ -1,10 +1,14 @@
 import ariadne
 import graphql
 
+
+# See this module for the docs
 from apiens.tools.graphql.directives import inherits
 
-
+# Directive definition. As a string.
 DIRECTIVE_SDL = inherits.DIRECTIVE_SDL
+
+# Directive name.
 DIRECTIVE_NAME = inherits.DIRECTIVE_NAME
 
 
