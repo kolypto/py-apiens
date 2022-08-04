@@ -2,16 +2,22 @@ from __future__ import annotations
 
 import pytest
 import pydantic as pd
+import platform
 from datetime import datetime, timedelta
 
-from apiens.tools.web.jwt_token import StructuredJWTToken, looks_like_jwt_token
 
-
-@pytest.mark.skipif(pd.VERSION == '1.7.4', reason=(
-    "Fails with Pydantic 1.7.4: says, APIAccessToken has no attribute 'SECRET_KEY'."
-    "Looks like this version has some issues with class-level attributes."
-))
+@pytest.mark.skipif(pd.VERSION == '1.7.4', reason="""
+    Fails with Pydantic 1.7.4: says, APIAccessToken has no attribute 'SECRET_KEY'.
+    Looks like this version has some issues with class-level attributes.
+""")
+@pytest.mark.skipif(platform.python_version() == '3.10.5' and pd.VERSION in ('1.7.4', '1.8', '1.8.1', '1.8.2'), reason="""
+    Fails with newer Python 3.10 versions and older Pydantic versions: "
+    complains that "ClassVar" is not a valid field annotation. That's a bug in Python.
+""")
 def test_jwt_token():
+    print(repr(platform.python_version()))
+    from apiens.tools.web.jwt_token import StructuredJWTToken, looks_like_jwt_token
+
     def main():
         # === Test: token with expiration
         d7 = timedelta(days=7)
@@ -50,7 +56,7 @@ def test_jwt_token():
         id: str
     
     class APIAccessToken(StructuredJWTToken):
-        SECRET_KEY = b'abcdef'
+        SECRET_KEY = 'abcdef'
         sub: SessionInfo
     
     APIAccessToken.update_forward_refs(**locals())
