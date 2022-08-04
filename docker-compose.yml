@@ -11,13 +11,3 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: test_apiens
       
-  py-apiens-mysql-test:
-    image: mysql:latest
-    restart: always
-    ports:
-      - '127.0.0.1:33061:3306'
-    environment:
-      MYSQL_USER: mysql
-      MYSQL_PASSWORD: mysql
-      MYSQL_ROOT_PASSWORD: mysql
-      MYSQL_DATABASE: test_apiens
