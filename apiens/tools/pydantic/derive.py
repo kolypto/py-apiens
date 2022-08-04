@@ -1,4 +1,4 @@
-""" Pydantic schema tools """
+""" Derived models for Pydantic: generate models based on other models """
 
 from collections import abc
 from typing import Optional, Any
