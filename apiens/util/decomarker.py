@@ -1,3 +1,5 @@
+""" Decomarker: add meta information to functions """
+
 from __future__ import annotations
 
 from collections import abc

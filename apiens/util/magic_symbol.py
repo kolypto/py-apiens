@@ -3,6 +3,13 @@ class MagicSymbol:
 
     Because developers may accidentally forget to check for the `value is NOT_SET` case,
     we will throw exceptions in case the object is used for anything else but the `is` comparison.
+
+    Example:
+        MISSING = MagicSymbol('MISSING')
+
+        def myfunction(param1, param2=None, param3=MISSING):
+            if param3 is MISSING:
+                ...
     """
     __slots__ = ('_name',)
 
