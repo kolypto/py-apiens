@@ -1,9 +1,9 @@
 import graphql
 import pytest
 
-from apiens.tools.graphql import directives
-from apiens.tools.graphql.resolve import resolves
 from jessiql.testing.graphql.query import graphql_query_sync
+from apiens.tools.graphql import directives
+from apiens.tools.graphql.resolver.resolve import resolves
 
 
 def test_directive_partial():

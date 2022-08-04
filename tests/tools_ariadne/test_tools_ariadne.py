@@ -7,17 +7,17 @@ import starlette.applications
 import starlette.websockets
 from collections import abc
 
-from apiens.structure.error import exc
-from apiens.structure.func import UndocumentedError
+from apiens.error import exc
+from apiens.structure.func.documented_errors import UndocumentedError
 from apiens.testing.object_match import Whatever, DictMatch
-from apiens.tools.ariadne.testing.test_client import GraphQLTestClient
-from apiens.tools.ariadne.format_error import application_error_formatter
+from apiens.tools.ariadne.testing.test_client import AriadneTestClient
+from apiens.tools.ariadne.errors.format_error import application_error_formatter
 from apiens.tools.graphql.middleware.documented_errors import documented_errors_middleware
-from apiens.tools.ariadne.asgi import resolves_nonblocking, resolves_in_threadpool, assert_no_unmarked_resolvers
+from apiens.tools.graphql.resolver.resolver_marker import resolves_nonblocking, resolves_in_threadpool, assert_no_unmarked_resolvers
 
 
 def test_graphql_exception_handlers():
-    def main(c: GraphQLTestClient):
+    def main(c: AriadneTestClient):
         # === Test: hello()
         res = c.execute_sync('query { hello }')
         assert res['hello'] == 'hi'
@@ -81,20 +81,20 @@ def test_graphql_exception_handlers():
     )
 
     # Go
-    with GraphQLTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
+    with AriadneTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
         main(c)
 
 
 def test_input_validation(caplog):
     """ Test how input validation errors are reported """
-    def main(c: GraphQLTestClient):
+    def main(c: AriadneTestClient):
         query_inputScalar = 'mutation ($age: Int!) { inputScalar(age: $age) }'
         query_inputScalarCustom = 'mutation ($age: PositiveInt!) { inputScalarCustom(age: $age) }'
         query_inputEnum = 'mutation ($letter: FavoriteLetter!) { inputEnum(letter: $letter) }'
         query_inputObject = 'mutation ($user: User!) { inputObject(user: $user) }'
 
-        from apiens.tools.ariadne import rich_validation
-        rich_validation.install_types_to_schema(schema)
+        from apiens.tools.graphql.errors import human_readable
+        human_readable.install_types_to_schema(schema)
 
         # ### Argument tests ### #
         # Argument tests fail because the query itself has something wrong with the argument.
@@ -337,12 +337,12 @@ def test_input_validation(caplog):
     )
 
     # Go
-    with GraphQLTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
+    with AriadneTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
         main(c)
 
 
 def test_documented_errors():
-    def main(c: GraphQLTestClient):
+    def main(c: AriadneTestClient):
         # A field raises undocumented error
         res = c.execute('query { undocumented }')
         assert isinstance(res.original_error, UndocumentedError)
@@ -383,13 +383,13 @@ def test_documented_errors():
     )
 
     # Go
-    with GraphQLTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
+    with AriadneTestClient(schema, debug=True, error_formatter=application_error_formatter) as c:
         c.middleware = middleware
         main(c)
 
 
 def test_asgi_resolvers():
-    def main(c: GraphQLTestClient):
+    def main(c: AriadneTestClient):
         # === Test: run validation to make sure all resolvers are fine
         assert_no_unmarked_resolvers(schema)
 
@@ -451,7 +451,7 @@ def test_asgi_resolvers():
     ''', QueryType, ariadne.snake_case_fallback_resolvers)
 
     # Go
-    with GraphQLTestClient(schema, debug=True) as c:
+    with AriadneTestClient(schema, debug=True) as c:
         main(c)
 
 
@@ -616,8 +616,8 @@ def test_scalars_date():
 async def test_subscriptions():
     """ Test how subscriptions work """
     async def main():
-        # === Test: GraphQLTestClient
-        with GraphQLTestClient(schema, debug=True) as c:
+        # === Test: AriadneTestClient
+        with AriadneTestClient(schema, debug=True) as c:
             sub = c.subscribe("subscription { updates }")
             results = [result['updates'] async for result in sub]
             assert results == ['#1', '#2', '#3']

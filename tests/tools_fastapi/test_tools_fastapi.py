@@ -2,9 +2,8 @@ import pydantic as pd
 
 import fastapi
 import pytest
-from fastapi.testclient import TestClient
 
-from apiens.structure.error import exc
+from apiens.error import exc
 from apiens.testing.object_match import Parameter, Whatever
 from apiens.tools.fastapi.exception_handlers import register_application_exception_handlers
 
@@ -64,7 +63,7 @@ def test_fastapi_exception_handlers(debug: bool):
         }
         assert fixit.value.startswith('Please try again')
         if debug:
-            assert trace.value[-1] == 'tests/test_fastapi.py:server_error'
+            assert trace.value[-1] == 'tools_fastapi/test_tools_fastapi.py:server_error'
 
         # === Test: request validation error
         res = c.post('/validation/request', json={'user': {}})

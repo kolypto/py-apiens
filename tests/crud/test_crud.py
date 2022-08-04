@@ -1,3 +1,5 @@
+""" Test: apiens/crud """
+
 from __future__ import annotations
 
 import pytest
@@ -12,7 +14,6 @@ from dataclasses import dataclass
 
 import sqlalchemy as sa
 import sqlalchemy.orm
-import sqlalchemy.exc
 
 from jessiql.integration.fastapi import query_object, QueryObject
 from jessiql.integration.graphql import query_object_for
@@ -24,7 +25,6 @@ from jessiql.util import sacompat
 from jessiql.sainfo.version import SA_13, SA_14
 
 import apiens
-import apiens.exc
 from apiens.crud import CrudParams
 from apiens.crud import CrudSettings
 from apiens.crud import QueryApi, MutateApi, ReturningMutateApi
@@ -32,7 +32,7 @@ from apiens.crud import saves_custom_fields, MISSING
 from apiens.testing.object_match import Parameter, ObjectMatch
 from apiens.tools.pydantic import partial
 from apiens.tools.pydantic.derive import derive_model
-from apiens.tools.sqlalchemy.session import db_transaction
+from apiens.tools.sqlalchemy.commit import db_transaction
 from tests.conftest import DATABASE_URL
 
 
@@ -92,7 +92,7 @@ def test_crud_create():
 
             insert(ssn, User, dict(id=1, is_admin=False))
             # sqlalchemy.exc.IntegrityError: (psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint "u_pkey"
-            with pytest.raises(apiens.exc.ValueConflict) as e:
+            with pytest.raises(apiens.crud.exc.ValueConflict) as e:
                 api.create({'id': 1, 'is_admin': False})
             assert e.value.column_names == []  # NOTE: cannot find the key because it does not have an explicit name in the table
             ssn.rollback()
@@ -247,7 +247,7 @@ def test_crud_update():
 
             # === Test: update 404
             # sqlalchemy.exc.NoResultFound: No row was found when one was required
-            with pytest.raises(apiens.exc.NoResultFound):
+            with pytest.raises(apiens.crud.exc.NoResultFound):
                 api.update({'id': 777})
             ssn.rollback()
 
@@ -289,7 +289,7 @@ def test_crud_update():
 
             # Try to modify it
             api = MutateApi(ssn, UserIdCrudParams())  # non-admin
-            with pytest.raises(apiens.exc.NoResultFound):
+            with pytest.raises(apiens.crud.exc.NoResultFound):
                 api.update({'id': 1, 'login': 'jack'})
 
             # Become an admin and modify it
@@ -836,7 +836,7 @@ def test_crud_query():
             assert api.update({'id': 3, 'login': 'new-john'}) == expected_result
 
             # Admin user: excluded, not found
-            with pytest.raises(apiens.exc.NoResultFound):
+            with pytest.raises(apiens.crud.exc.NoResultFound):
                 api.update({'id': 1})
 
         # === Test: pagination
@@ -1246,7 +1246,7 @@ def schema_prepare() -> graphql.GraphQLSchema:
     """ Build a GraphQL schema for testing JessiQL queries """
     import jessiql.integration.graphql
     from apiens.tools.graphql.directives import inherits, partial
-    from apiens.tools.ariadne.schema import load_schema_from_module
+    from apiens.tools.ariadne.schema.load import load_schema_from_module
     schema_sdl = '\n'.join((
         GQL_SCHEMA,
         load_schema_from_module(jessiql.integration.graphql, 'query_object.graphql'),

@@ -4,7 +4,7 @@ import sqlalchemy.orm
 
 from jessiql.testing import created_tables
 from jessiql.util import sacompat
-from apiens.tools.sqlalchemy import ssn_later
+from apiens.tools.sqlalchemy.session import ssn_later
 
 
 
@@ -113,4 +113,4 @@ class User(Base):
 
 
 # DB Engine
-from .test_crud import engine, Session  # reuse DB connection
+from tests.crud.test_crud import engine, Session  # reuse DB connection

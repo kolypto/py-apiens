@@ -5,7 +5,7 @@ import sqlalchemy.exc
 from jessiql.testing import created_tables, insert
 from jessiql.util import sacompat
 
-from apiens.tools.sqlalchemy.pg_integrity_error import extract_postgres_unique_violation_columns
+from apiens.tools.sqlalchemy.postgres.pg_integrity_error import extract_postgres_unique_violation_columns
 
 
 def test_pg_integrity_error(connection: sa.engine.Connection):

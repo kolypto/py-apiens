@@ -1,6 +1,6 @@
 import pytest
 
-from apiens.structure.func import simple_function, LongFunctionError
+from apiens.structure.func.simple_function import simple_function, LongFunctionError
 
 
 def test_simple_function():

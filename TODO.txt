@@ -1,0 +1,8 @@
+Incorporate recipes:
+
+Query comments (tagging):
+https://github.com/sqlalchemy/sqlalchemy/wiki/SessionModifiedSQL
+
+Query profiling:
+https://github.com/sqlalchemy/sqlalchemy/wiki/Profiling
+ZeroDivisionError: division by zero

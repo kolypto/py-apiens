@@ -1,3 +1,5 @@
+""" Test: apiens/crud + apiens/tools/ariadne """
+
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -15,8 +17,8 @@ from jessiql.testing import created_tables, truncate_db_tables
 
 import apiens.crud
 import apiens.tools.ariadne.directives
-from apiens.tools.ariadne.testing.query import graphql_query_sync
-from apiens.tools.sqlalchemy.session import db_transaction
+from apiens.tools.graphql.testing.query import graphql_query_sync
+from apiens.tools.sqlalchemy.commit import db_transaction
 
 
 def test_ariadne():
@@ -133,12 +135,12 @@ input UserUpdate @partial @inherits(type: "UserBase") {
 def GQL_SCHEMAS() -> list[str]:
     """ Additional schemas to load """
     import jessiql.integration.graphql
-    import apiens.structure.error
+    import apiens.error
     from apiens.tools.graphql import directives
 
     return [
         ariadne.load_schema_from_path(*jessiql.integration.graphql.__path__),
-        ariadne.load_schema_from_path(*apiens.structure.error.__path__),
+        ariadne.load_schema_from_path(*apiens.error.__path__),
         directives.partial.DIRECTIVE_SDL,
         directives.inherits.DIRECTIVE_SDL,
     ]
