@@ -1,7 +1,7 @@
 import graphql
 import pytest
 
-from jessiql.testing.graphql.query import graphql_query_sync
+from apiens.tools.graphql.testing.query import graphql_query_sync
 from apiens.tools.graphql import directives
 from apiens.tools.graphql.resolver.resolve import resolves
 
@@ -34,7 +34,7 @@ def test_directive_partial():
                 # non-nullable field cannot be null!
                 'login': None,
                 # all other fields are skipped
-            })
+            }).raise_errors()
         assert e.value.message == 'Fields must not be null: login'
 
 
@@ -88,14 +88,14 @@ def test_directive_inherits():
 
         # === Test: input a model that inherits
         res = graphql_query_sync(gql_schema, getUser, user={'id': '1', 'login': 'qwerty', 'name': 'John'})
-        assert res == {'passthruUser': {'id': '1', 'login': 'qwerty', 'name': 'John'}}
+        assert res['passthruUser'] == {'id': '1', 'login': 'qwerty', 'name': 'John'}
 
         # === Test: user1 and user2
         res = graphql_query_sync(gql_schema, getUser1, user={'id': '1', 'name': 'John'})
-        assert res == {'passthruUser1': {'id': '1', 'name': 'John'}}
+        assert res['passthruUser1'] == {'id': '1', 'name': 'John'}
 
         res = graphql_query_sync(gql_schema, getUser2, user={'id': '1', 'name': 'John'})
-        assert res == {'passthruUser2': {'id': '1', 'name': 'John'}}
+        assert res['passthruUser2'] == {'id': '1', 'name': 'John'}
 
 
     # language=graphql
