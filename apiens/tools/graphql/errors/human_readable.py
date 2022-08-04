@@ -16,10 +16,7 @@ from typing import Any
 import graphql.type.scalars
 import graphql.type.definition
 
-from apiens.tools.translate import _
-
-
-# TODO: implement ariadne scalars as bindables
+from apiens.translate import _
 
 
 def install_types_to_schema(schema: graphql.GraphQLSchema):

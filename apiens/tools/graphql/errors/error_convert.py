@@ -1,10 +1,17 @@
 import graphql
 from typing import Union, Optional
-from apiens.structure.error import exc
+from apiens.error import exc
 
 
 def convert_to_graphql_application_error(e: Exception) -> graphql.GraphQLError:
-    """ Given an arbitrary exception, convert it into a GraphQL error with an ApplicationError inside """
+    """ Given any exception, convert it into a GraphQL error with an ApplicationError inside 
+
+    1. GraphQL errors are returned as is
+    2. ApplicationError errors are wrapped into a GraphQL error
+    3. Unexpected errors are reported as F_UNEXPECTED_ERROR, wrapped into a GraphQL error
+
+    The result is a proper GraphQL error that will contain "extensions" with more information
+    """
     if isinstance(e, graphql.GraphQLError):
         return e
 

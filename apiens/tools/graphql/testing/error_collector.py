@@ -6,15 +6,14 @@ This module provides a magic error formatter that is to be used for catching exc
 
 Normally, you won't need to use this module directly, but GraphQL TestClient uses it internally to capture errors.
 """
+from __future__ import annotations
 
 import graphql
-import ariadne
-import ariadne.asgi
 import unittest.mock
 from collections import abc
 from contextlib import contextmanager
 
-from apiens.tools.ariadne.convert_error import unwrap_graphql_error
+from ..errors.error_convert import unwrap_graphql_error
 
 
 class GraphQLErrorCollector(list):
@@ -26,7 +25,7 @@ class GraphQLErrorCollector(list):
         success, res = ariadne.graphql_sync(
             schema,
             data,
-            error_formatter=ecollector.error_formatter(),
+            error_formatter=ecollector.error_formatter(ariadne.error_formatter),
         )
         ecollector.raise_errors()
 
@@ -59,7 +58,7 @@ class GraphQLErrorCollector(list):
         if self.autoraise:
             self.raise_errors()
 
-    def error_formatter(self, error_formatter=ariadne.format_error):
+    def error_formatter(self, error_formatter: abc.Callable[[graphql.GraphQLError, bool], dict]):
         """ Get an error formatter that will intercept errors """
         def wrapper(error: graphql.GraphQLError, debug: bool = False) -> dict:
             # Remember it
@@ -75,7 +74,7 @@ class GraphQLErrorCollector(list):
 
     @contextmanager
     def patch_ariadne_app(self, app: ariadne.asgi.GraphQL):
-        """ Patch GraphQL application and catch every error on it. """
+        """ Patch Ariadne GraphQL application and catch every error on it. """
         # Prepare a wrapped formatter
         new_formatter = self.error_formatter(app.error_formatter)
 
@@ -102,3 +101,11 @@ def raise_graphql_errors(errors: abc.Sequence[graphql.GraphQLError]):
     else:
         # TODO: In Python 3.11, raise ExceptionGroup
         raise RuntimeError(errors)
+
+
+try:
+    import ariadne
+except ImportError:
+    class ariadne:
+        class asgi:
+            GraphQL = object()

@@ -1,35 +1,33 @@
+
 import re
 import graphql
-import ariadne
 
-from typing import Union
-
-from apiens.structure.error import exc, ErrorObject
-from .convert_error import unwrap_graphql_error
+from apiens.error import exc
+from apiens.error.error_object.python import ErrorObject
+from .error_convert import unwrap_graphql_error
 
 
-def application_error_formatter(error: graphql.GraphQLError, debug: bool = False, *, BaseApplicationError = exc.BaseApplicationError) -> dict:
-    """ Error formatter. Add Error Object for application errors
-
-    When `debug` is set, it will return an error dict that also has a reference to the original Exception object.
+def add_graphql_error_extensions(error: graphql.GraphQLError, debug: bool = False, BaseApplicationError = exc.BaseApplicationError) -> dict:
+    """ Add extensions to a GraphQL error. Use it before returning the error to the user.
+    
+    This is what gets added:
+    * "error" for Application Errors
+    * "validation" for query schema validation errors
     """
-    # Make sure it's a dict
+    # Make sure it's a dict. Otherwise we wouldn't be able to add anything there.
     if not error.extensions:
         error.extensions = {}
 
-    # Augmentations
+    # Augmentations: add extensions to the error message
     # TODO: should these be implemented as extensions?
     augment_application_error(error, debug=debug, BaseApplicationError=BaseApplicationError)
     augment_validation_error(error)
 
-    # Format error
-    error_dict = ariadne.format_error(error, debug)
-
-    # Done
-    return error_dict
+    return error
 
 
 def augment_application_error(error: graphql.GraphQLError, *, debug: bool = False, BaseApplicationError=exc.BaseApplicationError):
+    """ Augment GraphQL error: when it's an Application Error, add the "error" extension field """
     assert error.extensions is not None
 
     # Only once
@@ -38,14 +36,26 @@ def augment_application_error(error: graphql.GraphQLError, *, debug: bool = Fals
 
     # Get the application error
     original_error = unwrap_graphql_error(error)
-    if not isinstance(original_error, BaseApplicationError):
-        return
-
-    # Augment
-    error.extensions['error'] = _export_jsonable_application_error_object(original_error, include_debug_info=debug)
+    if isinstance(original_error, BaseApplicationError):
+        # Augment
+        error.extensions['error'] = _export_jsonable_application_error_object(original_error, include_debug_info=debug)
 
 
 def augment_validation_error(error: graphql.GraphQLError):
+    """ Augment GraphQL error: if it's a validation error (i.e. standard GraphQL schema validation message), make sure its structured
+    
+    This function takes messages like "Variable <x> got invalid value <y>"
+    And adds the following key to the extensions: 
+        {
+            "validation": {
+                variable: "x", 
+                path: ["x"], 
+                message: "Invalid value"
+            }
+        }
+
+    See error_extensions.graphql
+    """
     assert error.extensions is not None
 
     # Only once

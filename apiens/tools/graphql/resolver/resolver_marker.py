@@ -21,7 +21,7 @@ from enum import Enum
 from typing import Any, TypeVar, Optional
 from collections import abc
 
-from apiens.tools.asyncio import runs_in_threadpool as _runs_in_threadpool
+from apiens.tools.python.threadpool import runs_in_threadpool as _runs_in_threadpool
 
 
 def resolves_in_threadpool(function: abc.Callable[..., T]) -> abc.Callable[..., abc.Coroutine[Any, Any, T]]:
@@ -102,7 +102,7 @@ def find_fields_with_unmarked_resolvers(schema: graphql.GraphQLSchema) -> abc.It
 
 T = TypeVar("T")
 FT = TypeVar('FT', bound=abc.Callable)
-AFT = TypeVar('AFT', bound=abc.Callable[..., abc.Coroutine[Any, Any, T]])
+AFT = TypeVar('AFT', bound=abc.Callable)  # callable returning a coroutine
 
 
 # region Function markers
