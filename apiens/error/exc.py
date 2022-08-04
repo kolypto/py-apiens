@@ -1,24 +1,18 @@
 """ A default set of errors for your convenience. Use it if you will. """
 
+from __future__ import annotations
+
 import os.path
 import traceback
 from typing import Union, Any
 from collections import abc
 from http import HTTPStatus
 
-from apiens.tools.errors import exception_from
-from apiens.tools.translate import _
+from apiens.util.exception import exception_from
+from apiens.translate import _
 
 from .base import BaseApplicationError
 
-
-# Optional: pydantic
-try:
-    import pydantic
-except ImportError:
-    class pydantic:  # type: ignore[no-redef]
-        class ValidationError(Exception):
-            pass
 
 # region HTTP 400 Client Errors
 
@@ -325,3 +319,12 @@ def _short_filename(filename: str) -> str:
         os.path.basename(dir),
         file
     )
+
+
+# Optional: pydantic
+try:
+    import pydantic
+except ImportError:
+    class pydantic:  # type: ignore[no-redef]
+        class ValidationError(Exception):
+            pass

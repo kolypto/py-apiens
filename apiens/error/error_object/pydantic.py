@@ -1,8 +1,10 @@
+""" Pydantic definitions for the Error Object (Typed Dict) """
+
 from typing import Optional
 
 import pydantic as pd
 
-from .base import BaseApplicationError
+from apiens.error.base import BaseApplicationError
 
 
 class ErrorObject(pd.BaseModel):

@@ -1,6 +1,6 @@
 from typing import ClassVar, Optional
 
-from apiens.structure.error.error_object import ErrorObject
+from .error_object.python import ErrorObject
 
 
 class BaseApplicationError(Exception):
