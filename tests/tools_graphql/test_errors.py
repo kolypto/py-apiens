@@ -19,7 +19,7 @@ def test_graphql_application_error_extensions():
     add_graphql_error_extensions(e, debug=True)
     add_graphql_error_extensions(e, debug=True)  # okay to do it twice
 
-    assert e.formatted == {
+    assert e.formatted == DictMatch({
         'message': 'Failed',
         'extensions': {
             'error': {
@@ -32,7 +32,7 @@ def test_graphql_application_error_extensions():
                 'debug': {},
             },
         },
-    }
+    })
 
 
 def test_human_readable_scalars():

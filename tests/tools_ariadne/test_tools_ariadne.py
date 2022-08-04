@@ -7,13 +7,7 @@ import starlette.applications
 import starlette.websockets
 from collections import abc
 
-from apiens.error import exc
-from apiens.structure.func.documented_errors import UndocumentedError
-from apiens.testing.object_match import Whatever, DictMatch
 from apiens.tools.ariadne.testing.test_client import AriadneTestClient
-from apiens.tools.ariadne.errors.format_error import application_error_formatter
-from apiens.tools.graphql.middleware.documented_errors import documented_errors_middleware
-from apiens.tools.graphql.resolver.resolver_marker import resolves_nonblocking, resolves_in_threadpool, assert_no_unmarked_resolvers
 
 
 @pytest.mark.skipif(not hasattr(ariadne.asgi.GraphQL, 'create_json_response'), reason='Ariadne compatibility')
@@ -113,7 +107,15 @@ def no_graphql_test_client_logging(caplog):
     caplog.set_level(logging.CRITICAL, logger="apiens.tools.ariadne.testing.test_client")
 
 
+from starlette import __version__ as STARLETTE_VERSION
+STARLETTE_VERSION_TUPLE: tuple[int, ...] = tuple(map(int, STARLETTE_VERSION.split('.')))
+
+
 @pytest.mark.asyncio
+@pytest.mark.skipif(STARLETTE_VERSION_TUPLE < (0, 15, 0), reason=(
+    "This test fails with older Starlette versions: when we subscribe(), it attempts to start another even loop "
+    "within the loop that's already running. Nested loops are not allowed. But never versions fixed this."
+))
 async def test_subscriptions():
     """ Test how subscriptions work """
     async def main():
