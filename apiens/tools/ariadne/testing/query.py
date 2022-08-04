@@ -9,7 +9,7 @@ from apiens.tools.graphql.testing.query import GraphQLResult, ContextT
 from apiens.tools.graphql.testing.error_collector import GraphQLErrorCollector
 
 
-def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value: Any = None, /, **variable_values) -> GraphQLResult:
+def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value: Any = None, /, operation_name: str = None, **variable_values) -> GraphQLResult:
     """ Make a GraphqQL query, quick. Collect errors. """
     error_collector = GraphQLErrorCollector()
     success, res = ariadne.graphql_sync(

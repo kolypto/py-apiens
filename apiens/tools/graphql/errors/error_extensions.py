@@ -1,3 +1,4 @@
+""" Tools to add Application Error information to the GraphQL error "extensions" """
 
 import re
 import graphql
@@ -80,6 +81,9 @@ def augment_validation_error(error: graphql.GraphQLError):
         'path': tuple(path),
         'message': m['msg'],
     }
+
+    # Replace the message to be human-readable
+    error.message = m['msg']
 
 
 # Test: GraphQL is a validation error message.

@@ -35,7 +35,7 @@ def extract_postgres_unique_violation_columns(err: sa.exc.IntegrityError, metada
     Postgres errors are unreadable to users: they report the index name, but the user wants to know
     which column contains a non-unique value. This function returns these columns.
 
-    Note: in order for this function to work, all your indexes need to be explicitly named!
+    NOTE: IMPORTANT: in order for this function to work, all your indexes need to be explicitly named!
     If an index does not have a name, this function won't be able to recognize it.
 
     Example:

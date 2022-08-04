@@ -6,10 +6,12 @@ from apiens.error import exc
 
 
 @contextmanager  # and a decorator
-def converting_apiens_error(*, exc=exc, _=exc._):
-    """ Handle apiens errors
-
-    Convert our errors into readable application errors
+def converting_apiens_errors(*, exc=exc, _=exc._):
+    """ Convert apiens.crud errors into human-friendly Application Errors 
+    
+    Raises:
+        exc.E_NOT_FOUND
+        exc.E_CONFLICT_DUPLICATE
     """
     try:
         yield
@@ -20,9 +22,11 @@ def converting_apiens_error(*, exc=exc, _=exc._):
 
 def convert_apiens_error(error: apiens.crud.exc.BaseCrudError, *, exc=exc, _=exc._):
     if isinstance(error, apiens.crud.exc.NoResultFound):
+        # NOTE: exc.MultipleResultsFound is a subclass so we don't handle it separately
         e = exc.E_NOT_FOUND(
             _('Object not found'),
-            _('Please check if your URL and input are correct')
+            _('Please check if your URL and input are correct'),
+            object=error.model,
         )
         return exception_from(e, error)
     elif isinstance(error, apiens.crud.exc.ValueConflict):

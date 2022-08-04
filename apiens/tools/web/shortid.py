@@ -1,11 +1,10 @@
 """ Generate short, url-friendly, identifiers """
 
 import base64
-import uuid
-from uuid import UUID  # noqa: shortcut
+from uuid import UUID  # shortcut
 
 
-def uuid2shortid(uuid: uuid.UUID) -> str:
+def uuid2shortid(uuid: UUID) -> str:
     """ Convert a UUID into a short id
 
     Under the hood, it's an urlsafe safe base64-encoded string [a-zA-Z0-9_-]
@@ -19,6 +18,6 @@ def uuid2shortid(uuid: uuid.UUID) -> str:
     return base64.urlsafe_b64encode(uuid.bytes).decode().rstrip('=')
 
 
-def shortid2uuid(shortid: str) -> uuid.UUID:
+def shortid2uuid(shortid: str) -> UUID:
     """ Convert a short id into a UUID """
-    return uuid.UUID(bytes=base64.urlsafe_b64decode(shortid.encode() + b'=='))
+    return UUID(bytes=base64.urlsafe_b64decode(shortid.encode() + b'=='))

@@ -8,8 +8,8 @@ from .base import ConvertsToBaseApiExceptionInterface
 
 @contextmanager
 def converting_unexpected_errors(*, exc=exc):
-    """ Convert unexpected exceptions to F_UNEXPECTED_ERROR
-
+    """ Convert unexpected Python exceptions into a human-friendly F_UNEXPECTED_ERROR Application Error
+    
     This function is a catch-all: every expected error should be an instance of `exc.BaseApplicationError`.
     Every other Python error is considered to be unexpected and wrapped into an `exc.F_UNEXPECTED_ERROR`
 
@@ -31,7 +31,7 @@ def convert_unexpected_error(error: Union[Exception, exc.BaseApplicationError], 
     # Exception defines a way to convert into API error
     if isinstance(error, ConvertsToBaseApiExceptionInterface):
         new_error = error.default_api_error()
-        if new_error:
+        if new_error is not None:
             return new_error
 
     # All other errors are unexpected

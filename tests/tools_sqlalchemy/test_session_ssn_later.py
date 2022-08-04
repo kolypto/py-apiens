@@ -2,8 +2,6 @@ import pytest
 import sqlalchemy as sa
 import sqlalchemy.orm
 
-from jessiql.testing import created_tables
-from jessiql.util import sacompat
 from apiens.tools.sqlalchemy.session import ssn_later
 
 
@@ -102,7 +100,8 @@ def test_session_events_can_recover_after_exception():
 
 
 # SqlAlchemy models
-Base = sacompat.declarative_base()
+from tests.lib import declarative_base, engine, Session, created_tables
+Base = declarative_base()
 
 class User(Base):
     __tablename__ = 'u'
@@ -112,5 +111,3 @@ class User(Base):
     name = sa.Column(sa.String)
 
 
-# DB Engine
-from tests.crud.test_crud import engine, Session  # reuse DB connection

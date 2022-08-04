@@ -48,7 +48,7 @@ class QueryApi(ModelOperationBase[SAInstanceT], Generic[SAInstanceT, QueryT]):
         """ CRUD method: get, load one object by primary key """
         self._filter_func = self.params.filter_one  # type: ignore[assignment,misc]
 
-        with exc.converting_sa_erorrs(Model=self.query.Model):
+        with exc.converting_sa_errors(Model=self.query.Model):
             res = self.query.fetchone(self.ssn.connection())
 
         return res

@@ -1,4 +1,9 @@
-""" A default set of errors for your convenience. Use it if you will. """
+""" A default set of errors for your convenience. Use it if you will. 
+
+Convention:
+* Exceptions that start with "F" are Failures: server-side errors that the user cannot fix
+* Exceptions that start with "E" are Errors: user errors that they can potentially fix
+"""
 
 from __future__ import annotations
 
@@ -18,24 +23,12 @@ from .base import BaseApplicationError
 
 # region 400 Bad Request
 
-class F_BAD_API_REQUEST(BaseApplicationError):
-    """ Wrong usage of the API due to technical reasons
-
-    Unlike most other errors, this is a technical error that the user cannot fix.
-    """
-    httpcode = HTTPStatus.BAD_REQUEST.value
-    title = _('Bad API request')
-    # Fixit message is common to all errors
-    fixit = _('The application has made a wrong query request to the server. '
-              'Please contact support and describe the issue.')
-
-
 class E_API_ARGUMENT(BaseApplicationError):
     """ Wrong argument has been provided
 
     This is a user input error that the user can understand and fix.
 
-    Args:
+    Info:
         name: The name of the failed argument
     """
     httpcode = HTTPStatus.BAD_REQUEST.value
@@ -165,6 +158,9 @@ class E_ROLE_REQUIRED(BaseApplicationError):
     """ Action forbidden because the user does not not have the required role.
 
     For instance, this error is reported when a non-admin user tries to perform an admin action.
+
+    Info:
+        required_roles: List of roles required to use this method
     """
     httpcode = HTTPStatus.FORBIDDEN.value
     title = _('Role required')
@@ -181,6 +177,9 @@ class E_PERMISSION_REQUIRED(BaseApplicationError):
     """ Action forbidden because the user lacks a permission
 
     For instance, this error is reported when a user tries to perform an action that requires a special permission to do so.
+
+    Info:
+        required_permissions: List of permissions required to use this method
     """
     httpcode = HTTPStatus.FORBIDDEN.value
     title = _('Permission required')
@@ -253,7 +252,13 @@ class F_FAIL(BaseApplicationError):
 
 
 class F_UNEXPECTED_ERROR(BaseApplicationError):
-    """ Unexpected error, probably signifying an error in the code or other sort of malfunction """
+    """ Unexpected error, probably signifying an error in the code or other sort of malfunction 
+
+    Typically, it's an unexpected Python exception converted by `converting_unexpected_errors()`
+    
+    Debug info:
+        errors: List of server-side errors
+    """
     httpcode = HTTPStatus.INTERNAL_SERVER_ERROR.value
     title = _('Generic server error')
 

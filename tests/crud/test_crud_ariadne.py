@@ -12,8 +12,6 @@ import sqlalchemy.orm
 
 import jessiql
 import jessiql.integration.graphql
-from jessiql.util import sacompat
-from jessiql.testing import created_tables, truncate_db_tables
 
 import apiens.crud
 import apiens.tools.ariadne.directives
@@ -147,8 +145,9 @@ def GQL_SCHEMAS() -> list[str]:
 
 
 # SqlAlchemy models
+from tests.lib import engine, Session, created_tables, truncate_db_tables, declarative_base
 
-Base = sacompat.declarative_base()
+Base = declarative_base()
 
 
 class User(Base):
@@ -158,11 +157,6 @@ class User(Base):
     is_admin = sa.Column(sa.Boolean, nullable=False)
     login = sa.Column(sa.String)
     name = sa.Column(sa.String)
-
-
-# DB Engine
-from .test_crud import engine, Session  # reuse DB connection
-
 
 @contextmanager
 def db_create():

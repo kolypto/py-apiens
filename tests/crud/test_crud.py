@@ -18,11 +18,8 @@ import sqlalchemy.orm
 from jessiql.integration.fastapi import query_object, QueryObject
 from jessiql.integration.graphql import query_object_for
 from jessiql.query_object import query_object_param as qop
-from jessiql.testing import insert, created_tables, truncate_db_tables
 from jessiql.testing.graphql import resolves
 from jessiql.testing.graphql.query import graphql_query_sync
-from jessiql.util import sacompat
-from jessiql.sainfo.version import SA_13, SA_14
 
 import apiens
 from apiens.crud import CrudParams
@@ -33,7 +30,6 @@ from apiens.testing.object_match import Parameter, ObjectMatch
 from apiens.tools.pydantic import partial
 from apiens.tools.pydantic.derive import derive_model
 from apiens.tools.sqlalchemy.commit import db_transaction
-from tests.conftest import DATABASE_URL
 
 
 def test_crud_create():
@@ -1048,7 +1044,9 @@ def test_crud_query_api():
 
 
 # region: Models
-Base = sacompat.declarative_base()
+from tests.lib import declarative_base, engine, Session, created_tables, truncate_db_tables, insert
+
+Base = declarative_base()
 
 class User(Base):
     __tablename__ = 'u'
@@ -1277,27 +1275,9 @@ def schema_prepare() -> graphql.GraphQLSchema:
 
 # region: DB tools
 
-# DB Engine
-
-engine = sa.engine.create_engine(DATABASE_URL)
-
-
-@contextmanager
-def Session() -> sa.orm.Session:
-    """ DB Session as a context manager """
-    if SA_13:
-        ssn = sa.orm.Session(bind=engine, autoflush=True)
-    elif SA_14:
-        ssn = sa.orm.Session(bind=engine, autoflush=True, future=True)
-    else:
-        raise NotImplementedError
-
-    try:
-        yield ssn
-    finally:
-        ssn.close()
-
 class dep:
+    """ FastAPI dependencies """
+
     @staticmethod
     def db_ssn() -> sa.orm.Session:
         """ FastAPI Dependency: SqlAlchemy Session """

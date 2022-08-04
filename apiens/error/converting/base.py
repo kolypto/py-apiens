@@ -1,3 +1,5 @@
+""" Protocol for exception classes that know how to convert into ApplicationErrors """
+
 import abc
 import typing
 from typing import Optional
@@ -9,27 +11,10 @@ from apiens.error.base import BaseApplicationError
 class ConvertsToBaseApiExceptionInterface(typing.Protocol, metaclass=abc.ABCMeta):
     """ Interface: defines how an exception is converted into a BaseApiException
 
-    In the API application, there are two sorts of exceptions:
+    This protocol defines a method for your exceptions.
 
-    * API exceptions
-
-        These exceptions are converted into a JSON Error Object and are exposed to the end-user in the API response.
-        This means that whenever you raise an API exception, the end-user is meant to see it.
-
-    * Python Runtime Exceptions
-
-        Any other exception is seen as "Internal Server Error" and is not exposed to the end-user
-
-    You may, however, want to expose some Python exceptions to the end user: in this case, we normally reraise them.
-    This approach, however, takes some additional efforts to implement.
-
-    For this reason, this duck-typing interface exists ("typing.Protocol"):
-    any exception that has a `default_api_error()` method will be converted to an API error using it.
-
-    Q: Why not just make everything a BaseApplicationError?
-    A: It will confuse the two error classes: internal errors become external.
-       This make it impossible to i.e. change the wording, not to mention that we can't raise unexpected internal errors anymore.
-       There must be a distinction between known external errors and unexpected internal errors.
+    If a Python exception has this method, then it's going to be used to convert it into an ApplicationError.
+    See ./exception.py
     """
 
     # NOTE: typing.Protocol enables duck-typing for this class:

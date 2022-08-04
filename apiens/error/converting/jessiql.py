@@ -7,9 +7,7 @@ from apiens.error import exc
 
 @contextmanager  # and a decorator
 def converting_jessiql_errors(*, exc=exc, _=exc._):
-    """ Handle JessiQL errors
-
-    Convert JessiQL errors into readable application errors
+    """ Convert JessiQL errors into human-friendly Application Errors
 
     Raises:
         exc.E_API_ARGUMENT: query object failures: invalid columns and relationships
@@ -33,30 +31,29 @@ def convert_jessiql_error(error: jessiql.exc.BaseJessiqlException, *, exc=exc, _
         return exception_from(e, error)
 
     elif isinstance(error, jessiql.exc.InvalidColumnError):
-        e = exc.E_API_ARGUMENT(
+        e = exc.E_API_ARGUMENT.format(
             _('Invalid column "{column_name}" for "{model}" specified in {where}'),
             _('Report this issue to the developer in order to have this query fixed'),
             name=error.where,
-        ).format(
             column_name=error.column_name,
             model=error.model,
             where=error.where,
         )
         return exception_from(e, error)
     elif isinstance(error, jessiql.exc.InvalidRelationError):
-        e = exc.E_API_ARGUMENT(
+        e = exc.E_API_ARGUMENT.format(
             _('Invalid relation "{column_name}" for "{model}" specified in {where}'),
             _('Report this issue to the developer in order to have this query fixed'),
             name=error.where,
-        ).format(
             column_name=error.column_name,
             model=error.model,
             where=error.where,
         )
         return exception_from(e, error)
     elif isinstance(error, jessiql.exc.RuntimeQueryError):
-        e = exc.F_BAD_API_REQUEST(
+        e = exc.F_BAD_API_REQUEST.format(
             _('JessiQL failed: {message}'),
             _('Report this issue to the developer in order to have this query fixed'),
-        ).format(message=str(error))
+            message=str(error)
+        )
         return exception_from(e, error)

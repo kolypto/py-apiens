@@ -57,5 +57,5 @@ def coerce_bool(input_value: Any) -> bool:
 SCALAR_PARSE_VALUE_MAP = {
     'Int': coerce_int,
     'Float': coerce_float,
-    'Bool': coerce_bool,
+    'Boolean': coerce_bool,
 }
