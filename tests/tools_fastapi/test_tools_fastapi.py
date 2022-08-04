@@ -1,6 +1,7 @@
 import pydantic as pd
 
 import fastapi
+import fastapi.testclient
 import pytest
 
 from apiens.error import exc
