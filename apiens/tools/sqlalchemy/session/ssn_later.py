@@ -3,7 +3,6 @@
 Usa case: schedule a Celery task to be executed if, and only if, a session commits.
 
 Example:
-    from apiens.tools.sqlalchemy import ssn_later
     ssn_later.after_commit(ssn, do_something_useful)
 
 If you're wondering: all callbacks are executed in sequence, because they're stored as an ordered list.
