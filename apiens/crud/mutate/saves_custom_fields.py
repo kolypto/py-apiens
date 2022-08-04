@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apiens.structure.func import decomarker
+from apiens.util.decomarker import decomarker
 
 
 class saves_custom_fields(decomarker):

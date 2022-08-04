@@ -9,7 +9,7 @@ import sqlalchemy.orm
 import psycopg2
 from jessiql.typing import SAModelOrAlias
 
-from apiens.tools.sqlalchemy.pg_integrity_error import extract_postgres_unique_violation_column_names
+from apiens.tools.sqlalchemy.postgres.pg_integrity_error import extract_postgres_unique_violation_column_names
 
 
 class BaseCrudError(Exception):
