@@ -8,4 +8,5 @@ try:
     translation = gettext.translation('apiens')
 except FileNotFoundError:
     translation = gettext.NullTranslations()
+
 _ = translation.gettext
