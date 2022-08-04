@@ -76,7 +76,7 @@ def test_pydantic():
 def test_sqlalchemy():
     import sqlalchemy as sa
     import sqlalchemy.orm
-    from jessiql.util.sacompat import declarative_base
+    from tests.lib import declarative_base
 
     # === Test: SqlAlchemy
     Base = declarative_base()
@@ -122,7 +122,7 @@ def test_graphql():
 def test_transform():
     """ Test transformations """
     import sqlalchemy as sa
-    from jessiql.util.sacompat import declarative_base
+    from tests.lib import declarative_base
 
     Base = declarative_base()
 
@@ -165,20 +165,24 @@ def test_transform():
     }
 
     # === Test: JessiQL rewriter
-    import jessiql
+    # This test only works if JessiQL is available
+    try:
+        import jessiql
+    except ImportError:
+        pass
+    else:
+        upper_case_rewrite = jessiql.rewrite.Transform(str.upper, str.lower)
+        settings = jessiql.QuerySettings(
+            rewriter=jessiql.rewrite.RewriteSAModel(upper_case_rewrite, Model=User),
+        )
 
-    upper_case_rewrite = jessiql.rewrite.Transform(str.upper, str.lower)
-    settings = jessiql.QuerySettings(
-        rewriter=jessiql.rewrite.RewriteSAModel(upper_case_rewrite, Model=User),
-    )
-
-    assert model_match.jessiql_rewrite_api_to_db(user_match, settings.rewriter, context=jessiql.rewrite.FieldContext.SELECT).jsonable() == {
-        'fields': {
-            'ID': DictMatch({'name': 'ID'}),
-            'LOGIN': DictMatch({'name': 'LOGIN'}),
-            'NAME': DictMatch({'name': 'NAME'}),
-        },
-    }
+        assert model_match.jessiql_rewrite_api_to_db(user_match, settings.rewriter, context=jessiql.rewrite.FieldContext.SELECT).jsonable() == {
+            'fields': {
+                'ID': DictMatch({'name': 'ID'}),
+                'LOGIN': DictMatch({'name': 'LOGIN'}),
+                'NAME': DictMatch({'name': 'NAME'}),
+            },
+        }
 
 
 

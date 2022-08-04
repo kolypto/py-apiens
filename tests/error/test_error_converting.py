@@ -3,7 +3,6 @@ import sqlalchemy as sa
 import sqlalchemy.orm
 
 from apiens.error import exc
-from apiens.error.converting.jessiql import converting_jessiql_errors
 
 
 def test_converting_unexpected_errors():
@@ -35,21 +34,6 @@ def test_converting_unexpected_errors():
     
     assert e.value.name == 'E_API_ARGUMENT'
     assert e.value.error == 'Wrong param: INVALID'
-
-
-def test_converting_apiens_errors():
-    """ Test: converting_apiens_errors() """
-    from apiens.error.converting.apiens import converting_apiens_errors
-
-    # Test: not found
-    with pytest.raises(exc.BaseApplicationError) as e:
-        with converting_apiens_errors():
-            from apiens.crud.exc import NoResultFound
-            raise NoResultFound('Not found', model='User')
-        
-    assert e.value.name == 'E_NOT_FOUND'
-    assert e.value.error == 'Object not found'
-    assert e.value.info == {'object': 'User'}
 
 
 def test_converting_sqlalchemy_errors():
@@ -111,53 +95,3 @@ def test_converting_sqlalchemy_errors():
     with created_tables(engine, Base.metadata):
         main() 
     
-def test_converting_jessiql_errors():
-    """ Test: converting_jessiql_errors() """
-    import jessiql
-    from apiens.error.converting import converting_jessiql_errors
-
-    def main():
-        with Session() as ssn:
-            # Test: invalid column
-            with pytest.raises(exc.E_API_ARGUMENT) as e:
-                with converting_jessiql_errors():
-                    jessiql.Query({'select': ['INVALID']}, User)
-            assert e.value.info == {
-                'name': 'select',
-                'column_name': 'INVALID',
-                'model': 'User',
-                'where': 'select',
-            }
-
-            # Test: invalid relationship
-            with pytest.raises(exc.E_API_ARGUMENT) as e:
-                with converting_jessiql_errors():
-                    jessiql.Query({'join': {'INVALID': {}}}, User)
-            assert e.value.info == {
-                'name': 'join',
-                'column_name': 'INVALID',
-                'model': 'User',
-                'where': 'join',
-            }
-
-            # Test: invalid query
-            with pytest.raises(exc.E_API_ARGUMENT) as e:
-                with converting_jessiql_errors():
-                    jessiql.Query({'select': 'INVALID'}, User)
-            assert e.value.info == {
-                'name': 'query',
-            }
-
-
-    # Models
-    from tests.lib import engine, Session, created_tables, declarative_base
-    Base = declarative_base()
-
-    class User(Base):
-        __tablename__ = 'u'
-        id = sa.Column(sa.Integer, primary_key=True)
-        
-
-    # Go
-    with created_tables(engine, Base.metadata):
-        main() 
