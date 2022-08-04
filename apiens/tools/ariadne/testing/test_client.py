@@ -1,78 +1,33 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager, contextmanager
-
-import asyncio
 import graphql
 import ariadne
 from collections import abc
-from typing import Optional, Any
+from typing import Any
 
-from apiens.tools.asyncio import run_in_threadpool
-from .error_collector import GraphQLErrorCollector
+from apiens.tools.graphql.testing.test_client import GraphQLTestClient as _BaseGraphQLTestClient
+from apiens.tools.graphql.testing.error_collector import GraphQLErrorCollector
 from .query import GraphQLResult, ContextT
 
 
-class GraphQLTestClient:
-    """ Test client for GraphQL schema """
+class AriadneTestClient(_BaseGraphQLTestClient):
+    """ Test client for Ariadne GraphQL schema """
+
     def __init__(self, schema: graphql.GraphQLSchema, debug: bool = True, error_formatter: ariadne.types.ErrorFormatter = ariadne.format_error):
-        self.schema = schema
-        self.debug = debug
+        super().__init__(schema, debug)
         self.error_formatter = error_formatter
 
         # Initialize a MiddlewareManager if you need one
         self.middleware = None
 
-    def execute(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
-        """ Execute a GraphQL query, with async resolver support """
-        with self.init_context_sync() as context_value:
-            return self.execute_operation(query, context_value, **variables)
-
-    def execute_sync(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
-        """ Execute a GraphQL query in sync mode """
-        with self.init_context_sync() as context_value:
-            return self.execute_sync_operation(query, context_value, **variables)
-
-    async def subscribe(self, query: str, /, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:
-        """ Execute a GraphQL subscription, in async mode """
-        async with self.init_context_async() as context_value:
-            sub: abc.AsyncIterator[GraphQLResult[ContextT]] = self.execute_subscription(query, context_value, **variables)
-            async for res in sub:
-                yield res
-
-    @contextmanager
-    def init_context_sync(self) -> abc.Iterator[Optional[ContextT]]:
-        """ Prepare a context for a GraphQL request """
-        yield None
-
-    @asynccontextmanager
-    async def init_context_async(self) -> abc.AsyncIterator[Optional[ContextT]]:
-        """ Prepare a context for a GraphQL request, async mode. Used for GraphQL subscriptions. """
-        # Simply run the same function, but using threads
-        cm = self.init_context_sync()
-
-        value = await run_in_threadpool(next, cm.gen)  # type: ignore[arg-type]
-        try:
-            yield value
-        finally:
-            await run_in_threadpool(next, cm.gen, None)  # type: ignore[call-arg, arg-type]
-
     #region: Lower level methods
-
-    def execute_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
-        """ Execute a GraphQL operation on the schema, with a custom context, in async mode
-
-        Async mode supports async resolvers. Blocking sync resolvers must be careful to run themselves in threadpool.
-        See `tools.ariadne.asgi` to aid with this.
-        """
-        return asyncio.run(self.execute_async_operation(query, context_value, operation_name=operation_name, **variables))
 
     async def execute_async_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, async """
         error_collector = GraphQLErrorCollector()
         success, response = await ariadne.graphql(
             self.schema,
-            _prepare_data(query, variables, operation_name),
+            dict(query=query, variables=variables or {}, operationName=operation_name),
             context_value=context_value,
             root_value=None,
             debug=self.debug,
@@ -80,7 +35,11 @@ class GraphQLTestClient:
             error_formatter=error_collector.error_formatter(self.error_formatter),
             middleware=self.middleware,
         )
-        return GraphQLResult(response, context=context_value, exceptions=error_collector.errors)  # type: ignore[arg-type]
+        return GraphQLResult(
+            response, 
+            context=context_value, 
+            exceptions=error_collector.errors
+        )
 
     def execute_sync_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, with a custom context, in sync mode
@@ -90,7 +49,7 @@ class GraphQLTestClient:
         error_collector = GraphQLErrorCollector()
         success, response = ariadne.graphql_sync(
             self.schema,
-            _prepare_data(query, variables, operation_name),
+            dict(query=query, variables=variables or {}, operationName=operation_name),
             context_value=context_value,
             root_value=None,
             debug=self.debug,
@@ -98,13 +57,17 @@ class GraphQLTestClient:
             error_formatter=error_collector.error_formatter(self.error_formatter),
             middleware=self.middleware,
         )
-        return GraphQLResult(response, context=context_value, exceptions=error_collector.errors)  # type: ignore[arg-type]
+        return GraphQLResult(
+            response, 
+            context=context_value, 
+            exceptions=error_collector.errors
+        )
 
     async def execute_subscription(self, query: str, context_value: Any = None, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:
         """ Execute a GraphQL subscription """
         success, results = await ariadne.subscribe(
             self.schema,
-            _prepare_data(query, variables, operation_name=None),
+            dict(query=query, variables=variables or {}, operationName=None),
             context_value=context_value,
             root_value=None,
             debug=self.debug,
@@ -130,18 +93,4 @@ class GraphQLTestClient:
 
     #endregion
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        pass
-
-
-def _prepare_data(query: str, variables: dict, operation_name: str = None) -> dict:
-    """ Prepare data dict for ariagne.graphql() """
-    return dict(
-        query=query,
-        variables=variables or {},
-        operationName=operation_name,
-    )
 
