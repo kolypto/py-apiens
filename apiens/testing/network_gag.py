@@ -1,3 +1,12 @@
+""" Network gag: a context manager to prevent real network connections from being made 
+
+Example:
+    with network_gag():
+        ...  # I promised not to make any network connections
+
+With pytest, use `network_gag_conftest` instead.
+"""
+
 from contextlib import contextmanager
 from dataclasses import dataclass
 from unittest import mock
@@ -9,6 +18,8 @@ def network_gag():
 
     Any attempt to set up network connections will immediately fail.
     Such a failure would tell the developer that their unit-test is not mocked properly.
+
+    It stops network connections made by: urllib, urllib3, aiohttp, amazon client
     """
     # Network gag: Amazon
     # Because some of our tests use Amazon, we put a show stopper here that fails in that case

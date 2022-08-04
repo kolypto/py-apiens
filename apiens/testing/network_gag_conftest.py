@@ -1,3 +1,10 @@
+""" Pytest fixtures to prevent real network traffic in unit-tests 
+
+Usage:
+    # conftest.py
+    from apiens.testing.network_gag_conftest import stop_all_network, unstop_all_network
+"""
+
 import pytest
 
 from .network_gag import network_gag, InternetGags

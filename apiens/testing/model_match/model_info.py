@@ -11,7 +11,7 @@ from .predicates import filter_by_predicate, PredicateFn
 # Model info
 @dataclasses.dataclass
 class ModelInfo:
-    """ Model information """
+    """ Information about a model and its fields """
     fields: dict[str, FieldInfo]
 
     def jsonable(self):
