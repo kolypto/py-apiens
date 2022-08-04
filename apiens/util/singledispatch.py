@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import abc
 
 import types
 from typing import Any, TypeVar
@@ -10,7 +11,7 @@ def singledispatch_value(func: T) -> T:
 
     Credit for reference implementation: @vdmit11
     """
-    registry = {}
+    registry: dict[Any, Any] = {}
 
     def dispatch(value: Any):
         try:
@@ -27,11 +28,11 @@ def singledispatch_value(func: T) -> T:
     def wrapper(*args, **kw):
         return dispatch(args[0])(*args, **kw)
 
-    wrapper.register = register
-    wrapper.dispatch = dispatch
-    wrapper.registry = types.MappingProxyType(registry)
+    wrapper.register = register  # type: ignore[attr-defined]
+    wrapper.dispatch = dispatch  # type: ignore[attr-defined]
+    wrapper.registry = types.MappingProxyType(registry)  # type: ignore[attr-defined]
     update_wrapper(wrapper, func)
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
-T = TypeVar('T')
+T = TypeVar('T', bound=abc.Callable[..., Any])

@@ -9,6 +9,6 @@ def application_error_formatter(error: graphql.GraphQLError, debug: bool = False
 
     When `debug` is set, it will return an error dict that also has a reference to the original Exception object.
     """
-    error = add_graphql_error_extensions(error, debug, BaseApplicationError=BaseApplicationError)
+    error = add_graphql_error_extensions(error, debug, BaseApplicationError=BaseApplicationError)  # type: ignore[assignment]
     error_dict = ariadne.format_error(error, debug)
     return error_dict

@@ -24,7 +24,7 @@ def add_graphql_error_extensions(error: graphql.GraphQLError, debug: bool = Fals
     augment_application_error(error, debug=debug, BaseApplicationError=BaseApplicationError)
     augment_validation_error(error)
 
-    return error
+    return error  # type: ignore[return-value]
 
 
 def augment_application_error(error: graphql.GraphQLError, *, debug: bool = False, BaseApplicationError=exc.BaseApplicationError):

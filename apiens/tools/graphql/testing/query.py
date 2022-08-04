@@ -21,7 +21,7 @@ def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value:
         operation_name=operation_name,
     )
     return GraphQLResult(
-        res.formatted,
+        res.formatted,  # type: ignore[arg-type]
         context=context_value,
         exceptions=res.errors,
     )
@@ -36,7 +36,7 @@ async def graphql_query_async(schema: graphql.GraphQLSchema, query: str, context
         operation_name=operation_name,
     )
     return GraphQLResult(
-        res.formatted,
+        res.formatted,  # type: ignore[arg-type]
         context=context_value,
         exceptions=res.errors,
     )

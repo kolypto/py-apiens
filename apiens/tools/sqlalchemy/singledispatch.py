@@ -1,7 +1,8 @@
 from __future__ import annotations
+from collections import abc
 
 import types
-from typing import Union, TypeVar
+from typing import Any, Union, TypeVar
 from functools import update_wrapper
 
 import sqlalchemy as sa
@@ -14,7 +15,7 @@ def singledispatch_model_type(func: T) -> T:
 
     Credit for reference implementation: @vdmit11
     """
-    registry = {}
+    registry: dict[type, Any] = {}
 
     def dispatch(Model: Union[type, sa.orm.util.AliasedClass]):
         # unalias_class()
@@ -36,11 +37,11 @@ def singledispatch_model_type(func: T) -> T:
         return dispatch(args[0])(*args, **kw)
 
     registry[object] = func
-    wrapper.register = register
-    wrapper.dispatch = dispatch
-    wrapper.registry = types.MappingProxyType(registry)
+    wrapper.register = register  # type: ignore[attr-defined]
+    wrapper.dispatch = dispatch  # type: ignore[attr-defined]
+    wrapper.registry = types.MappingProxyType(registry)  # type: ignore[attr-defined]
     update_wrapper(wrapper, func)
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
-T = TypeVar('T')
+T = TypeVar('T', bound=abc.Callable[..., Any])

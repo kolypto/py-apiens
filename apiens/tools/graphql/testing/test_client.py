@@ -31,7 +31,7 @@ class GraphQLTestClient:
     async def subscribe(self, query: str, /, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:
         """ Execute a GraphQL subscription, in async mode """
         async with self.init_context_async() as context_value:
-            sub: abc.AsyncIterator[GraphQLResult[ContextT]] = self.execute_subscription(query, context_value, **variables)
+            sub: abc.AsyncIterator[GraphQLResult[ContextT]] = self.execute_subscription(query, context_value, **variables)  # type: ignore[assignment]
             async for res in sub:
                 yield res
     
@@ -79,7 +79,7 @@ class GraphQLTestClient:
 
     async def execute_async_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, async """
-        return await graphql_query_async(schema, query, context_value, operation_name, **variables)
+        return await graphql_query_async(self.schema, query, context_value, operation_name, **variables)
 
     def execute_sync_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, with a custom context, in sync mode
@@ -92,7 +92,7 @@ class GraphQLTestClient:
         """ Execute a GraphQL subscription """
         res = await graphql.subscribe(
             self.schema,
-            query,
+            query,  # type: ignore[arg-type]
             context_value=context_value,
             variable_values=variables,
         )

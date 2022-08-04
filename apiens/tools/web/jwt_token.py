@@ -9,9 +9,6 @@ from typing import Optional, Any, ClassVar, TypeVar
 from jose import jwt  # type: ignore[import]
 
 
-SubjectT = TypeVar('SubjectT')
-
-
 class JWTToken(pd.BaseModel):
     """ Base JWT token
 
@@ -63,7 +60,7 @@ class JWTToken(pd.BaseModel):
 
     @classmethod
     def create(cls,
-               subject: SubjectT,
+               subject: str,
                expires_in: timedelta,
                **extra
                ):
@@ -144,14 +141,14 @@ class JWTToken(pd.BaseModel):
         """ Encode the token as an HTTP header, tuple """
         return {"Authorization": f"Bearer {self.encode()}"}
 
-    def _encode_sub(self, sub: SubjectT) -> str:
+    def _encode_sub(self, sub: str) -> str:
         """ Decode `sub` payload """
-        return sub
+        return sub 
     
     @classmethod
-    def _decode_sub(cls, sub: str) -> SubjectT:
+    def _decode_sub(cls, sub: str) -> str:
         """ Encode `sub` payload """
-        return sub
+        return sub 
 
     class Config:
         # @cached_property won't currently work
@@ -170,13 +167,13 @@ class StructuredJWTToken(JWTToken):
     >>>     SECRET_KEY = b'abcdef'
     >>>     sub: SessionInfo
     """
-    sub: pd.BaseModel
+    sub: pd.BaseModel  # type: ignore[assignment]
 
-    def _encode_sub(self, sub: pd.BaseModel) -> str:
+    def _encode_sub(self, sub: pd.BaseModel) -> str:  # type: ignore[override]
         return sub.json(exclude_unset=True)
     
     @classmethod
-    def _decode_sub(cls, sub: str) -> pd.BaseModel:
+    def _decode_sub(cls, sub: str) -> pd.BaseModel:  # type: ignore[override]
         schema = cls.__fields__['sub'].type_
         decoded_sub = cls.__config__.json_loads(sub)
         return schema(**decoded_sub)

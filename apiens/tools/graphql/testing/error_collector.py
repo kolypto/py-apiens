@@ -106,6 +106,6 @@ def raise_graphql_errors(errors: abc.Sequence[graphql.GraphQLError]):
 try:
     import ariadne
 except ImportError:
-    class ariadne:
+    class ariadne:  # type: ignore[no-redef]
         class asgi:
             GraphQL = object()

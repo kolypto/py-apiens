@@ -36,7 +36,7 @@ class AriadneTestClient(_BaseGraphQLTestClient):
             middleware=self.middleware,
         )
         return GraphQLResult(
-            response, 
+            response,  # type: ignore[arg-type]
             context=context_value, 
             exceptions=error_collector.errors
         )
@@ -58,12 +58,12 @@ class AriadneTestClient(_BaseGraphQLTestClient):
             middleware=self.middleware,
         )
         return GraphQLResult(
-            response, 
+            response,   # type: ignore[arg-type]
             context=context_value, 
             exceptions=error_collector.errors
         )
 
-    async def execute_subscription(self, query: str, context_value: Any = None, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:
+    async def execute_subscription(self, query: str, context_value: Any = None, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:  # type: ignore[override]
         """ Execute a GraphQL subscription """
         success, results = await ariadne.subscribe(
             self.schema,

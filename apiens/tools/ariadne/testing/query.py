@@ -22,7 +22,7 @@ def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value:
         error_formatter=error_collector.error_formatter(ariadne.format_error),
     )
     return GraphQLResult(
-        res, 
+        res,  # type: ignore[arg-type]
         context=context_value, 
         exceptions=error_collector.errors
     )
