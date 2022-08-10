@@ -1,65 +1,33 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-
-import asyncio
 import graphql
 import ariadne
 from collections import abc
-from typing import Optional, Any
+from typing import Any
 
-from .error_collector import GraphQLErrorCollector
+from apiens.tools.graphql.testing.test_client import GraphQLTestClient as _BaseGraphQLTestClient
+from apiens.tools.graphql.testing.error_collector import GraphQLErrorCollector
 from .query import GraphQLResult, ContextT
 
 
-class GraphQLTestClient:
-    """ Test client for GraphQL schema """
+class AriadneTestClient(_BaseGraphQLTestClient):
+    """ Test client for Ariadne GraphQL schema """
+
     def __init__(self, schema: graphql.GraphQLSchema, debug: bool = True, error_formatter: ariadne.types.ErrorFormatter = ariadne.format_error):
-        self.schema = schema
-        self.debug = debug
+        super().__init__(schema, debug)
         self.error_formatter = error_formatter
 
         # Initialize a MiddlewareManager if you need one
         self.middleware = None
 
-    def execute(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
-        """ Execute a GraphQL query, with async resolver support """
-        with self.init_context_sync() as context_value:
-            res: GraphQLResult[ContextT] = self.execute_operation(query, context_value, **variables)
-            res.context = context_value  # type: ignore[assignment]
-            return res
-
-    def execute_sync(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
-        """ Execute a GraphQL query in sync mode """
-        with self.init_context_sync() as context_value:
-            res: GraphQLResult[ContextT] = self.execute_sync_operation(query, context_value, **variables)
-            res.context = context_value  # type: ignore[assignment]
-            return res
-
-    @contextmanager
-    def init_context_sync(self) -> abc.Iterator[Optional[ContextT]]:
-        """ Prepare a context for a GraphQL request """
-        yield None
-
-    def execute_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
-        """ Execute a GraphQL operation on the schema, with a custom context, in async mode
-
-        Async mode supports async resolvers. Blocking sync resolvers must be careful to run themselves in threadpool.
-        See `tools.ariadne.asgi` to aid with this.
-        """
-        return asyncio.run(self.execute_async_operation(query, context_value, operation_name=operation_name, **variables))
+    #region: Lower level methods
 
     async def execute_async_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, async """
-        data = dict(
-            query=query,
-            variables=variables or {},
-            operationName=operation_name,
-        )
         error_collector = GraphQLErrorCollector()
         success, response = await ariadne.graphql(
             self.schema,
-            data,
+            dict(query=query, variables=variables or {}, operationName=operation_name),
             context_value=context_value,
             root_value=None,
             debug=self.debug,
@@ -67,22 +35,21 @@ class GraphQLTestClient:
             error_formatter=error_collector.error_formatter(self.error_formatter),
             middleware=self.middleware,
         )
-        return GraphQLResult(response, error_collector.errors)  # type: ignore[arg-type]
+        return GraphQLResult(
+            response,  # type: ignore[arg-type]
+            context=context_value, 
+            exceptions=error_collector.errors
+        )
 
     def execute_sync_operation(self, query: str, context_value: Any = None, /, operation_name: str = None, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL operation on the schema, with a custom context, in sync mode
 
         Sync mode assumes that every resolver is a sync function
         """
-        data = dict(
-            query=query,
-            variables=variables or {},
-            operationName=operation_name,
-        )
         error_collector = GraphQLErrorCollector()
         success, response = ariadne.graphql_sync(
             self.schema,
-            data,
+            dict(query=query, variables=variables or {}, operationName=operation_name),
             context_value=context_value,
             root_value=None,
             debug=self.debug,
@@ -90,10 +57,40 @@ class GraphQLTestClient:
             error_formatter=error_collector.error_formatter(self.error_formatter),
             middleware=self.middleware,
         )
-        return GraphQLResult(response, error_collector.errors)  # type: ignore[arg-type]
+        return GraphQLResult(
+            response,   # type: ignore[arg-type]
+            context=context_value, 
+            exceptions=error_collector.errors
+        )
 
-    def __enter__(self):
-        return self
+    async def execute_subscription(self, query: str, context_value: Any = None, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:  # type: ignore[override]
+        """ Execute a GraphQL subscription """
+        success, results = await ariadne.subscribe(
+            self.schema,
+            dict(query=query, variables=variables or {}, operationName=None),
+            context_value=context_value,
+            root_value=None,
+            debug=self.debug,
+            logger=__name__,
+            error_formatter=self.error_formatter,
+        )
 
-    def __exit__(self, *exc):
-        pass
+        # When success=True, `results` is an async generator.
+        # When success=False, `results` is a list of error dicts
+
+        if success == False:
+            GraphQLResult({'data': None, 'errors': results}).raise_errors()  # type: ignore[typeddict-item]
+        else:
+            result: graphql.ExecutionResult
+            async for result in results:  # type: ignore[union-attr]
+                yield GraphQLResult({
+                        'data': result.data,
+                        'errors': [],  # we do not have any formatted errors
+                    },
+                    context=context_value,
+                    exceptions=result.errors,  # GraphQLError objects
+                )
+
+    #endregion
+
+

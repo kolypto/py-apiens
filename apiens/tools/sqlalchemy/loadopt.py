@@ -1,3 +1,5 @@
+""" Loader options """
+
 from sqlalchemy.orm import Load, raiseload, defaultload
 
 

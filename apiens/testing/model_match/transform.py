@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, Optional
 from .model_info import ModelInfo, FieldInfo
 from .predicates import filter_by_predicate, PredicateFn
 
-if TYPE_CHECKING:
-    from jessiql.query_object.rewrite import Rewriter, FieldContext
-
 
 def select_fields(model_info: ModelInfo, filter: PredicateFn) -> ModelInfo:
     """ Get a new ModelInfo with fields selected by filter() """
@@ -51,29 +48,6 @@ def rename_fields_func(model_info: ModelInfo, renamer: abc.Callable[[str], Optio
         return field
 
     return _transformed_fields(model_info, rename_by_func)
-
-
-def jessiql_rewrite_api_to_db(model_info: ModelInfo, rewriter: Rewriter, *, context: FieldContext) -> ModelInfo:
-    """ Get a new ModelInfo with fields renamed according to JessiQL rewriter
-
-    Args:
-        model_info: The source model
-        rewriter: JessiQL Query Object rewriter for this model
-    """
-    rename_by_rewriter = lambda name: rewriter.api_to_db(name, context=context) or None
-    return rename_fields_func(model_info, rename_by_rewriter)
-
-
-def jessiql_rewrite_db_to_api(model_info: ModelInfo, rewriter: Rewriter) -> ModelInfo:
-    """ Get a new ModelInfo with fields renamed according to JessiQL rewriter
-
-    Args:
-        model_info: The source model
-        rewriter: JessiQL Query Object rewriter for this model
-    """
-    rename_by_rewriter = lambda name: rewriter.db_to_api(name) or None
-    return rename_fields_func(model_info, rename_by_rewriter)
-
 
 
 def _transformed_fields(model_info: ModelInfo, handler: abc.Callable[[FieldInfo], Optional[FieldInfo]]) -> ModelInfo:

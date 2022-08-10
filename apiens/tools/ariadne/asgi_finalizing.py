@@ -2,11 +2,17 @@ from collections import abc
 
 from starlette.requests import Request
 from starlette.responses import Response
-from ariadne.asgi import GraphQL, JSONResponse
+from starlette.websockets import WebSocket
+from ariadne.asgi import GraphQL
 
-from apiens.structure.error import GraphqlResponseErrorObject
-from .convert_error import convert_to_graphql_application_error
+from apiens.error.error_object.python import GraphqlResponseErrorObject
+from apiens.tools.graphql.errors.error_convert import convert_to_graphql_application_error
 
+
+# TODO: rewrite this class: it should finalize -- not a request, but a context.
+#   This will be more directly applicable to websockets where one request may have multiple contexts:
+#   a context is started for every subscription! And we must keep track of them and close them separately.
+#   At the moment, this class may leak contexts when multiple subscriptions are used with one websocket.
 
 class FinalizingGraphQL(GraphQL):
     """ GraphQL app that can do clean-up after a request
@@ -19,6 +25,10 @@ class FinalizingGraphQL(GraphQL):
     """
     async def finalize_request(self, request: Request) -> tuple[bool, abc.Iterable[Exception]]:
         """ Do clean-up after a request is over with
+
+        NOTE: in order to finalize a context, use this storage place:
+        > request.state.graphql_context = context
+        or override the get_context_for_request() method
 
         NOTE: this function is run even when context_provider() function has failed.
         As a result, some stuff may be missing.
@@ -72,6 +82,19 @@ class FinalizingGraphQL(GraphQL):
 
         # Done
         return response
+
+    async def websocket_server(self, websocket: WebSocket) -> None:
+        # Do your thing, websocket
+        try:
+            await super().websocket_server(websocket)
+        # Clean-up the context after it's disconnected.
+        # Note that errors are not reported! This is not too good, but because subscriptions are typically read-only,
+        # we don't worry much about errors that might happen when the user disconnects.
+        # TODO: use separate start_websocket_operation() and stop_websocket_operation()
+        # TODO: find a way to report errors to the client while the socket it still connected, but going to disconnect.
+        #   For instance, use stop_websocket_operation() and start_websocket_operation() with operation-local contexts?
+        finally:
+            await self.finalize_request(websocket)  # type: ignore[arg-type]
 
     def _add_errors_to_result(self, result: dict, errors: abc.Iterable[Exception], *, is_fatal: bool, where: str):
         """ Add exceptions to the response

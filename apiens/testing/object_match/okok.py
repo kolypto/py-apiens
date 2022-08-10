@@ -17,3 +17,5 @@ class _Whatever:
 
 
 Whatever = _Whatever()
+# TODO: replace with unittest.ANY
+

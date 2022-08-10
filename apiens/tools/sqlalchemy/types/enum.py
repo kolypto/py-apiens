@@ -2,9 +2,18 @@ from enum import Enum
 import sqlalchemy as sa
 
 
-
 class StrEnum(sa.Enum):
-    """ An Enum type backed by a VARCHAR """
+    """ An Enum type backed by a VARCHAR 
+    
+    Example:
+        class AccountType(Enum):
+            ADMIN = 'admin'
+            VISITOR = 'visitor'
+
+        class User(Base):
+            ...
+            account_type = sa.Column(StrEnum(AccountType), nullable=False)
+    """
 
     def __init__(self, *enums: type[Enum], **kwargs):
         # Neither are explicitly set to True

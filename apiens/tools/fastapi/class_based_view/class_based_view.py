@@ -32,12 +32,12 @@ from __future__ import annotations
 import dataclasses
 
 import pydantic
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter
 from fastapi import Depends
 from pydantic.utils import lenient_issubclass
 from typing import List, Callable, Sequence, Union, Iterable, TypeVar, Optional, get_type_hints
 
-from apiens.structure.func import decomarker
+from apiens.util.decomarker import decomarker
 from .patch_func import set_parameter_default, copy_func
 
 ClsT = TypeVar('ClsT', bound=type)

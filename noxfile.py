@@ -6,24 +6,20 @@ nox.options.sessions = [
     'tests',
     'tests_sqlalchemy',
     'tests_fastapi',
-    'tests_ariadne',
     'tests_pydantic',
 ]
 
 # Versions
 PYTHON_VERSIONS = ['3.9', '3.10']
 SQLALCHEMY_VERSIONS = [
-    # Selective
+    # Selective. 
+    # NOTE: keep major versions with breaking changes. Skip versions with minor bugfix changes.
     '1.3.11', '1.3.24',
-    '1.4.23', '1.4.37',
+    '1.4.23', '1.4.39',
 ]
 FASTAPI_VERSIONS = [
     # Selective: one latest version from 0.5x, 0.6x, 0.7x and so on
-    '0.59.0', '0.69.0', '0.73.0', '0.75.0', '0.78.0',
-]
-ARIADNE_VERSIONS = [
-    # Selective
-    '0.13.0', '0.14.1', '0.15.1',
+    '0.69.0', '0.73.0', '0.75.0', '0.79.0',
 ]
 GRAPHQL_CORE_VERSIONS = [
     '3.1.0', '3.1.1', '3.1.2', '3.1.3', '3.1.4', '3.1.5', '3.1.6', '3.1.7',
@@ -70,17 +66,6 @@ def tests_sqlalchemy(session: nox.sessions.Session, sqlalchemy):
 def tests_fastapi(session: nox.sessions.Session, fastapi):
     """ Test against a specific FastAPI version """
     tests(session, overrides={'fastapi': fastapi})
-
-
-@nox.session(python=PYTHON_VERSIONS[-1])
-@nox.parametrize('ariadne', ARIADNE_VERSIONS)
-def tests_ariadne(session: nox.sessions.Session, ariadne):
-    """ Test against a specific Ariadne version """
-    if ariadne == '0.13.0':
-        # This is because ariadne 0.13.0 cannot work with graphql 3.2.x: def each() fails on schema.directives because it's a tuple now
-        tests(session, overrides={'ariadne': '0.13.0', 'graphql-core': '3.1.7'})
-    else:
-        tests(session, overrides={'ariadne': ariadne})
 
 
 @nox.session(python=PYTHON_VERSIONS[-1])

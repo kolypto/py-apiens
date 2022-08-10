@@ -52,6 +52,6 @@ class runsorted(unsorted):
 
 
 class kunsorted(unsorted):
-    """ unsorted() for testing lists of dicts """
+    """ unsorted() for testing lists of dicts, sorted by your custom `key` function """
     def __init__(self, key, sequence: abc.Iterable):
         super().__init__(sequence, key=itemgetter(key))
