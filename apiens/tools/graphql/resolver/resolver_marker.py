@@ -60,7 +60,10 @@ def resolves_async(function: AFT) -> AFT:
 BUILTIN_GRAPHQL_MODULES = frozenset((
     'graphql.execution.execute',  # default resolver
     'graphql.type.introspection',  # built-in types
-    'ariadne.resolvers',  # fallback resolvers
+    'ariadne.resolvers',  # lib: ariadne
+    'graphene.types.resolver',  # lib: graphene
+    'graphene_sqlalchemy.resolvers', # lib: graphene-sqlalchemy
+    'graphene_sqlalchemy.fields', # lib: graphene-sqlalchemy
 ))
 
 
