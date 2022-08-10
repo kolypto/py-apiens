@@ -71,7 +71,11 @@ def assert_no_unmarked_resolvers(schema: graphql.GraphQLSchema, *,
     unmarked_resolvers = [
         f"{field.resolve.__qualname__} (module: {field.resolve.__module__})"  # type: ignore[union-attr]
         for field in find_fields_with_unmarked_resolvers(schema)
-        if _get_resolver_module_name(field.resolve) not in ignore_modules and _get_resolver_func(field.resolve) not in ignore_resolvers
+        if (
+            field.resolve is not None and 
+            _get_resolver_module_name(field.resolve) not in ignore_modules and 
+            _get_resolver_func(field.resolve) not in ignore_resolvers
+        )
     ]
     if not unmarked_resolvers:
         return
