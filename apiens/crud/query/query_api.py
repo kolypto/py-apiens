@@ -73,7 +73,7 @@ class QueryApi(ModelOperationBase[SAInstanceT], Generic[SAInstanceT, QueryT]):
     def _query_customize_statements(self, q: jessiql.Query, stmt: sa.sql.Select) -> sa.sql.Select:
         """ JessiQL query filter """
         if q.query_level == 0:
-            stmt = stmt_filter(stmt, *self._filter_func())
+            stmt = stmt_filter(stmt, *self._filter_func())  # type: ignore[misc]
             return stmt
         else:
             return stmt
