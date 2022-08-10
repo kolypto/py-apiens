@@ -69,12 +69,12 @@ def assert_no_unmarked_resolvers(schema: graphql.GraphQLSchema, *,
                                  ignore_resolvers: abc.Container = ()):
     """ Make sure that every resolver in a GraphQL schema is properly marked """
     unmarked_resolvers = [
-        f"{field.resolve.__qualname__} (module: {field.resolve.__module__})"  # type: ignore[union-attr]
+        f"{_resolver_func(field.resolve).__qualname__} (module: {_resolver_func(field.resolve).__module__})"  # type: ignore[union-attr]
         for field in find_fields_with_unmarked_resolvers(schema)
         if (
             field.resolve is not None and 
-            _get_resolver_module_name(field.resolve) not in ignore_modules and 
-            _get_resolver_func(field.resolve) not in ignore_resolvers
+            _resolver_func(field.resolve).__module__ not in ignore_modules and 
+            _resolver_func(field.resolve) not in ignore_resolvers
         )
     ]
     if not unmarked_resolvers:
@@ -129,7 +129,7 @@ def mark_nonblocking_resolver(function: FT) -> FT:
 
 def _get_resolver_type(function: abc.Callable) -> Optional[ResolverType]:
     """ Get resolver type marker from a function """
-    function = _get_resolver_func(function)
+    function = _resolver_func(function)
 
     # Async functions don't have to be decorated
     if asyncio.iscoroutinefunction(function):
@@ -139,12 +139,7 @@ def _get_resolver_type(function: abc.Callable) -> Optional[ResolverType]:
     return getattr(function, RESOLVER_TYPE_ATTR, None)
 
 
-def _get_resolver_module_name(function: abc.Callable) -> str:
-    """ Get the name of the module the function's defined in """
-    return _get_resolver_func(function).__module__
-
-
-def _get_resolver_func(function: abc.Callable) -> abc.Callable:
+def _resolver_func(function: abc.Callable) -> abc.Callable:
     """ Get the resolver func, not any sort of partial() wrapper it may be wrapped with 
     
     Here we unwrap the function from any partial() it may be wrapped with.
@@ -154,7 +149,7 @@ def _get_resolver_func(function: abc.Callable) -> abc.Callable:
     if isinstance(function, functools.partial):
         function = function.func
         # Recurse, because multiple wraps are possible
-        return _get_resolver_func(function)
+        return _resolver_func(function)
     else:
         return function
 

@@ -1,18 +1,29 @@
-from functools import partial
+import pytest
 import graphql
 import ariadne
 import ariadne.asgi
+from functools import partial
 
 from apiens.tools.ariadne.testing.test_client import AriadneTestClient
-from apiens.tools.graphql.resolver.resolver_marker import resolves_nonblocking, resolves_in_threadpool, assert_no_unmarked_resolvers
+from apiens.tools.graphql.resolver.resolver_marker import resolves_in_threadpool, resolves_nonblocking, assert_no_unmarked_resolvers
 
 
-def test_resolver_markers():
+@pytest.mark.parametrize('fail', (False, True))
+def test_resolver_markers(fail: bool):
     def main(c: AriadneTestClient):
         # === Test: run validation to make sure all resolvers are fine
-        assert_no_unmarked_resolvers(schema)
+        if not fail:
+            assert_no_unmarked_resolvers(schema)
+        else:
+            with pytest.raises(AssertionError) as e:
+                assert_no_unmarked_resolvers(schema)
+            assert 'resolve_threaded' in str(e.value)
+            assert 'resolve_nonblocking' in str(e.value)
+            assert 'resolve_object' in str(e.value)
+            assert 'resolve_async' not in str(e.value)
+            assert 'ariadne' not in str(e.value)
 
-        # === Test: GraphQL Test Client
+        # === Test: everything works
         res = c.execute('query { async threaded nonblocking object { a b c } }')
         assert res.successful().data == {
             'async': 'async',
@@ -25,6 +36,16 @@ def test_resolver_markers():
             },
         }
 
+    # Decorators and no-op decorators.
+    # If we expect to fail, decorators should do nothing
+    if fail:
+        resolves_in_threadpool = resolves_nonblocking = lambda f: f
+    else:
+        from apiens.tools.graphql.resolver.resolver_marker import (
+            resolves_nonblocking, resolves_in_threadpool
+        )
+
+
     # Resolvers:
     # Three types:
     # 1. async function
@@ -33,7 +54,7 @@ def test_resolver_markers():
     QueryType = ariadne.QueryType()
 
     @QueryType.field('async')
-    async def resolve_async(_, info: graphql.GraphQLResolveInfo):
+    async def resolve_async(_, info: graphql.GraphQLResolveInfo):  # async functions don't need to be decorated
         return 'async'
 
     @QueryType.field('threaded')
