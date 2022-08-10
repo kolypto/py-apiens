@@ -19,9 +19,14 @@ class GraphQLTestClient:
     # Execute queries
 
     def execute(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
-        """ Execute a GraphQL query, with async resolver support """
+        """ Execute a GraphQL query, in sync mode, but with async resolver support """
         with self.init_context_sync() as context_value:
             return self.execute_operation(query, context_value, **variables)
+
+    async def execute_async(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
+        """ Execute a GraphQL query in async mode """
+        async with self.init_context_async() as context_value:
+            return await self.execute_async_operation(query, context_value, **variables)
 
     def execute_sync(self, query: str, /, **variables) -> GraphQLResult[ContextT]:
         """ Execute a GraphQL query in sync mode """
@@ -90,13 +95,15 @@ class GraphQLTestClient:
 
     async def execute_subscription(self, query: str, context_value: Any = None, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:
         """ Execute a GraphQL subscription """
-        res = await graphql.subscribe(
+        document = graphql.parse(query)
+        gen = await graphql.subscribe(
             self.schema,
-            query,  # type: ignore[arg-type]
+            document,
             context_value=context_value,
             variable_values=variables,
         )
-        # TODO: implement
-        raise NotImplementedError
+        async for res in gen:
+            assert not res.errors
+            yield res.data
 
     #endregion

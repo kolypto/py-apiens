@@ -82,7 +82,11 @@ class GraphQLResult(Generic[ContextT]):
         return self
 
     def __getitem__(self, name):
-        """ Get a result field, assuming that there were no errors """
+        """ Get a result field, assuming that there were no errors 
+        
+        Note: it will re-raise the original GraphQL errors if you attempt to access fields while there are errors!
+        To access fields anyway, use `.data`.
+        """
         self.successful()
         return self.data[name]
 
@@ -102,7 +106,11 @@ class GraphQLResult(Generic[ContextT]):
         Usage:
             assert res.app_error_name == 'E_AUTH_REQUIRED'
         """
-        return self.app_error['name']
+        # Try to get it from the exception object first
+        if exception := self.original_error:
+            return exception.name 
+        else:
+            return self.app_error['name']
 
     @property
     def graphql_error(self) -> GraphqlResponseErrorObject:
