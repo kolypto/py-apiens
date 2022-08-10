@@ -167,12 +167,10 @@ def test_transform():
     # === Test: JessiQL rewriter
     import jessiql
 
-    upper_case_rewrite = jessiql.rewrite.Transform(str.upper, str.lower)
-    settings = jessiql.QuerySettings(
-        rewriter=jessiql.rewrite.RewriteSAModel(upper_case_rewrite, Model=User),
-    )
+    user_match = model_match.match(User)
+    rewriter = jessiql.query_object.rewrite.map_sqlalchemy_model(User, db_to_api=str.upper)
 
-    assert model_match.jessiql_rewrite_api_to_db(user_match, settings.rewriter, context=jessiql.rewrite.FieldContext.SELECT).jsonable() == {
+    assert model_match.jessiql_rewrite_db_to_api(user_match, rewriter).jsonable() == {
         'fields': {
             'ID': DictMatch({'name': 'ID'}),
             'LOGIN': DictMatch({'name': 'LOGIN'}),
