@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import graphql
+import inspect
 from enum import Enum
 from typing import Any, TypeVar, Optional
 from collections import abc
@@ -70,7 +71,7 @@ def assert_no_unmarked_resolvers(schema: graphql.GraphQLSchema, *,
     unmarked_resolvers = [
         f"{field.resolve.__qualname__} (module: {field.resolve.__module__})"  # type: ignore[union-attr]
         for field in find_fields_with_unmarked_resolvers(schema)
-        if field.resolve.__module__ not in ignore_modules and field.resolve not in ignore_resolvers
+        if _get_resolver_module_name(field.resolve) not in ignore_modules and _get_resolver_func(field.resolve) not in ignore_resolvers
     ]
     if not unmarked_resolvers:
         return
@@ -124,9 +125,7 @@ def mark_nonblocking_resolver(function: FT) -> FT:
 
 def _get_resolver_type(function: abc.Callable) -> Optional[ResolverType]:
     """ Get resolver type marker from a function """
-    # Unwrap: partial()
-    if isinstance(function, functools.partial):
-        function = function.func
+    function = _get_resolver_func(function)
 
     # Async functions don't have to be decorated
     if asyncio.iscoroutinefunction(function):
@@ -134,6 +133,26 @@ def _get_resolver_type(function: abc.Callable) -> Optional[ResolverType]:
 
     # Sync functions need decoration because we can't guess
     return getattr(function, RESOLVER_TYPE_ATTR, None)
+
+
+def _get_resolver_module_name(function: abc.Callable) -> str:
+    """ Get the name of the module the function's defined in """
+    return _get_resolver_func(function).__module__
+
+
+def _get_resolver_func(function: abc.Callable) -> abc.Callable:
+    """ Get the resolver func, not any sort of partial() wrapper it may be wrapped with 
+    
+    Here we unwrap the function from any partial() it may be wrapped with.
+    This is important because partial() is lightweight and it does not perserve __module__ and other attrs.
+    """
+    # Unwrap partial()
+    if isinstance(function, functools.partial):
+        function = function.func
+        # Recurse, because multiple wraps are possible
+        return _get_resolver_func(function)
+    else:
+        return function
 
 
 def _set_resolver_type(function: abc.Callable, resolver_type: ResolverType):
