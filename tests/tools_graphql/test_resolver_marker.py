@@ -1,3 +1,4 @@
+from functools import partial
 import graphql
 import ariadne
 import ariadne.asgi
@@ -52,6 +53,9 @@ def test_resolver_markers():
     def resolve_object(_, info: graphql.GraphQLResolveInfo):
         return {'a': 1, 'b': 2, 'c': 3}
 
+    # Test partial() resolvers because they may obstruct access to the decorator
+    QueryType.set_field('another_object', partial(resolve_object))
+
     # language=graphql
     schema = ariadne.make_executable_schema('''
     type Query {
@@ -59,6 +63,7 @@ def test_resolver_markers():
         threaded: String!
         nonblocking: String!
         object: ABC!
+        another_object: ABC
     }
 
     type ABC {
