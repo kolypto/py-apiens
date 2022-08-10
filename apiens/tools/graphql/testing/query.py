@@ -23,7 +23,7 @@ def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value:
     return GraphQLResult(
         res.formatted,  # type: ignore[arg-type]
         context=context_value,
-        exceptions=res.errors,
+        exceptions=list(res.errors or ()),
     )
 
 async def graphql_query_async(schema: graphql.GraphQLSchema, query: str, context_value: Any = None, /, operation_name: str = None, **variable_values) -> GraphQLResult:
@@ -38,7 +38,7 @@ async def graphql_query_async(schema: graphql.GraphQLSchema, query: str, context
     return GraphQLResult(
         res.formatted,  # type: ignore[arg-type]
         context=context_value,
-        exceptions=res.errors,
+        exceptions=list(res.errors or ()),
     )
 
 
@@ -67,7 +67,7 @@ class GraphQLResult(Generic[ContextT]):
 
     def __init__(self, response: GraphQLResponseDict, context: ContextT = None, exceptions: abc.Iterable[graphql.GraphQLError] = None):
         self.data = response.get('data', None)
-        self.errors = response.get('errors', [])
+        self.errors = list(response.get('errors') or ())
         self.exceptions = list(exceptions or ())
         self.context = context
 
