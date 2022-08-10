@@ -93,7 +93,7 @@ class GraphQLTestClient:
         """
         return graphql_query_sync(self.schema, query, context_value, operation_name, **variables)
 
-    async def execute_subscription(self, query: str, context_value: Any = None, **variables) -> abc.AsyncIterator[GraphQLResult[ContextT]]:
+    async def execute_subscription(self, query: str, context_value: Any = None, **variables) -> abc.AsyncIterator[Optional[dict[str, Any]]]:
         """ Execute a GraphQL subscription """
         document = graphql.parse(query)
         gen = await graphql.subscribe(
@@ -102,8 +102,11 @@ class GraphQLTestClient:
             context_value=context_value,
             variable_values=variables,
         )
-        async for res in gen:
-            assert not res.errors
-            yield res.data
+        if isinstance(gen, graphql.ExecutionResult):
+            GraphQLResult(gen.formatted, context_value, exceptions=gen.errors).raise_errors()  # type: ignore[arg-type]
+        else:
+            async for res in gen:
+                assert not res.errors
+                yield res.data
 
     #endregion

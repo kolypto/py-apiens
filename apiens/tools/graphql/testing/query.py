@@ -108,7 +108,7 @@ class GraphQLResult(Generic[ContextT]):
         """
         # Try to get it from the exception object first
         if exception := self.original_error:
-            return exception.name 
+            return exception.name   # type: ignore[attr-defined]
         else:
             return self.app_error['name']
 
