@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import functools
 import graphql
-import inspect
 from enum import Enum
 from typing import Any, TypeVar, Optional
 from collections import abc
