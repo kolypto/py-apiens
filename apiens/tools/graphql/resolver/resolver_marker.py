@@ -59,7 +59,10 @@ def resolves_async(function: AFT) -> AFT:
 BUILTIN_GRAPHQL_MODULES = frozenset((
     'graphql.execution.execute',  # default resolver
     'graphql.type.introspection',  # built-in types
-    'ariadne.resolvers',  # fallback resolvers
+    'ariadne.resolvers',  # lib: ariadne
+    'graphene.types.resolver',  # lib: graphene
+    'graphene_sqlalchemy.resolvers', # lib: graphene-sqlalchemy
+    'graphene_sqlalchemy.fields', # lib: graphene-sqlalchemy
 ))
 
 
@@ -68,9 +71,13 @@ def assert_no_unmarked_resolvers(schema: graphql.GraphQLSchema, *,
                                  ignore_resolvers: abc.Container = ()):
     """ Make sure that every resolver in a GraphQL schema is properly marked """
     unmarked_resolvers = [
-        f"{field.resolve.__qualname__} (module: {field.resolve.__module__})"  # type: ignore[union-attr]
+        f"{_resolver_func(field.resolve).__qualname__} (module: {_resolver_func(field.resolve).__module__})"  # type: ignore[union-attr]
         for field in find_fields_with_unmarked_resolvers(schema)
-        if field.resolve.__module__ not in ignore_modules and field.resolve not in ignore_resolvers
+        if (
+            field.resolve is not None and 
+            _resolver_func(field.resolve).__module__ not in ignore_modules and 
+            _resolver_func(field.resolve) not in ignore_resolvers
+        )
     ]
     if not unmarked_resolvers:
         return
@@ -124,9 +131,7 @@ def mark_nonblocking_resolver(function: FT) -> FT:
 
 def _get_resolver_type(function: abc.Callable) -> Optional[ResolverType]:
     """ Get resolver type marker from a function """
-    # Unwrap: partial()
-    if isinstance(function, functools.partial):
-        function = function.func
+    function = _resolver_func(function)
 
     # Async functions don't have to be decorated
     if asyncio.iscoroutinefunction(function):
@@ -134,6 +139,21 @@ def _get_resolver_type(function: abc.Callable) -> Optional[ResolverType]:
 
     # Sync functions need decoration because we can't guess
     return getattr(function, RESOLVER_TYPE_ATTR, None)
+
+
+def _resolver_func(function: abc.Callable) -> abc.Callable:
+    """ Get the resolver func, not any sort of partial() wrapper it may be wrapped with 
+    
+    Here we unwrap the function from any partial() it may be wrapped with.
+    This is important because partial() is lightweight and it does not perserve __module__ and other attrs.
+    """
+    # Unwrap partial()
+    if isinstance(function, functools.partial):
+        function = function.func
+        # Recurse, because multiple wraps are possible
+        return _resolver_func(function)
+    else:
+        return function
 
 
 def _set_resolver_type(function: abc.Callable, resolver_type: ResolverType):
