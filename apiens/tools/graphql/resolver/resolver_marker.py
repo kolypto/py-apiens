@@ -63,6 +63,7 @@ BUILTIN_GRAPHQL_MODULES = frozenset((
     'graphene.types.resolver',  # lib: graphene
     'graphene_sqlalchemy.resolvers', # lib: graphene-sqlalchemy
     'graphene_sqlalchemy.fields', # lib: graphene-sqlalchemy
+    'graphene_sqlalchemy.types', # lib: graphene-sqlalchemy
 ))
 
 
