@@ -1,9 +1,9 @@
 """ Pieces for building a useful application settings """
 
 import secrets
-from typing import Optional
-
+import json
 import pydantic as pd
+from typing import Optional
 from urllib3.util import parse_url  # type: ignore[import]
 
 from .defs import Env
@@ -73,13 +73,19 @@ class DomainMixin(pd.BaseSettings):
 class CorsMixin(pd.BaseSettings):
     """ Settings: CORS policy setting """
     # Allowed CORS origins
-    # List of JSON urls: ["http://localhost","http://localhost:4200"]
+    # List of urls: "http://localhost,http://localhost:4200"
+    # Or a list of JSON urls: ["http://localhost","http://localhost:4200"]
     CORS_ORIGINS: list[pd.AnyHttpUrl] = []
 
     @pd.validator('CORS_ORIGINS', pre=True)
     def prepare_cors_origins(cls, v: Optional[str]):
         if isinstance(v, str):
-            return [i.strip() for i in v.split(',')]
+            # JSON string: ["...", "..."]
+            if v[:1] == '[' and v[-1:] == ']':
+                return json.loads(v)
+            # Comma-separated string: ..., ..., ...
+            else:
+                return [i.strip() for i in v.split(',')]
         return v
 
     def __init__(self, *args, **kwargs):
