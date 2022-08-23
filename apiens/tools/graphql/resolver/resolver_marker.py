@@ -61,8 +61,10 @@ BUILTIN_GRAPHQL_MODULES = frozenset((
     'graphql.type.introspection',  # built-in types
     'ariadne.resolvers',  # lib: ariadne
     'graphene.types.resolver',  # lib: graphene
-    'graphene_sqlalchemy.resolvers', # lib: graphene-sqlalchemy
+    'graphene.types.schema',  # lib: graphene
     'graphene_sqlalchemy.fields', # lib: graphene-sqlalchemy
+    'graphene_sqlalchemy.resolvers', # lib: graphene-sqlalchemy
+    'graphene_sqlalchemy.types', # lib: graphene-sqlalchemy
 ))
 
 
