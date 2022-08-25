@@ -1,8 +1,10 @@
 import anyio
 import pytest
 import graphql
+import starlette.testclient
 
 from apiens.tools.graphql.testing.test_client import GraphQLTestClient
+from apiens.tools.graphql.testing.test_client_api import GraphQLClientMixin
 from apiens.testing.object_match import DictMatch
 from apiens.error import exc
 
@@ -88,6 +90,37 @@ async def test_graphql_test_client():
                 {'count': 3},
             ]
 
+
+        # === Test: API client (through HTTP ASGI)
+        if STARLETTE_VERSION_TUPLE < (0, 15, 0):
+            pytest.skip(
+                "This test fails with older Starlette versions: when we subscribe(), it attempts to start another even loop "
+                "within the loop that's already running. Nested loops are not allowed. But never versions fixed this."
+            )
+        with ApiClient(asgi_app) as client:
+            # q_ok
+            res = client.graphql_sync(q_ok)
+            assert res.data == {'ok': 'ok'}
+
+            # q_fail
+            res = client.graphql_sync(q_fail)
+            assert res.data == {'fail': None}
+            assert res.errors == [DictMatch(
+                message='Bad',
+                path=['fail'],
+            )]
+
+            # q_subscribe
+            res = client.graphql_subscribe(q_count)
+            results = [r.data for r in res]
+            assert results == [
+                {'count': 1},
+                {'count': 2},
+                {'count': 3},
+            ]
+
+
+
     # Resolvers
 
     def resolve_ok(_, info):
@@ -141,5 +174,19 @@ async def test_graphql_test_client():
         subscription=Subscription,
     )
 
+    # Asgi application
+    from ariadne.asgi import GraphQL
+    
+    graphql_app = GraphQL(schema)
+    asgi_app = starlette.applications.Starlette(debug=True)
+    asgi_app.mount('/', graphql_app)
+        
+    class ApiClient(GraphQLClientMixin, starlette.testclient.TestClient):
+        GRAPHQL_ENDPOINT = '/graphql'
+
     # Go
     await main()
+
+
+from starlette import __version__ as STARLETTE_VERSION
+STARLETTE_VERSION_TUPLE: tuple[int, ...] = tuple(map(int, STARLETTE_VERSION.split('.')))

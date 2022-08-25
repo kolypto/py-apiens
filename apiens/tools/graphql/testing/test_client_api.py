@@ -22,7 +22,7 @@ class GraphQLClientMixinTarget(Protocol):
         raise NotImplementedError
 
 
-class GraphQLClientMixin(GraphQLClientMixinTarget):
+class GraphQLClientMixin:
     """ GraphQL mixin for FastAPI test client
 
     Example:
@@ -53,7 +53,7 @@ class GraphQLClientMixin(GraphQLClientMixinTarget):
 
     def graphql_sync_request(self, query: str, /, **variables) -> GraphQLResponse:
         """ Make a GraphQL HTTP request and get a response """
-        res: requests.Response = self.post(
+        res: requests.Response = self.post(  # type: ignore[attr-defined]
             url=self.GRAPHQL_ENDPOINT,
             json=dict(
                 query=query,
@@ -74,7 +74,7 @@ class GraphQLClientMixin(GraphQLClientMixinTarget):
                     # Over websockets, you can't pass additional data to the server via HTTP headers.
                     # To work around this limitation, websocket clients include this data in initial
                     # message sent to the server as part of connection negotiation.
-                    **self.headers,
+                    **self.headers,  # type: ignore[attr-defined]
                 },
             })
             res = ws.receive_json()
@@ -110,6 +110,7 @@ class GraphQLClientMixin(GraphQLClientMixinTarget):
                 # don't know what to do
                 else:
                     raise NotImplementedError(res['type'])
+
 
 @dataclass
 class GraphQLResponse(GraphQLResult):
