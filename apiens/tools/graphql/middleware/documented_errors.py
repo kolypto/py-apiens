@@ -19,7 +19,7 @@ DEFAULT_IGNORE_ERRORS: frozenset[str] = frozenset(cls.__name__ for cls in (
 ))
 
 
-def documented_errors_middleware(*, ignore_errors: frozenset[str] = DEFAULT_IGNORE_ERRORS) -> abc.Callable:
+def documented_errors_middleware(*, ignore_errors: frozenset[str] = DEFAULT_IGNORE_ERRORS, exc=exc) -> abc.Callable:
     """ Makes sure that every field documents application errors that it throws.
 
     Every application error must be documented either at the field level, or at its parent type's level.
@@ -37,13 +37,13 @@ def documented_errors_middleware(*, ignore_errors: frozenset[str] = DEFAULT_IGNO
         ignore_errors: The list of error names to ignore.
     """
     async def middleware(*args, **kwargs):
-        return await documented_errors_middleware_impl(ignore_errors, *args, **kwargs)
+        return await documented_errors_middleware_impl(exc, ignore_errors, *args, **kwargs)
     return middleware
 
 
-async def documented_errors_middleware_impl(ignore_errors: frozenset[str], next,
-                                      root, info: graphql.GraphQLResolveInfo, /,
-                                      *args, **kwargs):
+async def documented_errors_middleware_impl(exc, ignore_errors: frozenset[str], next,
+                                            root, info: graphql.GraphQLResolveInfo, /,
+                                            *args, **kwargs):
     # Run the handler
     try:
         res = next(root, info, *args, **kwargs)
