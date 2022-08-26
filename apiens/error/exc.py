@@ -34,7 +34,7 @@ class E_API_ARGUMENT(BaseApplicationError):
     httpcode = HTTPStatus.BAD_REQUEST.value
     title = _('Invalid argument')
 
-    def __init__(self, /, error: str, fixit: str = None, *, name: str, **info):
+    def __init__(self, error: str, fixit: str = None, *, name: str, **info):
         """
         Args:
             name: The name of the argument whose value was wrong
@@ -73,7 +73,7 @@ class E_CLIENT_VALIDATION(BaseApplicationError):
     httpcode = HTTPStatus.BAD_REQUEST.value
     title = _('Input validation error')
 
-    def __init__(self, /, error: str = None, fixit: str = None, *, model: str, errors: list[dict], **info):
+    def __init__(self, error: str = None, fixit: str = None, *, model: str, errors: list[dict], **info):
         """ Iniitialize a validation error
 
         Args:
@@ -165,7 +165,7 @@ class E_ROLE_REQUIRED(BaseApplicationError):
     httpcode = HTTPStatus.FORBIDDEN.value
     title = _('Role required')
 
-    def __init__(self, /, error: str, fixit: str = None, *, required_roles: abc.Iterable[str], **info):
+    def __init__(self, error: str, fixit: str = None, *, required_roles: abc.Iterable[str], **info):
         """
         Args:
             role: The user account type required to access this resource
@@ -184,7 +184,7 @@ class E_PERMISSION_REQUIRED(BaseApplicationError):
     httpcode = HTTPStatus.FORBIDDEN.value
     title = _('Permission required')
 
-    def __init__(self, /, error: str, fixit: str = None, *, required_permissions: abc.Iterable[str], **info):
+    def __init__(self, error: str, fixit: str = None, *, required_permissions: abc.Iterable[str], **info):
         """
         Args:
             role: The user account type required to access this resource
@@ -205,7 +205,7 @@ class E_NOT_FOUND(BaseApplicationError):
     httpcode = HTTPStatus.NOT_FOUND.value
     title = _('Not found')
 
-    def __init__(self, /, error: str, fixit: str = None, *, object: Union[type, str], **info):
+    def __init__(self, error: str, fixit: str = None, *, object: Union[type, str], **info):
         """
 
         Args:

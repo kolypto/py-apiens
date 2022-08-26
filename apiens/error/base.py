@@ -68,7 +68,7 @@ class BaseApplicationError(Exception):
     # Usage: any **info field that starts with "debug_*" gets here
     debug: dict
 
-    def __init__(self, /, error: str, fixit: str = None, **info):
+    def __init__(self, error: str, fixit: str = None, **info):
         """ Report a failure
 
         Args:
@@ -90,7 +90,7 @@ class BaseApplicationError(Exception):
         self._response_headers: Optional[dict] = None
 
     @classmethod
-    def format(cls, /, error: str, fixit: str = None, **info):
+    def format(cls, error: str, fixit: str = None, **info):
         """ Exception with placeholders from **info
 
         Example:
