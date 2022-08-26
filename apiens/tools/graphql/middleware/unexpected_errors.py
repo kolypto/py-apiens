@@ -3,7 +3,7 @@ from collections import abc
 from inspect import isawaitable
 
 from apiens.error import exc
-from apiens.tools.graphql.errors.error_convert import convert_to_graphql_application_error
+from apiens.error.converting.exception import convert_unexpected_error
 
 
 def unexpected_errors_middleware(exc=exc):
@@ -21,4 +21,7 @@ async def unexpected_errors_middleware_impl(exc, next: abc.Callable, root, info:
             res = await res
         return res
     except Exception as e:
-        raise convert_to_graphql_application_error(e, exc=exc)
+        if isinstance(e, graphql.GraphQLError):
+            raise e
+        else:
+            raise convert_unexpected_error(e, exc=exc)
