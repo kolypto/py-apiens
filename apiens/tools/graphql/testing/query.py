@@ -23,7 +23,7 @@ def graphql_query_sync(schema: graphql.GraphQLSchema, query: str, context_value:
     return GraphQLResult(
         res.formatted,  # type: ignore[arg-type]
         context=context_value,
-        exceptions=res.errors,
+        exceptions=list(res.errors or ()),
     )
 
 async def graphql_query_async(schema: graphql.GraphQLSchema, query: str, context_value: Any = None, /, operation_name: str = None, **variable_values) -> GraphQLResult:
@@ -38,7 +38,7 @@ async def graphql_query_async(schema: graphql.GraphQLSchema, query: str, context
     return GraphQLResult(
         res.formatted,  # type: ignore[arg-type]
         context=context_value,
-        exceptions=res.errors,
+        exceptions=list(res.errors or ()),
     )
 
 
@@ -67,7 +67,7 @@ class GraphQLResult(Generic[ContextT]):
 
     def __init__(self, response: GraphQLResponseDict, context: ContextT = None, exceptions: abc.Iterable[graphql.GraphQLError] = None):
         self.data = response.get('data', None)
-        self.errors = response.get('errors', [])
+        self.errors = list(response.get('errors') or ())
         self.exceptions = list(exceptions or ())
         self.context = context
 
@@ -82,8 +82,14 @@ class GraphQLResult(Generic[ContextT]):
         return self
 
     def __getitem__(self, name):
-        """ Get a result field, assuming that there were no errors """
-        self.successful()
+        """ Get a key from the result dict, but fail if there were any errors.
+
+        This method allows you to access result dict keys conveniently:
+        >>> res['fieldName']
+        But you can only legitimately do this if there were no errors. 
+        If there was an error, it would fail.
+        """
+        self.raise_errors()
         return self.data[name]
 
     @property
@@ -102,7 +108,11 @@ class GraphQLResult(Generic[ContextT]):
         Usage:
             assert res.app_error_name == 'E_AUTH_REQUIRED'
         """
-        return self.app_error['name']
+        # Try to get it from the exception object first
+        if exception := self.original_error:
+            return exception.name   # type: ignore[attr-defined]
+        else:
+            return self.app_error['name']
 
     @property
     def graphql_error(self) -> GraphqlResponseErrorObject:
