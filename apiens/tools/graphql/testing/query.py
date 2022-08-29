@@ -82,12 +82,14 @@ class GraphQLResult(Generic[ContextT]):
         return self
 
     def __getitem__(self, name):
-        """ Get a result field, assuming that there were no errors 
-        
-        Note: it will re-raise the original GraphQL errors if you attempt to access fields while there are errors!
-        To access fields anyway, use `.data`.
+        """ Get a key from the result dict, but fail if there were any errors.
+
+        This method allows you to access result dict keys conveniently:
+        >>> res['fieldName']
+        But you can only legitimately do this if there were no errors. 
+        If there was an error, it would fail.
         """
-        self.successful()
+        self.raise_errors()
         return self.data[name]
 
     @property
