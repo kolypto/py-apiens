@@ -169,7 +169,7 @@ async def test_subscriptions():
 
     # Prepare a test client
     from apiens.tools.fastapi.test_client import TestClient
-    from apiens.tools.ariadne.testing.test_client_api import GraphQLClientMixin
+    from apiens.tools.graphql.testing.test_client_api import GraphQLClientMixin
 
     class APITestClient(TestClient, GraphQLClientMixin):
         GRAPHQL_ENDPOINT = '/'
