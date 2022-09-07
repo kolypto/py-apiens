@@ -17,6 +17,7 @@ ariadne = {version = ">= 0.13.0", optional = true}
 pytz = {version = ">= 2020.1", optional = true}
 python-jose = {version = ">= 1.0.0", optional = true}
 python-dotenv = {version = ">= 0.15.0", optional = true}
+pint = {version = ">= 0.10.0", optional = true}
 
 [tool.poetry.dev-dependencies]
 nox = ">=2020.8.22"
@@ -36,6 +37,8 @@ pytz = ">= 2022.1"
 pytest-asyncio = ">= 0.18.3"
 python-jose = ">= 3.2.0"
 python-dotenv = ">= 0.20.0"
+Pint = "^0.19.2"
+typer = "^0.6.1"
 
 
 [build-system]
