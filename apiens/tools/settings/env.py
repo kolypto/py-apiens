@@ -66,12 +66,12 @@ def load_environment_from_file(name: str, *, override: bool):
         override: Override existing environment variables?
     """
     # Load from `misc/env`
-    dotenv.load_dotenv(dotenv.find_dotenv(os.path.join(ENVS_PATH, f'{name}.env')), override=override)
+    _load_dotenv_file(ENVS_PATH, f'{name}.env', override=override)
 
     # Load from `misc/env.local` (only if running locally)
     if IS_RUNNING_LOCALLY:
-        dotenv.load_dotenv(dotenv.find_dotenv(os.path.join(ENVS_LOCAL_PATH, f'{name}.env')), override=override)
-        dotenv.load_dotenv(dotenv.find_dotenv(f'.{name}.env'), override=override)
+        _load_dotenv_file(ENVS_LOCAL_PATH, f'{name}.env', override=override)
+        _load_dotenv_file('.', f'.{name}.env', override=override)
 
 
 def get_environment(VAR_NAME: str) -> Env:
@@ -85,3 +85,9 @@ def get_environment(VAR_NAME: str) -> Env:
     """
     env: str = os.environ[VAR_NAME]
     return ENV_ENUM(env)
+
+
+def _load_dotenv_file(path: str, filename: str, *, override: bool):
+    """ Load a .env file in path/filename, if it exists """
+    file_path = dotenv.find_dotenv(os.path.join(path, filename))
+    dotenv.load_dotenv(file_path, override=override)
