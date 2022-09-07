@@ -1,3 +1,8 @@
+""" Unsorted: test lists where items change their positions 
+
+This often happens when the back-end returns a set() converted into a list()
+"""
+
 from collections import abc
 from operator import itemgetter
 

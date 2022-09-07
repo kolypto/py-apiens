@@ -18,7 +18,12 @@ __all__ = (
 class EnvMixin(pd.BaseSettings):
     """ Settings: environment.
 
-    Lets your app run in different modes: e.g. provide more error information when in development
+    Lets your app run in different modes: e.g. provide more error information when in development.
+
+    Example:
+
+    if not settings.is_production:
+        ... # do some debugging stuff
     """
     # Environment
     ENV: Env
@@ -115,7 +120,10 @@ class SecretMixin(pd.BaseSettings):
 
 
 class PostgresMixin(pd.BaseSettings):
-    """ Setting: Postgres connection """
+    """ Setting: Postgres connection 
+    
+    Variable names are the same as those used with the official Docker container.
+    """
     # Database connection
     # Names of these variables match with names from the postgres Docker container.
     # We manually set `env=` name to make sure that Config.env_prefix has no effect on it
@@ -144,15 +152,3 @@ class RedisMixin(pd.BaseSettings):
     """ Setting: Redis connection """
     REDIS_URL: pd.RedisDsn
 
-
-# Example:
-
-
-class ExampleSettings(EnvMixin, LocaleMixin, DomainMixin, CorsMixin, SecretMixin, PostgresMixin, RedisMixin, pd.BaseSettings):
-    # Human-readable name of this project
-    # Used in titles & emails & stuff
-    PROJECT_NAME: str = 'Cat Image Gallery'
-
-    class Config:
-        env_prefix = 'CATS_'
-        case_sensitive = True

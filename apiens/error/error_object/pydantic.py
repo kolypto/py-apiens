@@ -1,4 +1,4 @@
-""" Pydantic definitions for the Error Object (Typed Dict) """
+""" Pydantic definitions for the Error Object (to be used with FastAPI) """
 
 from typing import Optional
 

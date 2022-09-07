@@ -1,4 +1,4 @@
-""" OkOk helpers for unit-tests: okay, okay! we're equal! """
+""" Ok Ok: accept whatever values in unit-tests. """ 
 
 
 class _Whatever:

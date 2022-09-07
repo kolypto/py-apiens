@@ -1,4 +1,10 @@
-""" Ariadne: tools for putting a schema together """
+""" Ariadne: tools for putting a schema together 
+
+Features:
+
+* Load *.graphql files 
+* Import Ariadne definitions from a Python file
+"""
 
 import os.path
 from types import ModuleType

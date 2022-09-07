@@ -1,3 +1,5 @@
+""" Check: use functions to test nested values of an object """ 
+
 from collections import abc
 from typing import Any
 

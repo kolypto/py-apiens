@@ -28,7 +28,8 @@ def documented_errors_middleware(*, ignore_errors: frozenset[str] = DEFAULT_IGNO
         Errors:
             E_AUTH_REQUIRED: you must be signed in in order to use this API.
 
-    When an error is raised, this middleware would check whether docstring has it covered.
+    When an error is raised, this middleware would check whether the docstring of the field, 
+    or the docstring of the parent object, mentions this error by name.
     If not, an UndocumentedError is raised instead.
 
     NOTE: it's an async middleware. It won't work with GraphQL running in sync mode (i.e. using graphql_sync())!

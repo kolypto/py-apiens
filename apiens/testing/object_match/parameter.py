@@ -1,3 +1,5 @@
+""" Parameter: capture a value of a nested field in a complex object """ 
+
 class Parameter:
     """ Grab a parameter during comparison: e.g. a dynamic primary key
 

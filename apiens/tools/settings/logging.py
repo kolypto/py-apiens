@@ -1,3 +1,8 @@
+""" Default logging configuration for your convenience
+
+The default logging configuration in Python 
+"""
+
 import logging.config
 
 

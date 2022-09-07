@@ -1,3 +1,5 @@
+""" DictMatch: test a dictionary for a partial match """ 
+
 from collections import abc
 
 

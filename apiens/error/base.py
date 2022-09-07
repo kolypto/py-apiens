@@ -1,3 +1,8 @@
+""" Base Application errors 
+
+Its subclasses are meant to be returned to the end user.
+"""
+
 from typing import ClassVar, Optional
 
 from .error_object.python import ErrorObject
@@ -107,7 +112,7 @@ class BaseApplicationError(Exception):
 
     @property
     def name(self):
-        """ Name of the exception class """
+        """ Name of the exception class: error codename """
         return self.__class__.__name__
 
     def headers(self, headers: dict):

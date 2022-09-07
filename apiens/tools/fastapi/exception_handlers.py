@@ -113,7 +113,7 @@ async def http_404_handler_with_route_suggestions(request: Request, e: HTTPExcep
 
     # In FastAPI, there is no such thing yet as "current route". It's not stored in the request.
     # Therefore, we can't tell whether this 404 come from a view or from the router itself.
-    # So this "not found" page is
+    # So this "not found" page is detected using error message analysis :(
     if e.status_code == status.HTTP_404_NOT_FOUND and e.detail == 'Not Found':
         close_matches = suggest_api_endpoint(request.app, request.scope['method'], request.scope['path'])
 

@@ -20,6 +20,10 @@ def network_gag():
     Such a failure would tell the developer that their unit-test is not mocked properly.
 
     It stops network connections made by: urllib, urllib3, aiohttp, amazon client
+    
+    Example:
+        with network_gag():
+            ... # do your stuff without networking
     """
     # Network gag: Amazon
     # Because some of our tests use Amazon, we put a show stopper here that fails in that case

@@ -11,7 +11,9 @@ def converting_unexpected_errors(*, exc=exc):
     """ Convert unexpected Python exceptions into a human-friendly F_UNEXPECTED_ERROR Application Error
     
     This function is a catch-all: every expected error should be an instance of `exc.BaseApplicationError`.
-    Every other Python error is considered to be unexpected and wrapped into an `exc.F_UNEXPECTED_ERROR`
+    Every other Python error is considered to be unexpected and wrapped into an `exc.F_UNEXPECTED_ERROR`.
+
+    If the exception defines the `default_api_error()` method, the method is used to convert it into a different error (!)
 
     Raises:
         exc.F_UNEXPECTED_ERROR: for unexpected Python errors

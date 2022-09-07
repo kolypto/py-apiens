@@ -1,14 +1,15 @@
-""" Tools that enable rich user-friendly validation of input data
+""" Make GraphQL errors more human-readable.
 
-Usage:
-    from apiens.tools.ariadne.schema import load_schema_from_module
-    import apiens.tools.ariadne.scalars.date
-    schema = ariadne.make_executable_schema([
-            ariadne.load_schema_from_path(os.path.dirname(__file__)),
-            load_schema_from_module(apiens.tools.ariadne, 'rich_validation.graphql'),
-        ],
-        apiens.tools.ariadne.scalars.date.definitions,
-    )
+This module improves the way Int, Float and Bool objects report errors.
+The new error message is human-readable and can be reported to the end-user.
+
+Before: 
+
+> 'message': "Int cannot represent non-integer value: 'INVALID'",
+
+After:
+
+> 'message': "Not a valid number",  # Improved, human-readable
 """
 
 from typing import Any
