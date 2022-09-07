@@ -1,0 +1,15 @@
+type Query {
+    hello: String!
+
+    """ Example error: unexpected Python error """ 
+    unexpected_error: String
+
+    """ Example error: raised application error 
+    
+    Errors:
+    E_API_ACTION: Always reports this error
+    """ 
+    app_error: String
+
+    list_users(first: Int): String
+}
