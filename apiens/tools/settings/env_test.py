@@ -1,3 +1,5 @@
+""" Automatically switch to "testing" mode when a test runner (pytest) is used """
+
 from __future__ import annotations
 
 import os

@@ -1,3 +1,13 @@
+""" Test client for Ariadne applications.
+
+This client offers greater flexibility than the FastAPI GraphQL client because:
+
+* It involves fewer application layers and works faster
+* You can customize the context before executing any operations
+* Errors are reported as Exceptions (rather than JSON objects) and can be analyzed
+* Supports subscriptions :) 
+"""
+
 from __future__ import annotations
 
 import graphql

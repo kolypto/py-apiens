@@ -48,11 +48,11 @@ type ErrorObject {
 
     Example:
 
-    E_NOT_FOUND:
-    error: 'Cannot find User by id'
-    fixit: 'Have you entered the correct id?'
-    info:
-    object: 'User'
+        E_NOT_FOUND:
+            error: 'Cannot find User by id'
+            fixit: 'Have you entered the correct id?'
+            info:
+                object: 'User'
     """
     info: Object!
 

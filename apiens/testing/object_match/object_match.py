@@ -1,3 +1,5 @@
+""" ObjectMatch: test an object for a partial match """ 
+
 class ObjectMatch:
     """ Unit test helper: an object for == comparisons with other objects field by field.
 

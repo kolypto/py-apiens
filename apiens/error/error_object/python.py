@@ -1,4 +1,4 @@
-""" Python definitions for the Error Object (Typed Dict) """
+""" TypedDict definitions for the Error Object """
 
 from __future__ import annotations
 

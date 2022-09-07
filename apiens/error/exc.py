@@ -307,8 +307,11 @@ class F_NOT_IMPLEMENTED(BaseApplicationError):
 # endregion
 
 
-def export_error_catalog(globals: dict[str, Union[type[BaseApplicationError], Any]] = globals()):
-    """ Get a list of every BaseApplicationError defined in `globals` """
+def export_error_catalog(globals: dict[str, Union[type[BaseApplicationError], Any]] = globals()) -> list[type[BaseApplicationError]]:
+    """ Get a list of every BaseApplicationError defined in `globals` 
+    
+    Use this function to export your list of errors as HTTP JSON API.
+    """
     return [
         value
         for name, value in globals.items()
